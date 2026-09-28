@@ -4,6 +4,8 @@
  * rfp_public view only exposes source_type, not the source URL or notes.
  * Safe to import from any component.
  */
+import { US_STATE_SOURCES } from "./us-state-sources";
+
 export const OGL_CANADA_ATTRIBUTION =
   "Contains information licensed under the Open Government Licence – Canada.";
 export const OGL_TORONTO_ATTRIBUTION =
@@ -37,6 +39,7 @@ export interface PublicTenderSource {
 // Slug suffix → source. Every suffix is distinct ("-tora-" never matches
 // "-tor-<digits>"), so order is for readability only.
 const SOURCES: [suffix: RegExp, source: PublicTenderSource][] = [
+  ...US_STATE_SOURCES,
   [/-cba-[a-z0-9-]+$/, { key: "awards", past: true, badge: "Past public contract · Gov. of Canada", issuer: "the Government of Canada", portal: "CanadaBuys", bidLabel: "Bid on CanadaBuys", attribution: OGL_CANADA_ATTRIBUTION }],
   [/-qca-[a-z0-9-]+$/, { key: "seao", past: true, badge: "Past public contract · Quebec (SEAO)", issuer: "a Quebec public body", portal: "SEAO", bidLabel: "Bid on SEAO", attribution: SEAO_ATTRIBUTION }],
   [/-tora-[a-z0-9-]+$/, { key: "toronto-awards", past: true, badge: "Past public contract · City of Toronto", issuer: "the City of Toronto", portal: "the City of Toronto bid portal", bidLabel: "Bid on the City portal", attribution: OGL_TORONTO_ATTRIBUTION }],
