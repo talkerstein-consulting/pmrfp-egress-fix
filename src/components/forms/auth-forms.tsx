@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
-import { Building2, Hammer, HardHat, Package, Search, Home } from "lucide-react";
+import { Building2, Hammer, HardHat, Package, Search, Home, UserRound } from "lucide-react";
 import {
   forgotPasswordAction,
   resetPasswordAction,
@@ -62,6 +62,7 @@ const ROLES = [
   { value: "property_manager", label: "Property manager, owner, or builder", icon: Building2, hint: "Post RFPs for your properties; browse and shortlist trades" },
   { value: "general_contractor", label: "General contractor — hiring subs", icon: Hammer, hint: "Post sub-trade packages free and get quotes from local trades" },
   { value: "real_estate_agent", label: "Real estate professional", icon: Home, hint: "Post pre-listing repairs, turnovers, or portfolio work for your clients" },
+  { value: "talent", label: "Tradesperson looking for work", icon: UserRound, hint: "Make a free profile so companies hiring in your trade can find you" },
   { value: "visitor", label: "Browsing the directory", icon: Search, hint: "Look around — you can join later" },
 ] as const;
 
@@ -72,7 +73,7 @@ export function SignUpForm({
   award,
   google = false,
 }: {
-  initialRole?: "trade" | "supplier" | "property_manager" | "visitor" | "real_estate_agent" | "general_contractor";
+  initialRole?: "trade" | "supplier" | "property_manager" | "visitor" | "real_estate_agent" | "general_contractor" | "talent";
   next?: string | null;
   /** Arrived from a paid-plan button: the role is decided, so don't show the picker. */
   lockRole?: boolean;
@@ -117,7 +118,7 @@ export function SignUpForm({
         </div>
       </div>
       )}
-      {google && (
+      {google && role !== "talent" && (
         // The role rides to onboarding, where it's asked again (pre-selected) before anything is saved.
         <ContinueWithGoogle next={onboardingPath({ role: parseRoleChoice(role), award, next })} />
       )}

@@ -10,7 +10,7 @@ import { parseAwardRef } from "@/lib/gc/packages";
 import { getJoinProof } from "@/lib/data/join-proof";
 import { JoinProof } from "@/components/public/join-proof";
 
-const VALID_ROLES = ["trade", "supplier", "property_manager", "visitor", "real_estate_agent", "general_contractor"] as const;
+const VALID_ROLES = ["trade", "supplier", "property_manager", "visitor", "real_estate_agent", "general_contractor", "talent"] as const;
 type ValidRole = (typeof VALID_ROLES)[number];
 
 /** Role-aware share card — link previews (WhatsApp/iMessage/LinkedIn) fetch the

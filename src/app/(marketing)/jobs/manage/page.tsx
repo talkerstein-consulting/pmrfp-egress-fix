@@ -46,6 +46,9 @@ export default async function ManageJobsPage({ searchParams }: { searchParams: P
           <Link href="/widgets?w=jobs" className={buttonVariants({ size: "lg", variant: "outline" })}>
             Add to your careers page
           </Link>
+          <Link href="/talent" className={buttonVariants({ size: "lg", variant: "outline" })}>
+            Find people
+          </Link>
           <Link href="/jobs/post" className={buttonVariants({ size: "lg" })}>
             Post a job
           </Link>

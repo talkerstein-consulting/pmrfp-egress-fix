@@ -31,6 +31,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { path: "/suppliers", priority: 0.8, freq: "weekly" },
     { path: "/rfps", priority: 0.8, freq: "daily" },
     { path: "/jobs", priority: 0.8, freq: "daily" },
+    { path: "/talent", priority: 0.6, freq: "daily" },
     { path: "/pricing", priority: 0.9, freq: "monthly" },
     { path: "/resources", priority: 0.7, freq: "weekly" },
     { path: "/resources/how-to-post-a-quality-rfp", priority: 0.7, freq: "monthly" },

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getSession, type SessionContext } from "@/lib/access/access";
 import { createServiceClient } from "@/lib/supabase/service";
 import { isServiceConfigured } from "@/lib/supabase/config";
+import { upsertGhlContact } from "@/lib/ghl/client";
 import { FREE_JOB_LIMIT, JOB_DAYS, canPostJob, jobSchema, jobSlug } from "./rules";
 
 export interface JobFormState {
@@ -93,6 +94,17 @@ export async function createJobAction(_prev: JobFormState, formData: FormData): 
   if (error) {
     return { error: /job_posts/.test(error.message) ? "Job posting is switching on. Try again in a few minutes." : "Could not post the job. Please try again." };
   }
+  // CRM: employers hiring, by trade. Never blocks the post.
+  const [firstName, ...rest] = (e.session.profile.full_name ?? "").trim().split(/\s+/);
+  await Promise.allSettled([
+    upsertGhlContact({
+      email: e.session.profile.email,
+      firstName: firstName || undefined,
+      lastName: rest.join(" ") || undefined,
+      tags: ["pmrfp-employer", `pmrfp-hiring-${d.category}`],
+      customFields: { pmrfp_org_id: e.orgId, pmrfp_org_name: e.session.organization?.name ?? "" },
+    }),
+  ]);
   revalidatePath("/jobs");
   revalidatePath("/jobs/manage");
   redirect(`/jobs/manage?posted=${slug}`);

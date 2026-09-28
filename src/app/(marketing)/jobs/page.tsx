@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, HardHat, Users } from "lucide-react";
+import { ArrowRight, HardHat, UserRound, Users } from "lucide-react";
 import { Container } from "@/components/container";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/public/empty-state";
@@ -157,6 +157,17 @@ export default async function JobsPage({
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+          <div className="rounded-xl border border-teal-300 bg-teal-50/50 p-5">
+            <h2 className="flex items-center gap-2 font-semibold">
+              <UserRound className="size-4 text-teal-700" /> Looking for work?
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Make a free profile with your trade, tickets and availability. Companies hiring near you can find you.
+            </p>
+            <Link href="/talent/edit" className={cn(buttonVariants(), "mt-4 w-full")}>
+              Make a free profile
+            </Link>
+          </div>
           <div className="rounded-xl border border-border bg-card p-5">
             <h2 className="flex items-center gap-2 font-semibold">
               <Users className="size-4 text-teal-700" /> Hiring?
@@ -167,6 +178,9 @@ export default async function JobsPage({
             </p>
             <Link href="/jobs/post" className={cn(buttonVariants(), "mt-4 w-full")}>
               Post a job
+            </Link>
+            <Link href="/talent" className="mt-3 block text-center text-sm font-medium text-teal-700 hover:underline">
+              Or browse people looking for work
             </Link>
           </div>
           <div className="rounded-xl border border-border bg-card p-5">

@@ -134,6 +134,13 @@ export default async function JobPage({ params }: Props) {
               <JobApplyForm slug={job.slug} company={job.company.name} />
             </div>
           )}
+          <p className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
+            Looking for work?{" "}
+            <Link href="/talent/edit" className="font-medium text-teal-700 hover:underline">
+              Make a free profile
+            </Link>{" "}
+            so companies hiring in your trade can find you.
+          </p>
           <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-4">
             <span className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-white text-sm font-bold text-indigo">
               {job.company.logoUrl ? (

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getVisitorGeo } from "@/lib/visitor-geo.server";
 import { visitorMarket, visitorRegionSlug } from "@/lib/visitor-geo";
 import { OnboardingForm } from "@/components/forms/onboarding-form";
@@ -26,6 +27,8 @@ export default async function OnboardingPage({
   const next = safeNextPath(rawNext);
   // What the sign-up page said (?role=). Only a pre-selection: never saved as-is.
   const choice = parseRoleChoice(roleParam, kind);
+  // Tradespeople looking for work have no company to set up.
+  if (role === "talent") redirect("/talent/edit");
 
   // Signed up with Google, so no role yet: ask that one question first.
   if (needsRolePick(await rolePickStateFor(session))) {
