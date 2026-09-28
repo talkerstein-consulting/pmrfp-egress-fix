@@ -6,6 +6,7 @@ import type { RfpListItem } from "@/lib/data/types";
 import { isPastContract, parseAward } from "@/lib/data/fomo";
 import { isGcPackage, sourceTypeLabel } from "@/lib/gc/packages";
 import { DeadlineStamp } from "@/components/public/deadline-stamp";
+import { AwardCard } from "@/components/public/award-card";
 
 function formatDate(d: string) {
   // timeZone: "UTC" pins server + client to the same day, so no hydration mismatch.
@@ -35,6 +36,8 @@ export function RfpCard({ rfp, locked }: { rfp: RfpListItem; locked: boolean }) 
   const gc = isGcPackage(rfp);
   const place = [rfp.city, rfp.province].filter(Boolean).join(", ") || rfp.regionName;
   const trades = rfp.categories.slice(0, 2).join(" / ");
+  // Award notices get their own card: the value and the winner lead.
+  if (past) return <AwardCard rfp={rfp} />;
 
   return (
     <Link
