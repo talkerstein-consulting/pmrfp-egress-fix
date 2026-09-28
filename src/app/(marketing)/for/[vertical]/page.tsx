@@ -1,116 +1,229 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Check } from "lucide-react";
+import { ArrowRight, Check, X } from "lucide-react";
 import { Container, Eyebrow } from "@/components/container";
 import { CTASection } from "@/components/public/section";
 import { TrustDisclaimer } from "@/components/public/trust-disclaimer";
+import { RfpCard } from "@/components/public/rfp-card";
+import { DirectoryCard } from "@/components/public/directory-card";
 import { buttonVariants } from "@/components/ui/button";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { JsonLd, breadcrumbSchema, faqSchema } from "@/lib/seo/jsonld";
 import { VERTICALS, getVertical } from "@/lib/seo/verticals";
-import { ReferBanner } from "@/components/public/refer-banner";
-import { SITE } from "@/lib/site";
+import { listAllRfpsCached } from "@/lib/data/trade-city";
+import { listVendors } from "@/lib/data/directory";
+import { getCategories, getRegions } from "@/lib/data/taxonomy";
+import { boardStats, daysUntil, isPastContract } from "@/lib/data/fomo";
+import { PHOTOS, type Photo } from "@/lib/photos";
+import { cn } from "@/lib/utils";
 
-export const revalidate = 86400;
+export const revalidate = 3600;
 
 export async function generateStaticParams() {
   return VERTICALS.map((v) => ({ vertical: v.slug }));
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ vertical: string }>;
-}): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ vertical: string }> }): Promise<Metadata> {
   const { vertical } = await params;
   const v = getVertical(vertical);
   if (!v) return { title: "Not found" };
-  return {
-    title: v.metaTitle,
-    description: v.metaDescription,
-    alternates: { canonical: `/for/${v.slug}` },
-  };
+  return { title: v.metaTitle, description: v.metaDescription, alternates: { canonical: `/for/${v.slug}` } };
 }
 
-export default async function VerticalPage({
-  params,
-}: {
-  params: Promise<{ vertical: string }>;
-}) {
+/** Buyers post work and hire; sellers find work and get found. The page's proof and steps follow that. */
+const BUYERS = new Set(["builders", "general-contractors", "real-estate", "condo-boards", "investors"]);
+
+const HERO_PHOTO: Record<string, Photo> = {
+  builders: PHOTOS.siteCrew,
+  "general-contractors": PHOTOS.scaffolding,
+  tradesmen: PHOTOS.electrical,
+  "sales-teams": PHOTOS.officeTower,
+  investors: PHOTOS.retailAerial,
+  "real-estate": PHOTOS.keys,
+  "condo-boards": PHOTOS.condo,
+  suppliers: PHOTOS.loadingDocks,
+};
+
+const STEPS = {
+  buyer: [
+    ["Describe the job", "Four questions in the free RFP writer, or post your own scope. Takes minutes."],
+    ["Trades come to you", "Vetted companies that cover your trade and area see it and respond with interest."],
+    ["Compare and hire", "Profiles, credentials and past work side by side. No obligation to hire anyone."],
+  ],
+  seller: [
+    ["Get listed free", "A company profile with your trades, service area, insurance and projects."],
+    ["See the work", "Public tenders and property-manager RFPs for your trade, every morning."],
+    ["Bid and win", "Trade Pro unlocks full scope, buyer contacts and what similar contracts sold for."],
+  ],
+} as const;
+
+export default async function VerticalPage({ params }: { params: Promise<{ vertical: string }> }) {
   const { vertical } = await params;
   const v = getVertical(vertical);
   if (!v) notFound();
+  const buyer = BUYERS.has(v.slug);
+  const photo = HERO_PHOTO[v.slug] ?? PHOTOS.officeTower;
+
+  const [rfps, categories, regions, vendors] = await Promise.all([
+    listAllRfpsCached(),
+    getCategories(),
+    getRegions(),
+    buyer ? listVendors({ sort: "featured" }) : Promise.resolve([]),
+  ]);
+  const stats = boardStats(rfps);
+  const openSoon = rfps
+    .filter((r) => r.status === "open" && !isPastContract(r) && (daysUntil(r.deadline) ?? 99) >= 3)
+    .slice(0, 3);
+  const showcase = vendors.filter((x) => x.logoUrl).slice(0, 3);
+
+  const numbers: [string, string][] = [
+    [stats.open.toLocaleString("en-CA"), "open contracts right now"],
+    [String(stats.closingThisWeek), "close in the next 7 days"],
+    [String(categories.length), "trades covered"],
+    [String(regions.length), "regions in Canada and the U.S."],
+  ];
 
   return (
     <>
-      <JsonLd data={breadcrumbSchema([
-        { name: "Home", path: "/" },
-        { name: "Solutions", path: "/for" },
-        { name: v.name, path: `/for/${v.slug}` },
-      ])} />
+      <JsonLd
+        data={breadcrumbSchema([
+          { name: "Home", path: "/" },
+          { name: "Solutions", path: "/for" },
+          { name: v.name, path: `/for/${v.slug}` },
+        ])}
+      />
       <JsonLd data={faqSchema(v.faqs)} />
 
-      <section className="border-b border-border bg-background">
-        <Container className="py-16 sm:py-20">
-          <Eyebrow>For {v.who}</Eyebrow>
-          <h1 className="mt-4 max-w-3xl text-4xl font-semibold leading-[1.08] tracking-tight sm:text-5xl">
-            {v.headline}
-          </h1>
-          <p className="mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground">{v.positioning}</p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href={v.cta.href} className={buttonVariants({ size: "lg" })}>{v.cta.label}</Link>
-            <Link href={v.secondaryCta.href} className={buttonVariants({ size: "lg", variant: "outline" })}>
-              {v.secondaryCta.label}
-            </Link>
+      {/* Hero: the promise on the left, a real photo on the right. */}
+      <section className="border-b border-border bg-card">
+        <Container className="grid items-center gap-10 py-14 md:py-20 lg:grid-cols-[1.1fr_.9fr]">
+          <div>
+            <Eyebrow>For {v.who}</Eyebrow>
+            <h1 className="mt-4 text-balance text-4xl font-bold leading-[1.06] tracking-tight sm:text-5xl">{v.headline}</h1>
+            <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted-foreground">{v.positioning}</p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link href={v.cta.href} className={cn(buttonVariants({ size: "lg" }), "active:scale-[0.98]")}>
+                {v.cta.label} <ArrowRight className="size-4" />
+              </Link>
+              <Link href={v.secondaryCta.href} className={buttonVariants({ size: "lg", variant: "outline" })}>
+                {v.secondaryCta.label}
+              </Link>
+            </div>
+            <ul className="mt-8 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
+              {v.features.map((f) => (
+                <li key={f} className="flex items-center gap-1.5">
+                  <Check className="size-4 text-teal-700" /> {f}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="relative">
+            <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-border">
+              <Image src={photo.src} alt={photo.alt} fill priority sizes="(min-width: 1024px) 520px, 100vw" className="object-cover" />
+            </div>
+            {stats.open >= 10 && (
+              <div className="absolute -bottom-5 left-5 rounded-xl border border-border bg-card px-5 py-3 shadow-lg shadow-indigo/10">
+                <div className="font-heading text-2xl font-bold tabular-nums text-indigo">{stats.open}</div>
+                <div className="text-xs text-muted-foreground">open contracts on the board today</div>
+              </div>
+            )}
           </div>
         </Container>
       </section>
 
-      <Container className="pt-2">
-        <ReferBanner variant="subtle" />
-      </Container>
-
-      <section className="bg-secondary/30">
-        <Container className="py-14">
-          <h2 className="text-2xl font-semibold tracking-tight">The problem today</h2>
-          <ul className="mt-6 grid gap-3 sm:grid-cols-2">
-            {v.pains.map((p) => (
-              <li key={p} className="rounded-lg border border-border bg-card p-4 text-sm text-foreground/90">{p}</li>
-            ))}
-          </ul>
+      {/* Live numbers from the board, never made up. */}
+      <section className="border-b border-border bg-background">
+        <Container className="grid grid-cols-2 gap-y-6 py-10 md:grid-cols-4 md:divide-x md:divide-border">
+          {numbers.map(([n, label]) => (
+            <div key={label} className="px-2 md:px-8 first:md:pl-0">
+              <div className="font-heading text-3xl font-bold tracking-tight text-indigo">{n}</div>
+              <div className="mt-1 text-sm text-muted-foreground">{label}</div>
+            </div>
+          ))}
         </Container>
       </section>
 
-      <Container className="py-14">
-        <h2 className="text-2xl font-semibold tracking-tight">How {SITE.name} helps</h2>
-        <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {v.valueProps.map((vp) => (
-            <div key={vp.title} className="rounded-lg border border-border bg-card p-6">
-              <Check className="size-5 text-success" />
-              <h3 className="mt-3 text-base font-semibold">{vp.title}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{vp.desc}</p>
+      {/* Before and after, side by side. */}
+      <section className="bg-background">
+        <Container className="py-16 md:py-20">
+          <h2 className="max-w-2xl text-3xl font-bold tracking-tight">What changes when you use PMRFP</h2>
+          <div className="mt-10 grid gap-5 lg:grid-cols-2">
+            <div className="rounded-2xl border border-border bg-card p-6 sm:p-8">
+              <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Today</p>
+              <ul className="mt-5 space-y-4">
+                {v.pains.map((p) => (
+                  <li key={p} className="flex gap-3 text-[15px] text-foreground/85">
+                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-secondary">
+                      <X className="size-3 text-muted-foreground" />
+                    </span>
+                    {p}
+                  </li>
+                ))}
+              </ul>
             </div>
-          ))}
-        </div>
-        <div className="mt-8 flex flex-wrap gap-2">
-          {v.features.map((f) => (
-            <span key={f} className="rounded-full border border-border bg-secondary/40 px-3 py-1 text-xs font-medium text-ink-2">
-              {f}
-            </span>
-          ))}
-        </div>
-      </Container>
+            <div className="rounded-2xl bg-indigo p-6 text-white sm:p-8">
+              <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-teal-300">With PMRFP</p>
+              <ul className="mt-5 space-y-5">
+                {v.valueProps.map((vp) => (
+                  <li key={vp.title} className="flex gap-3">
+                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-teal-300">
+                      <Check className="size-3 text-indigo" />
+                    </span>
+                    <span>
+                      <span className="block font-semibold text-white">{vp.title}</span>
+                      <span className="mt-0.5 block text-sm leading-relaxed text-indigo-100/75">{vp.desc}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </Container>
+      </section>
 
-      <section className="border-t border-border">
-        <Container size="narrow" className="py-14">
-          <h2 className="text-2xl font-semibold tracking-tight">Questions</h2>
-          <Accordion className="mt-4">
+      {/* How it works. */}
+      <section className="border-y border-border bg-card">
+        <Container className="py-16 md:py-20">
+          <h2 className="text-3xl font-bold tracking-tight">How it works</h2>
+          <ol className="mt-10 grid gap-8 md:grid-cols-3">
+            {STEPS[buyer ? "buyer" : "seller"].map(([title, desc], i) => (
+              <li key={title} className="border-t-2 border-indigo pt-5">
+                <span className="font-mono text-xs text-teal-700">0{i + 1}</span>
+                <h3 className="mt-2 text-lg font-semibold">{title}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{desc}</p>
+              </li>
+            ))}
+          </ol>
+        </Container>
+      </section>
+
+      {/* Real proof: live listings for sellers, real companies for buyers. */}
+      {(buyer ? showcase.length === 3 : openSoon.length === 3) && (
+        <section className="bg-background">
+          <Container className="py-16 md:py-20">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <h2 className="text-3xl font-bold tracking-tight">
+                {buyer ? "Companies ready to quote" : "Open on the board right now"}
+              </h2>
+              <Link href={buyer ? "/directory" : "/rfps"} className="text-sm font-semibold text-teal-700 hover:underline">
+                {buyer ? "Browse the directory" : `See all ${stats.open} open`} →
+              </Link>
+            </div>
+            <div className="mt-8 grid gap-4 md:grid-cols-3">
+              {buyer
+                ? showcase.map((x) => <DirectoryCard key={x.slug} vendor={x} />)
+                : openSoon.map((r) => <RfpCard key={r.slug} rfp={r} locked />)}
+            </div>
+          </Container>
+        </section>
+      )}
+
+      <section className="border-t border-border bg-card">
+        <Container size="narrow" className="py-16">
+          <h2 className="text-3xl font-bold tracking-tight">Questions</h2>
+          <Accordion className="mt-6">
             {v.faqs.map((f, i) => (
               <AccordionItem key={i} value={`q${i}`}>
                 <AccordionTrigger>{f.q}</AccordionTrigger>
@@ -118,7 +231,9 @@ export default async function VerticalPage({
               </AccordionItem>
             ))}
           </Accordion>
-          <div className="mt-8"><TrustDisclaimer /></div>
+          <div className="mt-8">
+            <TrustDisclaimer />
+          </div>
         </Container>
       </section>
 
