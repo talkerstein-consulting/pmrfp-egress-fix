@@ -18,6 +18,9 @@ export const OGL_YUKON_ATTRIBUTION =
 export const SAM_ATTRIBUTION =
   "Source: SAM.gov Contract Opportunities, U.S. General Services Administration (U.S. federal government data, public domain).";
 
+export const NYC_ATTRIBUTION =
+  "Source: The City Record, City of New York — NYC Open Data (Current Solicitations).";
+
 export interface PublicTenderSource {
   /** Importer feed key — archiving is scoped per key. */
   key: string;
@@ -45,6 +48,7 @@ const SOURCES: [suffix: RegExp, source: PublicTenderSource][] = [
   [/-tor-[a-z0-9-]+$/, { key: "toronto", past: false, badge: "Public tender · City of Toronto", issuer: "the City of Toronto", portal: "the City of Toronto bid portal", bidLabel: "Bid on the City portal", attribution: OGL_TORONTO_ATTRIBUTION }],
   // SAM NoticeIds are 32 hex chars — anchored so a CanadaBuys title with "-us-" in it never matches.
   [/-us-[a-f0-9]{32}$/, { key: "sam", past: false, badge: "Public tender · U.S. federal (SAM.gov)", issuer: "a U.S. federal agency", portal: "SAM.gov", bidLabel: "Bid on SAM.gov", attribution: SAM_ATTRIBUTION }],
+  [/-nyc-\d{6,}$/, { key: "nyc", past: false, badge: "Public tender · City of New York", issuer: "the City of New York", portal: "The City Record / PASSPort", bidLabel: "Open the City Record notice", attribution: NYC_ATTRIBUTION }],
   [/-yk-[a-z0-9-]+$/, { key: "yukon", past: false, badge: "Public tender · Yukon", issuer: "the Government of Yukon", portal: "Yukon's bids&tenders portal", bidLabel: "Bid on Yukon's portal", attribution: OGL_YUKON_ATTRIBUTION }],
 ];
 

@@ -9,7 +9,7 @@ export const RULES: [slug: string, pattern: RegExp][] = [
   ["snow-removal", /snow (removal|clearing|plow)|de-?icing|winter maintenance/],
   ["cleaning-janitorial", /janitor|custodial|cleaning services?|building cleaning|window cleaning/],
   ["landscaping", /landscap|grounds? maintenance|\blawn|mowing|grass cutting|tree (removal|pruning|trimming)/],
-  ["hvac", /\bhvac\b|heating|ventilation|air condition|chiller|boiler|furnace|refrigeration/],
+  ["hvac", /\bhvac\b|heating|ventilation|air condition|chiller|cooling tower|boiler|furnace|refrigeration/],
   ["roofing", /\broof/],
   ["electrical", /electrical|electrician|generator|switchgear|power distribution/],
   ["plumbing", /plumbing|plumber|backflow|water heater|hot water tank|sewer|septic|cistern/],
