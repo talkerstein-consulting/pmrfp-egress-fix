@@ -49,6 +49,7 @@ const SOURCES: { name: string; logo?: string; h?: number }[] = [
   { name: "Québec SEAO" },
   { name: "Nova Scotia", logo: "/logos/sources/nova-scotia.svg", h: 26 },
   { name: "Yukon", logo: "/logos/sources/yukon.png", h: 28 },
+  { name: "NYC City Record" },
 ];
 
 // Every row must stay true of Trade Pro (rfp-alerts cron, LockedContentPanel,
@@ -75,7 +76,7 @@ const TRADE_TILES = [
 const FAQS = [
   { q: "Does PMRFP guarantee work?", a: "No. PMRFP lists projects and trades. We don't guarantee contracts, bid success, or responses." },
   { q: "Can I cancel anytime?", a: "Yes. Cancel from the billing portal at any time. Your membership stays active until the end of your billing period." },
-  { q: "Where do the public tenders come from?", a: "Official open-data feeds, checked every morning: CanadaBuys, the City of Toronto, Quebec's SEAO and the Government of Yukon in Canada, and U.S. federal building and property work from SAM.gov. Bids go directly to the public buyer." },
+  { q: "Where do the public tenders come from?", a: "Official open-data feeds, checked every morning: CanadaBuys, the City of Toronto, Quebec's SEAO and the Government of Yukon in Canada, and U.S. federal building and property work from SAM.gov plus New York City solicitations from The City Record. Bids go directly to the public buyer." },
   { q: "Can property managers post for free?", a: "Yes. Posting RFPs, using the RFP Writer and browsing the directory are free for property managers, builders and owners." },
 ];
 

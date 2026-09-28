@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { isServiceConfigured } from "@/lib/supabase/config";
 import { classifySam, fetchSamOpenTenders, samToRfpInsert, usStateRegionSlug } from "@/lib/tenders/sam";
+import { classifyNyc, fetchNycSolicitations, nycToRfpInsert } from "@/lib/tenders/nyc";
 import { syncPublicSources, type Source } from "@/lib/tenders/sync";
 
 const SOURCES: Source[] = [
@@ -17,6 +18,20 @@ const SOURCES: Source[] = [
         return insert
           ? [{ insert, categories, regionSlug: usStateRegionSlug(row.PopState) ?? "united-states" }]
           : [];
+      }),
+  },
+  {
+    // New York City solicitations (The City Record via NYC Open Data) — one
+    // small SoQL query; its own try/catch in syncPublicSources and a 25 s
+    // fetch timeout, so it can never sink the SAM.gov import.
+    key: "nyc",
+    minMatchesToArchive: 3,
+    fallbackRegion: "united-states",
+    collect: async (today) =>
+      (await fetchNycSolicitations(today)).flatMap((row) => {
+        const categories = classifyNyc(row, today);
+        const insert = categories.length ? nycToRfpInsert(row, today) : null;
+        return insert ? [{ insert, categories, regionSlug: "us-new-york" }] : [];
       }),
   },
 ];
