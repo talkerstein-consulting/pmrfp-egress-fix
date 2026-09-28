@@ -37,7 +37,7 @@ interface PmrfpUserSnapshot {
   email: string;
   fullName?: string | null;
   phone?: string | null;
-  role: "trade" | "supplier" | "property_manager" | "real_estate_agent" | "visitor" | "admin" | "super_admin";
+  role: "trade" | "supplier" | "property_manager" | "real_estate_agent" | "visitor" | "talent" | "admin" | "super_admin";
   orgId?: string | null;
   orgSlug?: string | null;
   orgName?: string | null;

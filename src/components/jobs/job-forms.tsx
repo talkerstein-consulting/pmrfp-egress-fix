@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -115,6 +116,7 @@ export function JobPostForm({ trades, regions }: { trades: Option[]; regions: Op
 export function JobApplyForm({ slug, company }: { slug: string; company: string }) {
   const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [hasProfile, setHasProfile] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -139,6 +141,7 @@ export function JobApplyForm({ slug, company }: { slug: string; company: string 
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error ?? "Something went wrong. Please try again.");
+      setHasProfile(Boolean(json.hasProfile));
       setState("sent");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
@@ -151,6 +154,19 @@ export function JobApplyForm({ slug, company }: { slug: string; company: string 
       <div className="rounded-xl border border-teal-300 bg-teal-50/60 p-5">
         <p className="font-semibold">Application sent.</p>
         <p className="mt-1 text-sm text-muted-foreground">{company} has your details and will reply to you by email or phone.</p>
+        {hasProfile ? (
+          <p className="mt-3 text-sm text-muted-foreground">We attached your PMRFP profile to the application.</p>
+        ) : (
+          <div className="mt-4 border-t border-teal-200 pt-4">
+            <p className="text-sm font-medium">Save time next job: make your profile.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Your trade, tickets and availability in one place. Companies hiring near you can find you too.
+            </p>
+            <Link href="/sign-up?role=talent" className="mt-3 inline-block text-sm font-medium text-teal-700 hover:underline">
+              Make a free profile
+            </Link>
+          </div>
+        )}
       </div>
     );
   }

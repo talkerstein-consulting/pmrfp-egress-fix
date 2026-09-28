@@ -751,6 +751,8 @@ export async function sendJobApplication(params: {
   to: string;
   jobTitle: string;
   jobUrl: string;
+  /** The applicant's PMRFP Talent profile, when they have a published one. */
+  talentUrl?: string | null;
   applicant: {
     name: string;
     email: string;
@@ -768,6 +770,7 @@ export async function sendJobApplication(params: {
     a.phone ? ["Phone", `<a href="tel:${esc(a.phone)}" style="color:#282B59">${esc(a.phone)}</a>`] : null,
     a.experienceYears != null ? ["Experience", `${a.experienceYears} year${a.experienceYears === 1 ? "" : "s"}`] : null,
     a.certifications ? ["Tickets and certifications", esc(a.certifications)] : null,
+    params.talentUrl ? ["PMRFP profile", `<a href="${params.talentUrl}" style="color:#282B59">See their profile</a>`] : null,
   ].filter((r): r is string[] => Boolean(r));
   const table = rows
     .map(([k, v]) => `<tr><td style="padding:4px 12px 4px 0;color:#64748b;font-size:14px;white-space:nowrap;vertical-align:top">${k}</td><td style="padding:4px 0;font-size:15px;color:#1B1E45">${v}</td></tr>`)
@@ -786,5 +789,31 @@ export async function sendJobApplication(params: {
     ),
     undefined,
     { replyTo: a.email },
+  );
+}
+
+/** An employer's message to a worker, sent through PMRFP (Reply-To the employer; the worker's email stays private). */
+export async function sendTalentContact(params: {
+  to: string;
+  workerName: string;
+  profileUrl: string;
+  company: string;
+  sender: { name: string; email: string };
+  message: string;
+}): Promise<void> {
+  const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  await send(
+    params.to,
+    `${params.company} wants to talk about work`,
+    layout(
+      `${esc(params.company)} found your PMRFP profile`,
+      `<p>${esc(params.sender.name)} from ${esc(params.company)} sent you this message:</p>
+       <p style="margin:0 0 16px;padding:12px 14px;background:#F6F7FB;border-radius:10px;color:#1B1E45">${esc(params.message).replace(/\n/g, "<br>")}</p>
+       <p>Reply to this email to answer them directly. They don't see your email address unless you reply.</p>`,
+      `Sent because your <a href="${params.profileUrl}" style="color:#64748b">PMRFP profile</a> is public. You can hide it or set "Not looking" any time.`,
+      { referralPs: false },
+    ),
+    undefined,
+    { replyTo: params.sender.email },
   );
 }

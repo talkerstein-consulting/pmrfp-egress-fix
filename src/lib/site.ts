@@ -142,6 +142,7 @@ export const FOOTER_COLS = [
     links: [
       { label: "Browse RFPs", href: "/rfps" },
       { label: "Trade Jobs", href: "/jobs" },
+      { label: "Find Tradespeople", href: "/talent" },
       { label: "Contract Winners", href: "/contract-winners" },
       { label: "Public Contracts Report", href: "/reports/public-building-contracts" },
       { label: "Trades", href: "/trades" },

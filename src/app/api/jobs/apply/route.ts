@@ -4,6 +4,9 @@ import { isServiceConfigured } from "@/lib/supabase/config";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { sendJobApplication } from "@/lib/email/send";
 import { applicationSchema } from "@/lib/jobs/rules";
+import { upsertGhlContact } from "@/lib/ghl/client";
+import { talentPathForEmail } from "@/lib/talent/data";
+import { tagSlug } from "@/lib/talent/rules";
 
 const BASE = (process.env.NEXT_PUBLIC_SITE_URL || "https://pmrfp.com").replace(/\/$/, "");
 
@@ -28,7 +31,7 @@ export async function POST(request: Request) {
   const today = new Date().toISOString().slice(0, 10);
   const { data: job } = await admin
     .from("job_posts")
-    .select("id,title,slug,status,expires_at,posted_by,organizations!inner(email,profile_status,status)")
+    .select("id,title,slug,status,expires_at,posted_by,trade_categories(slug),organizations!inner(email,profile_status,status)")
     .eq("slug", d.slug)
     .maybeSingle<{
       id: string;
@@ -37,6 +40,7 @@ export async function POST(request: Request) {
       status: string;
       expires_at: string;
       posted_by: string | null;
+      trade_categories: { slug: string } | null;
       organizations: { email: string | null; profile_status: string; status: string };
     }>();
   if (!job || job.status !== "open" || job.expires_at < today || job.organizations.profile_status !== "approved" || job.organizations.status !== "active") {
@@ -60,11 +64,26 @@ export async function POST(request: Request) {
     const { data: poster } = await admin.from("users_profile").select("email").eq("id", job.posted_by).maybeSingle<{ email: string | null }>();
     to = poster?.email ?? null;
   }
+  // Attach their PMRFP Talent profile when they have a published one.
+  const talentPath = await talentPathForEmail(d.email).catch(() => null);
+  const [firstName, ...rest] = d.name.split(/\s+/);
+  const tradeTag = job.trade_categories?.slug ? [`pmrfp-trade-${tagSlug(job.trade_categories.slug)}`] : [];
+  await Promise.allSettled([
+    upsertGhlContact({
+      email: d.email,
+      firstName,
+      lastName: rest.join(" ") || undefined,
+      phone: d.phone || undefined,
+      tags: ["pmrfp-job-applicant", ...tradeTag],
+      customFields: { pmrfp_category: job.trade_categories?.slug ?? "" },
+    }),
+  ]);
   if (to) {
     await sendJobApplication({
       to,
       jobTitle: job.title,
       jobUrl: `${BASE}/jobs/${job.slug}`,
+      talentUrl: talentPath ? `${BASE}${talentPath}` : null,
       applicant: {
         name: d.name,
         email: d.email,
@@ -75,5 +94,5 @@ export async function POST(request: Request) {
       },
     });
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, hasProfile: Boolean(talentPath) });
 }

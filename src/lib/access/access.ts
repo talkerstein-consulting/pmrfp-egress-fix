@@ -210,6 +210,7 @@ export function roleHome(role: UserRole): string {
   // REAs share the PM-side surface (post RFPs for clients, browse trades).
   if (role === "property_manager" || role === "real_estate_agent") return "/pm-dashboard";
   if (role === "trade" || role === "supplier") return "/dashboard";
+  if (role === "talent") return "/talent/edit";
   return "/directory";
 }
 

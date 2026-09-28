@@ -68,6 +68,8 @@ export async function signUpAction(_prev: ActionState, formData: FormData): Prom
   // email-confirmation round trip.
   const isGc = parsed.data.role === "property_manager" && formData.get("orgKind") === "builder";
   const gcAward = isGc ? parseAwardRef(formData.get("award")?.toString()) : null;
+  // Tradespeople looking for work skip company onboarding: straight to their profile.
+  const isTalent = parsed.data.role === "talent";
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
@@ -79,7 +81,7 @@ export async function signUpAction(_prev: ActionState, formData: FormData): Prom
         primary_role: parsed.data.role,
         ...(isGc ? { org_kind: "builder", ...(gcAward ? { gc_award: gcAward } : {}) } : {}),
       },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/onboarding`,
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}${isTalent ? "/talent/edit" : "/onboarding"}`,
     },
   });
   if (error) {
@@ -103,6 +105,7 @@ export async function signUpAction(_prev: ActionState, formData: FormData): Prom
   if (!data.session) {
     redirect(`/check-email?email=${encodeURIComponent(parsed.data.email)}`);
   }
+  if (isTalent) redirect("/talent/edit");
   redirect(next ? `/onboarding?next=${encodeURIComponent(next)}` : "/onboarding");
 }
 
@@ -254,7 +257,7 @@ export async function completeOnboardingAction(_prev: ActionState, formData: For
   const next = safeNextPath(formData.get("next")?.toString());
 
   // "Just browsing" users skip org creation.
-  if (intent === "browsing" || role === "visitor") {
+  if (intent === "browsing" || role === "visitor" || role === "talent") {
     const supabase = await createClient();
     await supabase.from("users_profile").update({ onboarding_completed: true }).eq("id", session.userId);
     redirect(next ?? "/directory");
