@@ -13,6 +13,8 @@ import { VERTICALS } from "@/lib/seo/verticals";
 import { COST_GUIDES } from "@/lib/seo/cost-guides";
 import { RFP_TEMPLATES } from "@/lib/seo/rfp-templates";
 import { listOpenJobs } from "@/lib/jobs/data";
+import { localizePath } from "@/i18n/config";
+import { translationsOf } from "@/i18n/translated";
 
 // The RFP board now refreshes daily from the public-tender feed; without
 // this the page was frozen at build time and showed stale open counts
@@ -99,5 +101,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Open jobs (Google for Jobs reads the JobPosting markup on each page).
   for (const j of (await listOpenJobs()).jobs) entries.push({ url: `${base}/jobs/${j.slug}`, lastModified: new Date(j.createdAt), changeFrequency: "daily", priority: 0.6 });
 
-  return entries;
+  // Translated pages: list each language version and pair them with hreflang.
+  const localized: MetadataRoute.Sitemap = [];
+  for (const e of entries) {
+    const path = e.url.slice(base.length) || "/";
+    const langs = translationsOf(path);
+    if (!langs.length) continue;
+    const languages: Record<string, string> = { en: e.url, "x-default": e.url };
+    for (const l of langs) languages[l] = `${base}${localizePath(path, l)}`;
+    e.alternates = { languages };
+    for (const l of langs) localized.push({ ...e, url: languages[l], alternates: { languages } });
+  }
+
+  return [...entries, ...localized];
 }
