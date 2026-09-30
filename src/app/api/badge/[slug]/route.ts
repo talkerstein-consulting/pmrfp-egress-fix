@@ -1,4 +1,5 @@
 import { getBadgeInfo, type BadgeTier } from "@/lib/badge/data";
+import { MARK_PATH, MARK_VIEWBOX, WORDMARK_PATHS, WORDMARK_VIEWBOX } from "@/lib/brand/logo-paths";
 
 export const revalidate = 86400;
 
@@ -9,46 +10,63 @@ const C = {
   border: "#E2E6F0",
   white: "#FFFFFF",
   slate: "#6A6E80",
-  light: "#A9ADCE",
+  light: "#C7CAE3",
 };
+
+const FONT = "system-ui, -apple-system, Segoe UI, Arial, sans-serif";
+const WORD_RATIO = 463 / 72; // wordmark width per unit of height
 
 function escapeXml(s: string): string {
   return s.replace(/[<>&'"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" }[c]!));
 }
 
-function renderBadge(tier: BadgeTier, theme: "light" | "dark", variant: "standard" | "compact"): string {
+const mark = (x: number, y: number, size: number, fill: string) =>
+  `<svg x="${x}" y="${y}" width="${size}" height="${size}" viewBox="${MARK_VIEWBOX}"><path fill-rule="evenodd" clip-rule="evenodd" fill="${fill}" d="${MARK_PATH}"/></svg>`;
+
+const wordmark = (x: number, y: number, h: number, fill: string) =>
+  `<svg x="${x}" y="${y}" width="${(h * WORD_RATIO).toFixed(1)}" height="${h}" viewBox="${WORDMARK_VIEWBOX}" fill="${fill}">${WORDMARK_PATHS.map((d) => `<path d="${d}"/>`).join("")}</svg>`;
+
+/**
+ * Official mark + "pmrfp.com" wordmark, content centred in the frame so there's
+ * no empty tail. Dark is see-through with a hairline edge, so it sits on any dark
+ * footer. Sizes stay 214×54 / 188×32 so existing embeds keep their proportions.
+ */
+function renderBadge(tier: BadgeTier, found: boolean, theme: "light" | "dark", variant: "standard" | "compact"): string {
   const dark = theme === "dark";
-  const bg = dark ? C.indigo : C.white;
-  const stroke = dark ? "#383C72" : C.border;
-  const primary = dark ? C.white : C.indigo;
+  const frame = dark
+    ? `fill="#FFFFFF" fill-opacity="0.04" stroke="#FFFFFF" stroke-opacity="0.22"`
+    : `fill="${C.white}" stroke="${C.border}"`;
+  const markFill = dark ? C.teal : C.indigo;
+  const wordFill = dark ? C.white : C.indigo;
   const sub = dark ? C.light : C.slate;
-  const tile = dark ? C.teal : C.indigo;
-  const tileText = dark ? C.indigo : C.teal;
   const accent = dark ? C.teal : C.tealInk;
-  const font = "system-ui, -apple-system, Segoe UI, Arial, sans-serif";
-  const check = tier.verified ? "✓ " : "";
-  // No "Insured" on the seal: insurance is self-reported detail on the profile, and a
-  // tiny badge can't carry the qualifiers (date, scope) a coverage claim needs.
-  const sublabel = `${check}${tier.label}`;
+  // Only a live listing gets a tier claim; anything else just points at PMRFP.
+  const label = !found ? "Find us on" : tier.verified ? "✓ Verified on" : "Listed on";
+  const labelFill = found && tier.verified ? accent : sub;
+  const aria = found ? `${tier.label} on PMRFP` : "Find us on PMRFP";
 
   if (variant === "compact") {
-    const w = 188, h = 32;
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="PMRFP ${escapeXml(tier.label)}">
-<rect x="0.5" y="0.5" width="${w - 1}" height="${h - 1}" rx="6" fill="${bg}" stroke="${stroke}"/>
-<rect x="6" y="6" width="20" height="20" rx="4" fill="${tile}"/>
-<text x="16" y="20" font-family="${font}" font-size="9" font-weight="700" fill="${tileText}" text-anchor="middle">PM</text>
-<text x="32" y="14" font-family="${font}" font-size="10.5" font-weight="700" fill="${primary}">PMRFP</text>
-<text x="32" y="25" font-family="${font}" font-size="8.5" fill="${sub}">${escapeXml(sublabel)}</text>
+    const w = 188, h = 32, m = 20, wh = 13;
+    const labelW = label.length * 5.1; // ~7.5px caps text
+    const content = m + 7 + labelW + 5 + wh * WORD_RATIO;
+    const x0 = (w - content) / 2;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${escapeXml(aria)}">
+<rect x="0.5" y="0.5" width="${w - 1}" height="${h - 1}" rx="8" ${frame}/>
+${mark(x0, 6, m, markFill)}
+<text x="${(x0 + m + 7).toFixed(1)}" y="19.5" font-family="${FONT}" font-size="7.5" font-weight="600" letter-spacing="0.6" fill="${labelFill}">${escapeXml(label.toUpperCase())}</text>
+${wordmark(x0 + m + 7 + labelW + 5, 9.5, wh, wordFill)}
 </svg>`;
   }
 
-  const w = 214, h = 54;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="PMRFP ${escapeXml(tier.label)}">
-<rect x="0.5" y="0.5" width="${w - 1}" height="${h - 1}" rx="9" fill="${bg}" stroke="${stroke}"/>
-<rect x="11" y="11" width="32" height="32" rx="7" fill="${tile}"/>
-<text x="27" y="32" font-family="${font}" font-size="13" font-weight="700" fill="${tileText}" text-anchor="middle">PM</text>
-<text x="53" y="25" font-family="${font}" font-size="13.5" font-weight="700" fill="${primary}">PMRFP</text>
-<text x="53" y="41" font-family="${font}" font-size="10" font-weight="500" fill="${tier.verified ? accent : sub}">${escapeXml(sublabel)}</text>
+  const w = 214, h = 54, m = 32, wh = 20;
+  const content = m + 12 + wh * WORD_RATIO;
+  const x0 = (w - content) / 2;
+  const tx = x0 + m + 12;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${escapeXml(aria)}">
+<rect x="0.5" y="0.5" width="${w - 1}" height="${h - 1}" rx="12" ${frame}/>
+${mark(x0, 11, m, markFill)}
+<text x="${tx.toFixed(1)}" y="21" font-family="${FONT}" font-size="8.5" font-weight="600" letter-spacing="1.1" fill="${labelFill}">${escapeXml(label.toUpperCase())}</text>
+${wordmark(tx, 24.5, wh, wordFill)}
 </svg>`;
 }
 
@@ -62,7 +80,7 @@ export async function GET(
   const variant = url.searchParams.get("variant") === "compact" ? "compact" : "standard";
 
   const info = await getBadgeInfo(slug);
-  const svg = renderBadge(info.tier, theme, variant);
+  const svg = renderBadge(info.tier, info.found, theme, variant);
 
   return new Response(svg, {
     headers: {
