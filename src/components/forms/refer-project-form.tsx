@@ -7,6 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { REFERRAL } from "@/lib/site";
+import { useLang, useT } from "@/i18n/provider";
+import { fmt } from "@/i18n/format";
+import { regionName } from "@/i18n/terms";
+import { referServerMessageKey } from "@/i18n/messages/miscClient";
 
 const PROVINCES = [
   "Ontario",
@@ -25,18 +29,28 @@ const PROVINCES = [
 ];
 
 export function ReferProjectForm() {
+  const lang = useLang();
+  const t = useT("miscClient").referForm;
+  const tp = t.project;
   const [state, action, pending] = useActionState(
     submitReferralAction,
     {} as ReferralActionState,
   );
 
+  // The action answers in English; show the same message in the visitor's language.
+  const say = (msg: string) => {
+    if (lang === "en") return msg;
+    const key = referServerMessageKey(msg);
+    return key ? t.server[key] : t.serverFallback;
+  };
+
   if (state.success) {
     return (
       <div className="rounded-xl border border-teal-300 bg-teal-100/40 p-8 text-center">
-        <h3 className="text-lg font-semibold text-teal-ink">Referral received.</h3>
-        <p className="mt-2 text-sm leading-relaxed text-foreground/80">{state.success}</p>
+        <h3 className="text-lg font-semibold text-teal-ink">{t.received}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-foreground/80">{say(state.success)}</p>
         <p className="mt-6 text-xs text-muted-foreground">
-          Want to refer another? Refresh the page.
+          {t.another}
         </p>
       </div>
     );
@@ -45,7 +59,7 @@ export function ReferProjectForm() {
   return (
     <form action={action} className="space-y-6">
       {state.error && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>
+        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{say(state.error)}</p>
       )}
 
       {/* honeypot — must stay empty */}
@@ -59,22 +73,22 @@ export function ReferProjectForm() {
       />
 
       <Section
-        title="The project"
-        sub="Tell us what needs doing. The more specific, the faster we can structure the RFP."
+        title={tp.projectTitle}
+        sub={tp.projectSub}
       >
-        <Field label="What's the project?" required>
+        <Field label={tp.what} required>
           <Textarea
             name="projectDescription"
             rows={5}
             required
-            placeholder="e.g. Pre-listing repairs at a 25-unit condo in midtown Toronto — roof patch, lobby paint, two failed HVAC units."
+            placeholder={tp.whatPlaceholder}
           />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="City" required>
-            <Input name="projectCity" required placeholder="Toronto" />
+          <Field label={t.city} required>
+            <Input name="projectCity" required placeholder={t.cityPlaceholder} />
           </Field>
-          <Field label="Province" required>
+          <Field label={t.province} required>
             <select
               name="projectProvince"
               required
@@ -83,61 +97,61 @@ export function ReferProjectForm() {
             >
               {PROVINCES.map((p) => (
                 <option key={p} value={p}>
-                  {p}
+                  {regionName(p, lang)}
                 </option>
               ))}
             </select>
           </Field>
-          <Field label="Trade category (if known)">
+          <Field label={tp.category}>
             <Input
               name="projectCategory"
-              placeholder="e.g. Roofing, HVAC, General Contracting"
+              placeholder={tp.categoryPlaceholder}
             />
           </Field>
-          <Field label="Property type (if known)">
+          <Field label={tp.propertyType}>
             <Input
               name="projectPropertyType"
-              placeholder="e.g. Condo, Office, Retail, Multi-unit residential"
+              placeholder={tp.propertyTypePlaceholder}
             />
           </Field>
         </div>
       </Section>
 
       <Section
-        title="The property contact"
-        sub="Optional — if you don't have their permission to share, leave blank and we'll work with you to introduce."
+        title={tp.contactTitle}
+        sub={t.contactSub}
       >
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Name">
+          <Field label={t.name}>
             <Input name="ownerName" />
           </Field>
-          <Field label="Email">
+          <Field label={t.email}>
             <Input name="ownerEmail" type="email" />
           </Field>
-          <Field label="Phone">
+          <Field label={t.phone}>
             <Input name="ownerPhone" />
           </Field>
         </div>
       </Section>
 
       <Section
-        title="You"
-        sub="So we can pay your finder's fee + send you monthly updates."
+        title={t.youTitle}
+        sub={tp.youSub}
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Your name" required>
+          <Field label={t.yourName} required>
             <Input name="referrerName" required />
           </Field>
-          <Field label="Your email" required>
+          <Field label={t.yourEmail} required>
             <Input name="referrerEmail" type="email" required />
           </Field>
-          <Field label="Phone">
+          <Field label={t.phone}>
             <Input name="referrerPhone" />
           </Field>
-          <Field label="Affiliation (optional)">
+          <Field label={t.affiliation}>
             <Input
               name="referrerAffiliation"
-              placeholder="e.g. Realtor at Royal LePage, Mortgage broker at TD"
+              placeholder={tp.affiliationPlaceholder}
             />
           </Field>
         </div>
@@ -145,19 +159,15 @@ export function ReferProjectForm() {
 
       <label className="flex items-start gap-2 text-sm text-foreground/85">
         <input type="checkbox" name="permission" required className="mt-0.5 size-4 shrink-0" />
-        <span>
-          I confirm I have the property contact&apos;s permission to share their information,
-          OR I&apos;m introducing them to {`PMRFP`} myself.
-        </span>
+        <span>{tp.permission}</span>
       </label>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Button type="submit" size="lg" disabled={pending}>
-          {pending ? "Submitting…" : `Submit referral`}
+          {pending ? t.submitting : t.submit}
         </Button>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          What you get: public credit on the live RFP + a spot on the Top Connectors leaderboard.
-          Know a trade instead? Refer them to Trade Pro for up to ${REFERRAL.tradeFee} cash.
+          {fmt(tp.fine, { fee: REFERRAL.tradeFee })}
         </p>
       </div>
     </form>

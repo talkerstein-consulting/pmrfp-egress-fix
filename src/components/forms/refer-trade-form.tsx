@@ -12,6 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { REFERRAL } from "@/lib/site";
+import { useLang, useT } from "@/i18n/provider";
+import { fmt } from "@/i18n/format";
+import { regionName } from "@/i18n/terms";
+import { referServerMessageKey } from "@/i18n/messages/miscClient";
 
 const PROVINCES = [
   "Ontario",
@@ -30,18 +34,28 @@ const PROVINCES = [
 ];
 
 export function ReferTradeForm() {
+  const lang = useLang();
+  const t = useT("miscClient").referForm;
+  const tt = t.trade;
   const [state, action, pending] = useActionState(
     submitTradeReferralAction,
     {} as ReferralActionState,
   );
 
+  // The action answers in English; show the same message in the visitor's language.
+  const say = (msg: string) => {
+    if (lang === "en") return msg;
+    const key = referServerMessageKey(msg);
+    return key ? t.server[key] : t.serverFallback;
+  };
+
   if (state.success) {
     return (
       <div className="rounded-xl border border-teal-300 bg-teal-100/40 p-8 text-center">
-        <h3 className="text-lg font-semibold text-teal-ink">Referral received.</h3>
-        <p className="mt-2 text-sm leading-relaxed text-foreground/80">{state.success}</p>
+        <h3 className="text-lg font-semibold text-teal-ink">{t.received}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-foreground/80">{say(state.success)}</p>
         <p className="mt-6 text-xs text-muted-foreground">
-          Want to refer another? Refresh the page.
+          {t.another}
         </p>
       </div>
     );
@@ -50,7 +64,7 @@ export function ReferTradeForm() {
   return (
     <form action={action} className="space-y-6">
       {state.error && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>
+        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{say(state.error)}</p>
       )}
 
       <input
@@ -63,20 +77,20 @@ export function ReferTradeForm() {
       />
 
       <Section
-        title="The trade company"
-        sub="Tell us about the contractor or service company you're recommending."
+        title={tt.companyTitle}
+        sub={tt.companySub}
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Company name" required>
-            <Input name="tradeCompanyName" required placeholder="e.g. Northline Electrical Ltd." />
+          <Field label={tt.companyName} required>
+            <Input name="tradeCompanyName" required placeholder={tt.companyNamePlaceholder} />
           </Field>
-          <Field label="Trade category">
-            <Input name="tradeCategory" placeholder="e.g. Electrical, HVAC, Roofing" />
+          <Field label={tt.category}>
+            <Input name="tradeCategory" placeholder={tt.categoryPlaceholder} />
           </Field>
-          <Field label="City" required>
-            <Input name="tradeCity" required placeholder="Toronto" />
+          <Field label={t.city} required>
+            <Input name="tradeCity" required placeholder={t.cityPlaceholder} />
           </Field>
-          <Field label="Province" required>
+          <Field label={t.province} required>
             <select
               name="tradeProvince"
               required
@@ -85,59 +99,59 @@ export function ReferTradeForm() {
             >
               {PROVINCES.map((p) => (
                 <option key={p} value={p}>
-                  {p}
+                  {regionName(p, lang)}
                 </option>
               ))}
             </select>
           </Field>
-          <Field label="Website">
+          <Field label={tt.website}>
             <Input name="tradeWebsite" type="url" placeholder="https://" />
           </Field>
         </div>
-        <Field label="Why this trade? (optional)">
+        <Field label={tt.why}>
           <Textarea
             name="whyThemNote"
             rows={3}
-            placeholder="A line or two about why they'd be a fit for PMRFP — commercial focus, reputation, capacity, etc."
+            placeholder={tt.whyPlaceholder}
           />
         </Field>
       </Section>
 
       <Section
-        title="Trade contact"
-        sub="Optional — if you don't have their permission to share, leave blank and we'll work with you to introduce."
+        title={tt.contactTitle}
+        sub={t.contactSub}
       >
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Name">
+          <Field label={t.name}>
             <Input name="tradeContactName" />
           </Field>
-          <Field label="Email">
+          <Field label={t.email}>
             <Input name="tradeContactEmail" type="email" />
           </Field>
-          <Field label="Phone">
+          <Field label={t.phone}>
             <Input name="tradeContactPhone" />
           </Field>
         </div>
       </Section>
 
       <Section
-        title="You"
-        sub="So we can pay your finder's fee (if the trade subscribes) + send you monthly updates."
+        title={t.youTitle}
+        sub={tt.youSub}
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Your name" required>
+          <Field label={t.yourName} required>
             <Input name="referrerName" required />
           </Field>
-          <Field label="Your email" required>
+          <Field label={t.yourEmail} required>
             <Input name="referrerEmail" type="email" required />
           </Field>
-          <Field label="Phone">
+          <Field label={t.phone}>
             <Input name="referrerPhone" />
           </Field>
-          <Field label="Affiliation (optional)">
+          <Field label={t.affiliation}>
             <Input
               name="referrerAffiliation"
-              placeholder="e.g. PM at FirstService Residential, REA at Royal LePage"
+              placeholder={tt.affiliationPlaceholder}
             />
           </Field>
         </div>
@@ -145,20 +159,15 @@ export function ReferTradeForm() {
 
       <label className="flex items-start gap-2 text-sm text-foreground/85">
         <input type="checkbox" name="permission" required className="mt-0.5 size-4 shrink-0" />
-        <span>
-          I confirm I have the trade contact&apos;s permission to share their information,
-          OR I&apos;m introducing them to {`PMRFP`} myself.
-        </span>
+        <span>{tt.permission}</span>
       </label>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Button type="submit" size="lg" disabled={pending}>
-          {pending ? "Submitting…" : `Submit referral`}
+          {pending ? t.submitting : t.submit}
         </Button>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          Finder&apos;s fee: ${REFERRAL.tradeFee} {REFERRAL.currency} for an annual Trade Pro plan (paid ~30 days after
-          their payment clears), or ${REFERRAL.tradeFeeMonthly} for a monthly plan (after their third payment clears) —
-          once settled, no refund or dispute, by e-transfer.
+          {fmt(tt.fine, { fee: REFERRAL.tradeFee, feeMonthly: REFERRAL.tradeFeeMonthly, currency: REFERRAL.currency })}
         </p>
       </div>
     </form>

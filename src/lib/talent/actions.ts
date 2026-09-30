@@ -7,17 +7,35 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { isServiceConfigured, isSupabaseConfigured } from "@/lib/supabase/config";
 import { upsertGhlContact } from "@/lib/ghl/client";
-import { endorsementSchema, normalizeTalentHandle, parseTickets, tagSlug, talentProfileSchema } from "./rules";
+import { DEFAULT_LOCALE, isEnabledLocale, localizePath, type Locale } from "@/i18n/config";
+import { getDictionary } from "@/i18n/dictionaries";
+import { localMessage } from "@/lib/jobs/rules";
+import { TALENT_MESSAGES, endorsementSchema, normalizeTalentHandle, parseTickets, tagSlug, talentProfileSchema } from "./rules";
 
 export interface TalentFormState {
   error?: string;
 }
 
+/**
+ * The language of the form that called (a hidden "lang" input, or a field,
+ * from useLang()). Missing or unknown: English, exactly as before.
+ */
+function langOf(v: unknown): Locale {
+  return isEnabledLocale(v) ? v : DEFAULT_LOCALE;
+}
+
+/** The messages returned to the form, in its language (English is TALENT_MESSAGES). */
+function messages(lang: Locale) {
+  return getDictionary(lang).jobsClient.errors.talent;
+}
+
 /** Create or update the signed-in person's talent profile. */
 export async function saveTalentProfileAction(_prev: TalentFormState, formData: FormData): Promise<TalentFormState> {
-  if (!isSupabaseConfigured()) return { error: "This isn't available right now." };
+  const lang = langOf(formData.get("lang"));
+  const m = messages(lang);
+  if (!isSupabaseConfigured()) return { error: m.unavailable };
   const session = await getSession();
-  if (!session) redirect(`/sign-in?next=${encodeURIComponent("/talent/edit")}`);
+  if (!session) redirect(localizePath(`/sign-in?next=${encodeURIComponent("/talent/edit")}`, lang));
 
   const parsed = talentProfileSchema.safeParse({
     handle: formData.get("handle") ?? "",
@@ -37,10 +55,10 @@ export async function saveTalentProfileAction(_prev: TalentFormState, formData: 
     published: formData.get("published") === "on",
     contactVisible: formData.get("contactVisible") === "on",
   });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
+  if (!parsed.success) return { error: localMessage(parsed.error.issues[0]?.message, lang, TALENT_MESSAGES, m, m.checkForm) };
   const d = parsed.data;
   const handle = normalizeTalentHandle(d.handle);
-  if (!handle) return { error: "That web address won't work. Use 3 to 40 letters, numbers or dashes." };
+  if (!handle) return { error: m.badHandle };
 
   const supabase = await createClient();
   const slugs = [d.primaryTrade, ...d.otherTrades.filter((t) => t !== d.primaryTrade)];
@@ -50,8 +68,8 @@ export async function saveTalentProfileAction(_prev: TalentFormState, formData: 
   ]);
   const catBySlug = new Map(((cats as { id: string; slug: string }[] | null) ?? []).map((c) => [c.slug, c.id]));
   const primary = catBySlug.get(d.primaryTrade);
-  if (!primary) return { error: "Pick your main trade." };
-  if (!reg) return { error: "Pick your region." };
+  if (!primary) return { error: m.pickTrade };
+  if (!reg) return { error: m.pickRegion };
 
   const { error } = await supabase.from("talent_profiles").upsert(
     {
@@ -75,11 +93,11 @@ export async function saveTalentProfileAction(_prev: TalentFormState, formData: 
     { onConflict: "user_id" },
   );
   if (error) {
-    if (error.code === "23505") return { error: "Someone already has that web address. Try another." };
+    if (error.code === "23505") return { error: m.handleTaken };
     if (/talent_profiles/.test(error.message) && /does not exist|schema cache/.test(error.message)) {
-      return { error: "Profiles are switching on. Try again in a few minutes." };
+      return { error: m.switchingOn };
     }
-    return { error: "Could not save your profile. Please try again." };
+    return { error: m.couldNotSave };
   }
   await supabase.from("talent_private").upsert({ user_id: session.userId, phone: d.phone || null, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
   if (!session.profile.onboarding_completed) {
@@ -100,7 +118,7 @@ export async function saveTalentProfileAction(_prev: TalentFormState, formData: 
 
   revalidatePath("/talent");
   revalidatePath(`/talent/${handle}`);
-  redirect(`/talent/${handle}?saved=1`);
+  redirect(localizePath(`/talent/${handle}?saved=1`, lang));
 }
 
 /**
@@ -108,24 +126,26 @@ export async function saveTalentProfileAction(_prev: TalentFormState, formData: 
  * can check: they applied to one of the company's jobs, or the company
  * contacted them through PMRFP. One endorsement per company per person.
  */
-export async function endorseTalentAction(input: { handle: string; note: string }): Promise<{ error?: string }> {
+export async function endorseTalentAction(input: { handle: string; note: string; lang?: string }): Promise<{ error?: string }> {
+  const lang = langOf(input.lang);
+  const m = messages(lang);
   const parsed = endorsementSchema.safeParse(input);
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the note." };
+  if (!parsed.success) return { error: localMessage(parsed.error.issues[0]?.message, lang, TALENT_MESSAGES, m, m.checkNote) };
   const session = await getSession();
-  if (!session) return { error: "Sign in to endorse." };
+  if (!session) return { error: m.signInToEndorse };
   const org = session.organization;
   if (!org || org.profile_status !== "approved" || org.status !== "active") {
-    return { error: "Only approved companies on PMRFP can endorse workers." };
+    return { error: m.onlyApproved };
   }
-  if (!isServiceConfigured()) return { error: "This isn't available right now." };
+  if (!isServiceConfigured()) return { error: m.unavailable };
   const admin = createServiceClient();
   const { data: t } = await admin
     .from("talent_profiles")
     .select("user_id,published")
     .eq("handle", parsed.data.handle)
     .maybeSingle<{ user_id: string; published: boolean }>();
-  if (!t || !t.published) return { error: "That profile isn't available." };
-  if (t.user_id === session.userId) return { error: "You can't endorse yourself." };
+  if (!t || !t.published) return { error: m.profileUnavailable };
+  if (t.user_id === session.userId) return { error: m.selfEndorse };
 
   const { data: person } = await admin.from("users_profile").select("email").eq("id", t.user_id).maybeSingle<{ email: string | null }>();
   const [{ count: contacted }, { data: jobs }] = await Promise.all([
@@ -143,14 +163,14 @@ export async function endorseTalentAction(input: { handle: string; note: string 
     applied = count ?? 0;
   }
   if (!contacted && !applied) {
-    return { error: "You can endorse people who applied to your jobs or who you've contacted through PMRFP." };
+    return { error: m.endorseProof };
   }
 
   const { error } = await admin.from("talent_endorsements").upsert(
     { talent_user_id: t.user_id, organization_id: org.id, endorsed_by: session.userId, note: parsed.data.note },
     { onConflict: "talent_user_id,organization_id" },
   );
-  if (error) return { error: "Could not save the endorsement." };
+  if (error) return { error: m.couldNotEndorse };
   revalidatePath(`/talent/${parsed.data.handle}`);
   return {};
 }

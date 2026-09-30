@@ -1,7 +1,10 @@
-import Link from "next/link";
+import Link from "@/i18n/link";
 import Image from "next/image";
 import { BadgeCheck } from "lucide-react";
 import type { VendorListItem } from "@/lib/data/types";
+import { getLang, getT } from "@/i18n/server";
+import { plural } from "@/i18n/format";
+import { regionName, tradeName } from "@/i18n/terms";
 
 /**
  * Featured "plaque" card — Direction A of the directory redesign.
@@ -25,6 +28,8 @@ export function monogram(name: string): string {
 }
 
 export function FeaturedVendorCard({ vendor }: { vendor: VendorListItem }) {
+  const t = getT("directory");
+  const lang = getLang();
   return (
     <article className="relative flex min-h-[252px] flex-col overflow-hidden rounded-2xl bg-indigo p-5 text-indigo-100 shadow-md">
       {/* teal radial glow, top-right */}
@@ -56,14 +61,17 @@ export function FeaturedVendorCard({ vendor }: { vendor: VendorListItem }) {
               : "rounded-full bg-teal-300 px-2.5 py-1 font-mono text-[9.5px] uppercase tracking-[0.14em] text-indigo"
           }
         >
-          {vendor.platinum ? "Platinum" : "Featured"}
+          {vendor.platinum ? t.badges.platinum : t.badges.featured}
         </span>
       </div>
       <h3 className="relative mt-3.5 text-lg font-bold leading-tight tracking-tight text-white">
         {vendor.name}
       </h3>
       <div className="relative mt-1.5 font-mono text-[11px] text-indigo-100/65">
-        {[vendor.city, vendor.province].filter(Boolean).join(", ")}
+        {[vendor.city, vendor.province]
+          .filter((x): x is string => Boolean(x))
+          .map((x) => regionName(x, lang))
+          .join(", ")}
       </div>
       {vendor.shortDescription && (
         <p className="relative mt-2.5 line-clamp-3 text-[13px] leading-normal text-indigo-100/90">
@@ -71,14 +79,14 @@ export function FeaturedVendorCard({ vendor }: { vendor: VendorListItem }) {
         </p>
       )}
       <div className="relative mt-3 flex flex-wrap gap-1.5">
-        {vendor.categories.slice(0, 3).map((t) => (
-          <span key={t} className="rounded-md bg-white/10 px-2 py-1 font-mono text-[10.5px] text-indigo-100">
-            {t}
+        {vendor.categories.slice(0, 3).map((c) => (
+          <span key={c} className="rounded-md bg-white/10 px-2 py-1 font-mono text-[10.5px] text-indigo-100">
+            {tradeName(c, lang)}
           </span>
         ))}
         {vendor.verified && (
           <span className="inline-flex items-center gap-1 rounded-full bg-teal-300/15 px-2 py-1 font-mono text-[10px] uppercase tracking-wide text-teal-300">
-            <BadgeCheck className="size-3" /> Verified
+            <BadgeCheck className="size-3" /> {t.badges.verified}
           </span>
         )}
       </div>
@@ -90,12 +98,12 @@ export function FeaturedVendorCard({ vendor }: { vendor: VendorListItem }) {
                 {vendor.yearsInBusiness}
               </div>
               <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.12em] text-indigo-100/65">
-                yrs in business
+                {plural(vendor.yearsInBusiness, t.plaque.yrsInBusiness)}
               </div>
             </>
           ) : (
             <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-indigo-100/65">
-              Founding partner
+              {t.plaque.founding}
             </div>
           )}
         </div>
@@ -103,7 +111,7 @@ export function FeaturedVendorCard({ vendor }: { vendor: VendorListItem }) {
           href={`/directory/${vendor.slug}`}
           className="whitespace-nowrap text-[13px] font-semibold text-teal-300 hover:underline"
         >
-          View profile →
+          {t.plaque.view}
         </Link>
       </div>
     </article>
@@ -112,22 +120,23 @@ export function FeaturedVendorCard({ vendor }: { vendor: VendorListItem }) {
 
 /** Dashed "Your company, seen first" upsell slot — sits last in the marquee. */
 export function FeaturedUpsellSlot() {
+  const t = getT("directory").plaque;
   return (
     <aside className="flex flex-col justify-center gap-2.5 rounded-2xl border-[1.5px] border-dashed border-border-strong bg-secondary/40 p-5">
       <span className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-periwinkle">
-        Featured slot
+        {t.slot}
       </span>
       <h4 className="text-[16.5px] font-bold leading-snug text-indigo">
-        Your company, seen first.
+        {t.slotTitle}
       </h4>
       <p className="text-[12.5px] leading-normal text-muted-foreground">
-        Featured partners appear above matching searches for their trades and regions.
+        {t.slotBody}
       </p>
       <Link
         href="/pricing"
         className="mt-1 self-start rounded-full bg-indigo px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-indigo-700"
       >
-        Get featured
+        {t.slotCta}
       </Link>
     </aside>
   );

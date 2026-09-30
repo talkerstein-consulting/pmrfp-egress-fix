@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { getLang, getT } from "@/i18n/server";
 
 const TONE: Record<string, string> = {
   // greens
@@ -34,11 +35,13 @@ const TONE: Record<string, string> = {
 };
 
 export function StatusBadge({ status, className }: { status: string; className?: string }) {
-  const label = status.replace(/_/g, " ");
+  const translated = getLang() === "en" ? undefined : getT("shared").status[status];
+  const label = translated ?? status.replace(/_/g, " ");
   return (
     <Badge
       className={cn(
-        "border-transparent font-medium capitalize hover:bg-current/0",
+        // Translations come sentence-cased; CSS capitalize would title-case every word.
+        translated ? "border-transparent font-medium hover:bg-current/0" : "border-transparent font-medium capitalize hover:bg-current/0",
         TONE[status] ?? "bg-slate-200 text-slate-700",
         className,
       )}

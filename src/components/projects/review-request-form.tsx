@@ -3,9 +3,11 @@
 import { startTransition, useActionState, useEffect, useRef } from "react";
 import { Loader2, Send } from "lucide-react";
 import { requestReviewAction, type InviteState } from "@/lib/projects/actions";
+import { useT } from "@/i18n/provider";
 
 /** "Ask for a review": client name + email → one-time review link by email. */
 export function ReviewRequestForm({ caseStudyId }: { caseStudyId: string }) {
+  const t = useT("dashClient").reviewRequest;
   const [state, action, pending] = useActionState(requestReviewAction, {} as InviteState);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -30,17 +32,17 @@ export function ReviewRequestForm({ caseStudyId }: { caseStudyId: string }) {
     >
       <input type="hidden" name="caseStudyId" value={caseStudyId} />
       <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-        <label className="sr-only" htmlFor={`cn-${caseStudyId}`}>Client name</label>
-        <input id={`cn-${caseStudyId}`} name="clientName" required maxLength={100} placeholder="Client name" className={field} autoComplete="off" />
-        <label className="sr-only" htmlFor={`ce-${caseStudyId}`}>Client email</label>
-        <input id={`ce-${caseStudyId}`} name="clientEmail" type="email" required maxLength={200} placeholder="client@company.com" className={field} autoComplete="off" />
+        <label className="sr-only" htmlFor={`cn-${caseStudyId}`}>{t.clientName}</label>
+        <input id={`cn-${caseStudyId}`} name="clientName" required maxLength={100} placeholder={t.clientName} className={field} autoComplete="off" />
+        <label className="sr-only" htmlFor={`ce-${caseStudyId}`}>{t.clientEmail}</label>
+        <input id={`ce-${caseStudyId}`} name="clientEmail" type="email" required maxLength={200} placeholder={t.emailPlaceholder} className={field} autoComplete="off" />
         <button
           type="submit"
           disabled={pending}
           className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
         >
           {pending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-          Ask for a review
+          {t.ask}
         </button>
       </div>
       {state.error && <p role="alert" className="text-sm text-red-700">{state.error}</p>}

@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { COPY } from "@/lib/site";
+import { useLang, useT } from "@/i18n/provider";
 
 export function ExpressInterestDialog({
   rfpId,
@@ -25,6 +25,8 @@ export function ExpressInterestDialog({
   rfpId: string;
   rfpTitle: string;
 }) {
+  const t = useT("boardClient").interest;
+  const lang = useLang();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [accepted, setAccepted] = useState(false);
@@ -33,7 +35,7 @@ export function ExpressInterestDialog({
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!accepted) {
-      toast.error("Please confirm you understand PMRFP does not guarantee the job.");
+      toast.error(t.mustAccept);
       return;
     }
     const fd = new FormData(e.currentTarget);
@@ -51,16 +53,17 @@ export function ExpressInterestDialog({
         }),
       });
       const json = await res.json().catch(() => ({}));
-      if (res.status === 403) return toast.error("Trade Pro membership required to express interest.");
-      if (res.status === 401) return toast.error("Please sign in to express interest.");
-      if (res.status === 409) return toast.error(json.error ?? "You've already expressed interest.");
+      if (res.status === 403) return toast.error(t.proRequired);
+      if (res.status === 401) return toast.error(t.signIn);
+      // The API's message is English; other languages use their own copy.
+      if (res.status === 409) return toast.error(lang === "en" ? (json.error ?? t.already) : t.already);
       if (!res.ok) throw new Error();
       setDone(true);
-      toast.success("Interest submitted", {
-        description: json.demo ? "Demo mode — connect Supabase to record this." : "We've notified the right people.",
+      toast.success(t.submitted, {
+        description: json.demo ? t.demo : t.notified,
       });
     } catch {
-      toast.error("Could not submit. Please try again.");
+      toast.error(t.error);
     } finally {
       setBusy(false);
     }
@@ -68,41 +71,41 @@ export function ExpressInterestDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button><Send className="size-4" /> Express Interest</Button>} />
+      <DialogTrigger render={<Button><Send className="size-4" /> {t.trigger}</Button>} />
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Express interest</DialogTitle>
+          <DialogTitle>{t.title}</DialogTitle>
           <DialogDescription>{rfpTitle}</DialogDescription>
         </DialogHeader>
 
         {done ? (
           <div className="py-4">
-            <p className="font-medium text-success">Your interest has been submitted.</p>
+            <p className="font-medium text-success">{t.doneTitle}</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              The property manager and PMRFP have been notified. PMRFP does not guarantee a response.
+              {t.doneBody}
             </p>
             <DialogFooter className="mt-6">
-              <Button onClick={() => setOpen(false)}>Close</Button>
+              <Button onClick={() => setOpen(false)}>{t.close}</Button>
             </DialogFooter>
           </div>
         ) : (
           <form onSubmit={onSubmit} className="space-y-4">
-            <Field label="Message" hint="Introduce your company and why you're a fit.">
+            <Field label={t.message} hint={t.messageHint}>
               <Textarea name="message" rows={4} required maxLength={2000} />
             </Field>
-            <Field label="Relevant experience (optional)">
+            <Field label={t.experience}>
               <Textarea name="relevantExperience" rows={2} maxLength={2000} />
             </Field>
-            <Field label="Estimated availability (optional)">
+            <Field label={t.availability}>
               <Input name="availability" />
             </Field>
             <label className="flex items-start gap-2 text-sm text-muted-foreground">
               <Checkbox checked={accepted} onCheckedChange={(v) => setAccepted(v === true)} className="mt-0.5" />
-              <span>{COPY.interestDisclaimer}</span>
+              <span>{t.disclaimer}</span>
             </label>
             <DialogFooter>
               <Button type="submit" disabled={busy}>
-                {busy ? "Submitting…" : "Submit interest"}
+                {busy ? t.submitting : t.submit}
               </Button>
             </DialogFooter>
           </form>

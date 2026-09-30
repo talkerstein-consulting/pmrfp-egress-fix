@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getSession } from "@/lib/access/access";
@@ -16,8 +17,39 @@ import {
 } from "@/lib/gc/packages";
 import { getLinkableAward } from "@/lib/gc/data";
 import type { ActionState } from "@/lib/auth/actions";
+import { getDictionary } from "@/i18n/dictionaries";
+import { DEFAULT_LOCALE, isEnabledLocale, localizePath, splitLocale, type Locale } from "@/i18n/config";
 
-const DEMO = "Demo mode: connect a Supabase project to save changes.";
+/**
+ * The language to answer in: a hidden `lang` field if the form sends one
+ * (<input type="hidden" name="lang" value={useLang()} />), otherwise the page
+ * the form was posted from (Referer, e.g. /fr/dashboard/company). English
+ * when neither says otherwise, so English messages never change.
+ */
+async function actionLang(formData: FormData): Promise<Locale> {
+  const field = formData.get("lang");
+  if (isEnabledLocale(field)) return field;
+  const referer = (await headers()).get("referer");
+  if (referer) {
+    try {
+      const { lang } = splitLocale(new URL(referer).pathname);
+      if (isEnabledLocale(lang)) return lang;
+    } catch {
+      // Not a URL; fall through to English.
+    }
+  }
+  return DEFAULT_LOCALE;
+}
+
+function messagesFor(lang: Locale) {
+  return getDictionary(lang).dash.actions;
+}
+
+/** A zod message from src/lib/validations.ts in the form's language (unknown ones stay as they are). */
+function validationMessage(lang: Locale, message: string | undefined, fallback: string): string {
+  if (!message) return fallback;
+  return messagesFor(lang).validation[message] ?? message;
+}
 
 function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 60) || "rfp";
@@ -38,10 +70,12 @@ function completion(fields: Record<string, unknown>, cats: number, regs: number)
 }
 
 export async function updateCompanyProfileAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  if (!isSupabaseConfigured()) return { error: DEMO };
+  const lang = await actionLang(formData);
+  const t = messagesFor(lang);
+  if (!isSupabaseConfigured()) return { error: t.demo };
   const session = await getSession();
-  if (!session) redirect("/sign-in");
-  if (!session.organization) return { error: "No organization found." };
+  if (!session) redirect(localizePath("/sign-in", lang));
+  if (!session.organization) return { error: t.noOrg };
 
   const categories = formData.getAll("categories").map(String);
   const regions = formData.getAll("regions").map(String);
@@ -68,7 +102,7 @@ export async function updateCompanyProfileAction(_prev: ActionState, formData: F
     regions,
     propertyTypes,
   });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
+  if (!parsed.success) return { error: validationMessage(lang, parsed.error.issues[0]?.message, t.checkForm) };
   const d = parsed.data;
 
   const supabase = await createClient();
@@ -120,7 +154,7 @@ export async function updateCompanyProfileAction(_prev: ActionState, formData: F
       profile_status: "pending_review",
     })
     .eq("id", orgId);
-  if (error) return { error: "Could not save profile." };
+  if (error) return { error: t.saveFailed };
 
   // Replace taxonomy links.
   const [{ data: catRows }, { data: regRows }, { data: ptRows }] = await Promise.all([
@@ -141,7 +175,7 @@ export async function updateCompanyProfileAction(_prev: ActionState, formData: F
     await supabase.from("organization_property_types").insert(ptRows.map((p: { id: string }) => ({ organization_id: orgId, property_type_id: p.id })));
 
   revalidatePath("/dashboard/company");
-  return { success: "Profile saved. It will be reviewed before going live." };
+  return { success: t.saved };
 }
 
 /**
@@ -153,14 +187,16 @@ export async function updateCompanyProfileAction(_prev: ActionState, formData: F
  * and trigger automated finder's-fee payout. v1 = status flip + closed_at.
  */
 export async function closeRfpAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  if (!isSupabaseConfigured()) return { error: DEMO };
+  const lang = await actionLang(formData);
+  const t = messagesFor(lang);
+  if (!isSupabaseConfigured()) return { error: t.demo };
   const session = await getSession();
-  if (!session) redirect("/sign-in");
+  if (!session) redirect(localizePath("/sign-in", lang));
 
   const rfpId = formData.get("rfpId")?.toString();
   const outcome = formData.get("outcome")?.toString();
   if (!rfpId || (outcome !== "awarded" && outcome !== "closed" && outcome !== "expired")) {
-    return { error: "Missing or invalid outcome." };
+    return { error: t.invalidOutcome };
   }
 
   const supabase = await createClient();
@@ -171,9 +207,9 @@ export async function closeRfpAction(_prev: ActionState, formData: FormData): Pr
     .select("id,posted_by_user_id,status")
     .eq("id", rfpId)
     .maybeSingle<{ id: string; posted_by_user_id: string | null; status: string }>();
-  if (!rfp) return { error: "RFP not found." };
+  if (!rfp) return { error: t.rfpNotFound };
   if (rfp.posted_by_user_id !== session.userId && session.profile.primary_role !== "admin" && session.profile.primary_role !== "super_admin") {
-    return { error: "Only the posting PM can close this RFP." };
+    return { error: t.notOwner };
   }
   if (
     rfp.status === "awarded" ||
@@ -181,7 +217,7 @@ export async function closeRfpAction(_prev: ActionState, formData: FormData): Pr
     rfp.status === "expired" ||
     rfp.status === "archived"
   ) {
-    return { error: "This RFP is no longer active." };
+    return { error: t.notActive };
   }
 
   const { error } = await supabase
@@ -191,7 +227,7 @@ export async function closeRfpAction(_prev: ActionState, formData: FormData): Pr
       closed_at: new Date().toISOString(),
     })
     .eq("id", rfpId);
-  if (error) return { error: "Could not close the RFP." };
+  if (error) return { error: t.closeFailed };
 
   revalidatePath("/rfps");
   revalidatePath(`/rfps`);
@@ -199,10 +235,10 @@ export async function closeRfpAction(_prev: ActionState, formData: FormData): Pr
   return {
     success:
       outcome === "awarded"
-        ? "RFP marked as awarded. If this project came through the referral program, the finder's fee is now eligible."
+        ? t.awarded
         : outcome === "expired"
-          ? "RFP marked as expired. It's off the public board — re-post any time."
-          : "RFP closed without award.",
+          ? t.expired
+          : t.closed,
   };
 }
 
@@ -215,31 +251,34 @@ async function gcPackageFields(
   supabase: Awaited<ReturnType<typeof createClient>>,
   formData: FormData,
   categories: string[],
+  t: ReturnType<typeof messagesFor>,
 ): Promise<null | { error: string } | { title: string; gcProjectName: string; awardedRfpId: string | null }> {
   if (formData.get("kind") !== "gc") return null;
   const project = String(formData.get("gcProjectName") ?? "").trim().replace(/\s+/g, " ").slice(0, 160);
-  if (!project) return { error: "Project name is required" };
-  if (!categories.length) return { error: "Pick the trade for this package" };
+  if (!project) return { error: t.gcProject };
+  if (!categories.length) return { error: t.gcTrade };
   const relatedInput = formData.get("relatedContract")?.toString().trim() ?? "";
   const [{ data: cat }, award] = await Promise.all([
     supabase.from("trade_categories").select("name").eq("slug", categories[0]).maybeSingle<{ name: string }>(),
     getLinkableAward(parseAwardRef(relatedInput)),
   ]);
-  if (!cat) return { error: "Pick the trade for this package" };
+  if (!cat) return { error: t.gcTrade };
   if (relatedInput && !award) {
-    return { error: "That link isn't a public contract award on PMRFP. Paste the award page link, or leave it blank." };
+    return { error: t.gcBadLink };
   }
   return { title: gcPackageTitle(cat.name, project), gcProjectName: project, awardedRfpId: award?.id ?? null };
 }
 
 export async function createRfpAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  if (!isSupabaseConfigured()) return { error: DEMO };
+  const lang = await actionLang(formData);
+  const t = messagesFor(lang);
+  if (!isSupabaseConfigured()) return { error: t.demo };
   const session = await getSession();
-  if (!session) redirect("/sign-in");
+  if (!session) redirect(localizePath("/sign-in", lang));
 
   const categories = formData.getAll("categories").map(String);
   const supabase = await createClient();
-  const gc = await gcPackageFields(supabase, formData, categories);
+  const gc = await gcPackageFields(supabase, formData, categories, t);
   if (gc && "error" in gc) return { error: gc.error };
   const parsed = rfpPostSchema.safeParse({
     title: gc ? gc.title : formData.get("title"),
@@ -262,7 +301,7 @@ export async function createRfpAction(_prev: ActionState, formData: FormData): P
     contactPhone: formData.get("contactPhone") ?? "",
     acceptTerms: formData.get("acceptTerms") === "on",
   });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please complete the required fields." };
+  if (!parsed.success) return { error: validationMessage(lang, parsed.error.issues[0]?.message, t.requiredFields) };
   const d = parsed.data;
 
   const [{ data: region }, { data: pt }] = await Promise.all([
@@ -308,7 +347,8 @@ export async function createRfpAction(_prev: ActionState, formData: FormData): P
     .single<{ id: string }>();
   if (error || !rfp) {
     // Before the GC-package migration runs, say so plainly instead of failing vaguely.
-    return { error: gc && isGcSchemaMissingError(error) ? GC_UNAVAILABLE_MESSAGE : "Could not create the RFP." };
+    const unavailable = lang === DEFAULT_LOCALE ? GC_UNAVAILABLE_MESSAGE : t.gcUnavailable;
+    return { error: gc && isGcSchemaMissingError(error) ? unavailable : t.createFailed };
   }
 
   const { data: catRows } = await supabase.from("trade_categories").select("id,slug").in("slug", categories);
@@ -362,5 +402,5 @@ export async function createRfpAction(_prev: ActionState, formData: FormData): P
 
   await sendAdminNewRfp({ title: d.title, postedBy: session.organization?.name, region: d.regionSlug });
 
-  redirect("/pm-dashboard/rfps?posted=1");
+  redirect(localizePath("/pm-dashboard/rfps?posted=1", lang));
 }

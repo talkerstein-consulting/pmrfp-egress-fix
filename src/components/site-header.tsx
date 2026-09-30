@@ -1,15 +1,26 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/i18n/link";
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Container } from "@/components/container";
 import { Logo } from "@/components/logo";
 import { MAIN_NAV } from "@/lib/site";
+import { useT } from "@/i18n/provider";
+import { LanguageSwitcher } from "@/components/language-switcher";
+
+const NAV_KEY = {
+  "/rfps": "rfps",
+  "/directory": "directory",
+  "/jobs": "jobs",
+  "/for-property-managers": "forPms",
+  "/pricing": "pricing",
+} as const;
 import { cn } from "@/lib/utils";
 
 export function SiteHeader() {
+  const t = useT("common").nav;
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -34,7 +45,7 @@ export function SiteHeader() {
       )}
     >
       <Container className="flex h-[72px] items-center justify-between">
-        <Link href="/" className="flex items-center gap-2" aria-label="PMRFP home">
+        <Link href="/" className="flex items-center gap-2" aria-label={t.home}>
           <Logo />
         </Link>
 
@@ -45,23 +56,24 @@ export function SiteHeader() {
               href={item.href}
               className="whitespace-nowrap rounded-full px-2.5 py-2 text-sm font-medium text-ink-2/80 transition-colors hover:bg-secondary hover:text-foreground xl:px-3.5"
             >
-              {item.label}
+              {t[NAV_KEY[item.href]]}
             </Link>
           ))}
         </nav>
 
         <div className="hidden items-center gap-2 lg:flex">
+          <LanguageSwitcher />
           <Link href="/sign-in" className={buttonVariants({ variant: "ghost", size: "sm" })}>
-            Sign In
+            {t.signIn}
           </Link>
           <Link href="/sign-up" className={buttonVariants({ size: "sm" })}>
-            Join PMRFP
+            {t.join}
           </Link>
         </div>
 
         <button
           type="button"
-          aria-label="Toggle menu"
+          aria-label={t.toggleMenu}
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
           className="inline-flex size-10 items-center justify-center rounded-md text-foreground hover:bg-secondary lg:hidden"
@@ -80,23 +92,24 @@ export function SiteHeader() {
                 onClick={() => setOpen(false)}
                 className="block rounded-md px-3 py-3 text-base font-medium text-foreground hover:bg-secondary"
               >
-                {item.label}
+                {t[NAV_KEY[item.href]]}
               </Link>
             ))}
             <div className="mt-4 grid gap-2 border-t border-border pt-4">
+              <LanguageSwitcher className="justify-self-start" />
               <Link
                 href="/sign-in"
                 onClick={() => setOpen(false)}
                 className={cn(buttonVariants({ variant: "outline" }), "w-full")}
               >
-                Sign In
+                {t.signIn}
               </Link>
               <Link
                 href="/sign-up"
                 onClick={() => setOpen(false)}
                 className={cn(buttonVariants(), "w-full")}
               >
-                Join PMRFP
+                {t.join}
               </Link>
             </div>
           </div>

@@ -20,6 +20,8 @@ import { EVENT, trackEvent } from "@/lib/analytics";
 import { checkRateLimitByIp } from "@/lib/rate-limit";
 import { syncPmrfpUserToGhl } from "@/lib/ghl/sync";
 import { gcFormPath, parseAwardRef } from "@/lib/gc/packages";
+import { DEFAULT_LOCALE, isEnabledLocale, localizePath, type Locale } from "@/i18n/config";
+import { getDictionary } from "@/i18n/dictionaries";
 
 async function authIp(): Promise<string> {
   const h = await headers();
@@ -31,23 +33,49 @@ async function authIp(): Promise<string> {
   );
 }
 
-const RATE_LIMIT_MESSAGE = "Too many attempts. Please wait a minute and try again.";
-
 export interface ActionState {
   error?: string;
   success?: string;
 }
 
-const DEMO_NOTICE =
-  "Demo mode: accounts require a connected Supabase project. You can still preview the dashboards from the homepage.";
+/**
+ * The language of the form that was submitted (a hidden "lang" input from
+ * useLang()). Picks the messages returned to it and keeps redirects in that
+ * language. Missing or unknown: English, exactly as before.
+ */
+function formLang(formData: FormData): Locale {
+  const v = formData.get("lang");
+  return isEnabledLocale(v) ? v : DEFAULT_LOCALE;
+}
+
+function messages(lang: Locale) {
+  return getDictionary(lang).auth.actions;
+}
+
+/**
+ * A message we don't write ourselves (a zod schema in lib/validations, or
+ * Supabase Auth), in the form's language. English passes through untouched;
+ * other languages look the English text up in the auth dictionary and use
+ * `fallback` when it isn't there.
+ */
+function translated(group: "validation" | "upstream", message: string | undefined, lang: Locale, fallback: string): string {
+  if (!message) return fallback;
+  if (lang === DEFAULT_LOCALE) return message;
+  const en: Record<string, string> = messages(DEFAULT_LOCALE)[group];
+  const key = Object.keys(en).find((k) => en[k] === message);
+  const local: Record<string, string> = messages(lang)[group];
+  return key ? local[key] : fallback;
+}
 
 function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 60) || "company";
 }
 
 export async function signUpAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const lang = formLang(formData);
+  const m = messages(lang);
   if (await checkRateLimitByIp(await authIp(), "auth")) {
-    return { error: RATE_LIMIT_MESSAGE };
+    return { error: m.rateLimit };
   }
   const parsed = signUpSchema.safeParse({
     fullName: formData.get("fullName"),
@@ -57,10 +85,10 @@ export async function signUpAction(_prev: ActionState, formData: FormData): Prom
     company_website: formData.get("company_website") ?? "",
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Please check your details." };
+    return { error: translated("validation", parsed.error.issues[0]?.message, lang, m.checkDetails) };
   }
-  if (parsed.data.company_website) return { success: "Thanks!" }; // honeypot
-  if (!isSupabaseConfigured()) return { error: DEMO_NOTICE };
+  if (parsed.data.company_website) return { success: m.thanks }; // honeypot
+  if (!isSupabaseConfigured()) return { error: m.demo };
 
   // General contractors sign up as buyers (primary_role property_manager, so
   // they post exactly like a PM) and get a 'builder' organization at
@@ -87,7 +115,7 @@ export async function signUpAction(_prev: ActionState, formData: FormData): Prom
   if (error) {
     // Avoid leaking whether an email is already registered (account enumeration).
     console.error("[signUp]", error.message);
-    return { error: "We couldn't complete your sign-up. Please try again." };
+    return { error: m.signUpFailed };
   }
   // No welcome email here: it goes out once onboarding completes.
   const next = safeNextPath(formData.get("next")?.toString());
@@ -103,35 +131,37 @@ export async function signUpAction(_prev: ActionState, formData: FormData): Prom
   // instead of silently bouncing /onboarding → /sign-in (a dead end for
   // invited trades). The confirmation link itself carries them to /onboarding.
   if (!data.session) {
-    redirect(`/check-email?email=${encodeURIComponent(parsed.data.email)}`);
+    redirect(localizePath(`/check-email?email=${encodeURIComponent(parsed.data.email)}`, lang));
   }
-  if (isTalent) redirect("/talent/edit");
-  redirect(next ? `/onboarding?next=${encodeURIComponent(next)}` : "/onboarding");
+  if (isTalent) redirect(localizePath("/talent/edit", lang));
+  redirect(localizePath(next ? `/onboarding?next=${encodeURIComponent(next)}` : "/onboarding", lang));
 }
 
 export async function signInAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const lang = formLang(formData);
+  const m = messages(lang);
   if (await checkRateLimitByIp(await authIp(), "auth")) {
-    return { error: RATE_LIMIT_MESSAGE };
+    return { error: m.rateLimit };
   }
   const parsed = signInSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
   });
-  if (!parsed.success) return { error: "Enter your email and password." };
-  if (!isSupabaseConfigured()) return { error: DEMO_NOTICE };
+  if (!parsed.success) return { error: m.enterEmailPassword };
+  if (!isSupabaseConfigured()) return { error: m.demo };
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
-  if (error) return { error: error.message };
+  if (error) return { error: translated("upstream", error.message, lang, error.message) };
 
   const session = await getSession();
   const next = safeNextPath(formData.get("next")?.toString());
   await trackEvent(EVENT.SIGNIN_COMPLETED, { hasNext: !!next });
   if (session && !session.profile.onboarding_completed) {
-    redirect(next ? `/onboarding?next=${encodeURIComponent(next)}` : "/onboarding");
+    redirect(localizePath(next ? `/onboarding?next=${encodeURIComponent(next)}` : "/onboarding", lang));
   }
-  if (next) redirect(next);
-  redirect(session ? roleHome(session.profile.primary_role) : "/dashboard");
+  if (next) redirect(localizePath(next, lang));
+  redirect(localizePath(session ? roleHome(session.profile.primary_role) : "/dashboard", lang));
 }
 
 export async function signOutAction(): Promise<void> {
@@ -143,30 +173,34 @@ export async function signOutAction(): Promise<void> {
 }
 
 export async function forgotPasswordAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const lang = formLang(formData);
+  const m = messages(lang);
   if (await checkRateLimitByIp(await authIp(), "auth")) {
-    return { error: RATE_LIMIT_MESSAGE };
+    return { error: m.rateLimit };
   }
   const parsed = forgotPasswordSchema.safeParse({ email: formData.get("email") });
-  if (!parsed.success) return { error: "Enter a valid email." };
-  if (!isSupabaseConfigured()) return { error: DEMO_NOTICE };
+  if (!parsed.success) return { error: m.enterValidEmail };
+  if (!isSupabaseConfigured()) return { error: m.demo };
   const supabase = await createClient();
   await supabase.auth.resetPasswordForEmail(parsed.data.email, {
     redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/reset-password`,
   });
-  return { success: "If that email exists, we've sent a reset link." };
+  return { success: m.resetSent };
 }
 
 export async function resetPasswordAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const lang = formLang(formData);
+  const m = messages(lang);
   const parsed = resetPasswordSchema.safeParse({
     password: formData.get("password"),
     confirm: formData.get("confirm"),
   });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check your password." };
-  if (!isSupabaseConfigured()) return { error: DEMO_NOTICE };
+  if (!parsed.success) return { error: translated("validation", parsed.error.issues[0]?.message, lang, m.checkPassword) };
+  if (!isSupabaseConfigured()) return { error: m.demo };
   const supabase = await createClient();
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
-  if (error) return { error: error.message };
-  redirect("/dashboard");
+  if (error) return { error: translated("upstream", error.message, lang, error.message) };
+  redirect(localizePath("/dashboard", lang));
 }
 
 /**
@@ -178,13 +212,15 @@ export async function resetPasswordAction(_prev: ActionState, formData: FormData
  * onboarding carries on exactly as for an email sign-up.
  */
 export async function chooseRoleAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  if (!isSupabaseConfigured()) return { error: DEMO_NOTICE };
+  const lang = formLang(formData);
+  const m = messages(lang);
+  if (!isSupabaseConfigured()) return { error: m.demo };
   const session = await getSession();
-  if (!session) redirect("/sign-in");
+  if (!session) redirect(localizePath("/sign-in", lang));
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   const user = auth.user;
-  if (!user) redirect("/sign-in");
+  if (!user) redirect(localizePath("/sign-in", lang));
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
 
   const next = safeNextPath(formData.get("next")?.toString());
@@ -197,10 +233,10 @@ export async function chooseRoleAction(_prev: ActionState, formData: FormData): 
     formData.get("role"),
   );
   if (!pick.ok) {
-    if (pick.reason === "invalid_role") return { error: "Pick the option that fits you best." };
-    redirect(onboardingPath({ next })); // already chosen (another tab, say): carry on
+    if (pick.reason === "invalid_role") return { error: m.pickRole };
+    redirect(localizePath(onboardingPath({ next }), lang)); // already chosen (another tab, say): carry on
   }
-  const saveFailed = { error: "We couldn't save that. Please try again." };
+  const saveFailed = { error: m.saveFailed };
   if (!isServiceConfigured()) return saveFailed;
 
   const admin = createServiceClient();
@@ -217,7 +253,7 @@ export async function chooseRoleAction(_prev: ActionState, formData: FormData): 
       .eq("onboarding_completed", false)
       .select("id");
     if (error) return saveFailed;
-    if (!rows?.length) redirect(onboardingPath({ next }));
+    if (!rows?.length) redirect(localizePath(onboardingPath({ next }), lang));
   }
   // The same metadata an email sign-up writes: marks the choice as made and
   // keeps a GC's intent (read by getSignupGcIntent at onboarding).
@@ -239,7 +275,7 @@ export async function chooseRoleAction(_prev: ActionState, formData: FormData): 
     subscriptionStatus: "none",
   }, { extraTags: pick.builder ? ["pmrfp-signup", "pmrfp-gc"] : ["pmrfp-signup"] });
 
-  redirect(onboardingPath({ role: pick.builder ? "general_contractor" : null, award, next }));
+  redirect(localizePath(onboardingPath({ role: pick.builder ? "general_contractor" : null, award, next }), lang));
 }
 
 /**
@@ -247,9 +283,11 @@ export async function chooseRoleAction(_prev: ActionState, formData: FormData): 
  * and marks the profile complete. Trades require ≥1 category and ≥1 region (§24).
  */
 export async function completeOnboardingAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  if (!isSupabaseConfigured()) return { error: DEMO_NOTICE };
+  const lang = formLang(formData);
+  const m = messages(lang);
+  if (!isSupabaseConfigured()) return { error: m.demo };
   const session = await getSession();
-  if (!session) redirect("/sign-in");
+  if (!session) redirect(localizePath("/sign-in", lang));
 
   const role = session.profile.primary_role;
   const intent = formData.get("intent");
@@ -260,7 +298,7 @@ export async function completeOnboardingAction(_prev: ActionState, formData: For
   if (intent === "browsing" || role === "visitor" || role === "talent") {
     const supabase = await createClient();
     await supabase.from("users_profile").update({ onboarding_completed: true }).eq("id", session.userId);
-    redirect(next ?? "/directory");
+    redirect(localizePath(next ?? "/directory", lang));
   }
 
   const categories = formData.getAll("categories").map(String);
@@ -284,7 +322,7 @@ export async function completeOnboardingAction(_prev: ActionState, formData: For
     regions: isListing ? regions : regions.length ? regions : ["__pm__"],
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Please complete the required fields." };
+    return { error: translated("validation", parsed.error.issues[0]?.message, lang, m.completeRequired) };
   }
   const data = parsed.data;
 
@@ -321,7 +359,7 @@ export async function completeOnboardingAction(_prev: ActionState, formData: For
     })
     .select("id")
     .single<{ id: string }>();
-  if (orgErr || !org) return { error: "Could not create your organization. Please try again." };
+  if (orgErr || !org) return { error: m.orgFailed };
 
   await admin.from("organization_members").insert({
     organization_id: org.id,
@@ -372,8 +410,8 @@ export async function completeOnboardingAction(_prev: ActionState, formData: For
     profileCompletionPct: 50, // baseline after onboarding; will rise as they add logo/portfolio
   }, { extraTags: isBuilder ? ["pmrfp-onboarded", "pmrfp-gc"] : ["pmrfp-onboarded"] });
 
-  if (next) redirect(next);
+  if (next) redirect(localizePath(next, lang));
   // A GC lands straight on the package form (award prefilled if they came from one).
-  if (isBuilder) redirect(gcFormPath(parseAwardRef(formData.get("award")?.toString())));
-  redirect(isListing ? "/dashboard" : "/pm-dashboard");
+  if (isBuilder) redirect(localizePath(gcFormPath(parseAwardRef(formData.get("award")?.toString())), lang));
+  redirect(localizePath(isListing ? "/dashboard" : "/pm-dashboard", lang));
 }

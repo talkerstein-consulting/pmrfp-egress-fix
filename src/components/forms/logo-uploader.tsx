@@ -18,16 +18,18 @@ import { ImagePlus, Loader2, AlertTriangle, Trash2 } from "lucide-react";
 import { createClient as createBrowserClient } from "@/lib/supabase/browser";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { useT } from "@/i18n/provider";
+import { fmt } from "@/i18n/format";
 
 const MAX_SIZE_BYTES = 2 * 1024 * 1024;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/svg+xml"];
 const TARGET = 250; // every stored raster logo is normalized to TARGET×TARGET
 
-function loadImage(src: string): Promise<HTMLImageElement> {
+function loadImage(src: string, unreadable: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new window.Image();
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Could not read that image file."));
+    img.onerror = () => reject(new Error(unreadable));
     img.src = src;
   });
 }
@@ -39,13 +41,14 @@ function loadImage(src: string): Promise<HTMLImageElement> {
  */
 async function normalizeLogo(
   file: File,
+  unreadable: string,
 ): Promise<{ blob: Blob; ext: string; contentType: string }> {
   if (file.type === "image/svg+xml") {
     return { blob: file, ext: "svg", contentType: "image/svg+xml" };
   }
   const url = URL.createObjectURL(file);
   try {
-    const img = await loadImage(url);
+    const img = await loadImage(url, unreadable);
     const canvas = document.createElement("canvas");
     canvas.width = TARGET;
     canvas.height = TARGET;
@@ -70,14 +73,15 @@ async function normalizeLogo(
 export function LogoUploader({
   organizationId,
   initialLogoUrl,
-  label = "Company logo",
-  helpText = "Upload any size, we fit it to a clean 250×250 tile. JPEG, PNG, WebP, or SVG. Replaces the existing logo.",
+  label,
+  helpText,
 }: {
   organizationId: string | null;
   initialLogoUrl?: string | null;
   label?: string;
   helpText?: string;
 }) {
+  const t = useT("dashClient").logo;
   const [logoUrl, setLogoUrl] = useState<string | null>(initialLogoUrl ?? null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -91,22 +95,22 @@ export function LogoUploader({
   function handleFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
     if (!organizationId) {
-      setError("Save your basic profile first, then upload a logo.");
+      setError(t.saveFirst);
       return;
     }
     const f = fileList[0];
     if (!ACCEPTED_TYPES.includes(f.type)) {
-      setError(`"${f.name}" — only JPEG, PNG, WebP, or SVG are allowed.`);
+      setError(fmt(t.badType, { name: f.name }));
       return;
     }
     if (f.size > MAX_SIZE_BYTES) {
-      setError(`"${f.name}" is over 2 MB. Compress and try again.`);
+      setError(fmt(t.tooBig, { name: f.name }));
       return;
     }
 
     startTransition(async () => {
       try {
-        const { blob, ext, contentType } = await normalizeLogo(f);
+        const { blob, ext, contentType } = await normalizeLogo(f, t.unreadable);
         const supabase = createBrowserClient();
         const id = crypto.randomUUID();
         const path = `${organizationId}/logo-${id}.${ext}`;
@@ -116,13 +120,13 @@ export function LogoUploader({
           cacheControl: "31536000",
         });
         if (upErr) {
-          setError(`Upload failed: ${upErr.message}`);
+          setError(fmt(t.uploadFailed, { message: upErr.message }));
           return;
         }
         const { data: pub } = supabase.storage.from("logos").getPublicUrl(path);
         setLogoUrl(pub.publicUrl);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not process that image.");
+        setError(err instanceof Error ? err.message : t.processFailed);
       }
     });
   }
@@ -136,8 +140,8 @@ export function LogoUploader({
 
   return (
     <div>
-      <Label className="mb-1.5 block">{label}</Label>
-      <p className="mb-3 text-xs text-muted-foreground">{helpText}</p>
+      <Label className="mb-1.5 block">{label ?? t.label}</Label>
+      <p className="mb-3 text-xs text-muted-foreground">{helpText ?? t.help}</p>
 
       <input type="hidden" name="logoUrl" value={logoUrl ?? ""} />
       <input
@@ -160,7 +164,7 @@ export function LogoUploader({
           {logoUrl ? (
             <Image
               src={logoUrl}
-              alt="Company logo"
+              alt={t.alt}
               fill
               sizes="128px"
               className="object-contain p-2"
@@ -168,7 +172,7 @@ export function LogoUploader({
             />
           ) : (
             <div className="flex size-full items-center justify-center text-xs text-muted-foreground">
-              No logo
+              {t.none}
             </div>
           )}
         </div>
@@ -187,12 +191,12 @@ export function LogoUploader({
             {isPending ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                Uploading…
+                {t.uploading}
               </>
             ) : (
               <>
                 <ImagePlus className="size-4" />
-                {logoUrl ? "Replace logo" : "Upload logo"}
+                {logoUrl ? t.replace : t.upload}
               </>
             )}
           </button>
@@ -203,11 +207,11 @@ export function LogoUploader({
               className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground hover:border-red-300 hover:bg-red-50 hover:text-red-700"
             >
               <Trash2 className="size-4" />
-              Remove
+              {t.remove}
             </button>
           )}
           {!organizationId && (
-            <p className="text-xs text-amber-700">Logo upload requires a saved profile.</p>
+            <p className="text-xs text-amber-700">{t.needsProfile}</p>
           )}
         </div>
       </div>

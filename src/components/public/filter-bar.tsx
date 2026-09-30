@@ -14,13 +14,24 @@ import {
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { cn } from "@/lib/utils";
+import { useLang, useT } from "@/i18n/provider";
+import { propertyTypeName, regionName, tradeName } from "@/i18n/terms";
+import { fmt } from "@/i18n/format";
+import type { Locale } from "@/i18n/config";
 
 type Option = { slug: string; name: string };
 
+/** Display names in the visitor's language (slugs untouched). */
+function localize(options: Option[], lang: Locale, name: (n: string, l: Locale) => string, sort = false): Option[] {
+  if (lang === "en") return options;
+  const out = options.map((o) => ({ ...o, name: name(o.name, lang) }));
+  return sort ? out.sort((a, b) => a.name.localeCompare(b.name, lang)) : out;
+}
+
 export function FilterBar({
-  categories,
-  regions,
-  propertyTypes,
+  categories: rawCategories,
+  regions: rawRegions,
+  propertyTypes: rawPropertyTypes,
   showVerified,
   sortOptions,
   sticky = true,
@@ -33,6 +44,12 @@ export function FilterBar({
   /** Stick the bar to the top on scroll. Default true. */
   sticky?: boolean;
 }) {
+  const t = useT("boardClient").filter;
+  const lang = useLang();
+  const categories = useMemo(() => localize(rawCategories, lang, tradeName), [rawCategories, lang]);
+  const regions = useMemo(() => localize(rawRegions, lang, regionName), [rawRegions, lang]);
+  // Property types arrive sorted by English name; keep them alphabetical.
+  const propertyTypes = useMemo(() => localize(rawPropertyTypes, lang, propertyTypeName, true), [rawPropertyTypes, lang]);
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -58,22 +75,22 @@ export function FilterBar({
     const pt = params.get("propertyType");
     const ver = params.get("verified");
     const kw = params.get("q");
-    if (kw) out.push({ key: "q", label: "Keyword", value: kw });
+    if (kw) out.push({ key: "q", label: t.keyword, value: kw });
     if (cat) {
       const m = categories.find((c) => c.slug === cat);
-      out.push({ key: "category", label: "Category", value: m?.name ?? cat });
+      out.push({ key: "category", label: t.category, value: m?.name ?? cat });
     }
     if (reg) {
       const m = regions.find((r) => r.slug === reg);
-      out.push({ key: "region", label: "Region", value: m?.name ?? reg });
+      out.push({ key: "region", label: t.region, value: m?.name ?? reg });
     }
     if (pt) {
       const m = propertyTypes.find((p) => p.slug === pt);
-      out.push({ key: "propertyType", label: "Property type", value: m?.name ?? pt });
+      out.push({ key: "propertyType", label: t.propertyType, value: m?.name ?? pt });
     }
-    if (ver) out.push({ key: "verified", label: "Verified", value: "Only verified" });
+    if (ver) out.push({ key: "verified", label: t.chipVerified, value: t.chipVerifiedValue });
     return out;
-  }, [params, categories, regions, propertyTypes]);
+  }, [params, categories, regions, propertyTypes, t]);
 
   return (
     <div className={cn(sticky && "sticky top-[72px] z-30 -mx-4 px-4 pt-4 sm:-mx-0 sm:px-0 sm:pt-0")}>
@@ -90,7 +107,7 @@ export function FilterBar({
             update("q", q || null);
           }}
         >
-          <label className="eyebrow mb-1 block text-muted-foreground">Keyword</label>
+          <label className="eyebrow mb-1 block text-muted-foreground">{t.keyword}</label>
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -101,46 +118,50 @@ export function FilterBar({
                 // their keyword.
                 if ((params.get("q") ?? "") !== q) update("q", q || null);
               }}
-              placeholder="Search…"
+              placeholder={t.search}
               className="h-9 pl-8"
             />
           </div>
         </form>
 
-        <FilterField label="Category">
+        <FilterField label={t.category}>
           <SearchableSelect
             options={categories}
             value={params.get("category")}
             onChange={(v) => update("category", v)}
-            placeholder="All categories"
-            allLabel="All categories"
+            placeholder={t.allCategories}
+            allLabel={t.allCategories}
+            emptyText={t.noMatches}
           />
         </FilterField>
 
-        <FilterField label="Region">
+        <FilterField label={t.region}>
           <SearchableSelect
             options={regions}
             value={params.get("region")}
             onChange={(v) => update("region", v)}
-            placeholder="All regions"
-            allLabel="All regions"
+            placeholder={t.allRegions}
+            allLabel={t.allRegions}
+            emptyText={t.noMatches}
           />
         </FilterField>
 
-        <FilterField label="Property type">
+        <FilterField label={t.propertyType}>
           <SearchableSelect
             options={propertyTypes}
             value={params.get("propertyType")}
             onChange={(v) => update("propertyType", v)}
-            placeholder="All property types"
-            allLabel="All property types"
+            placeholder={t.allPropertyTypes}
+            allLabel={t.allPropertyTypes}
+            emptyText={t.noMatches}
           />
         </FilterField>
 
         {sortOptions && (
-          <FilterField label="Sort" widthClass="sm:w-44">
+          <FilterField label={t.sort} widthClass="sm:w-44">
             {/* Sort stays a plain Select — only 2-3 options, no search needed. */}
-            <Select value={params.get("sort") ?? sortOptions[0]?.value} onValueChange={(v) => update("sort", v)}>
+            {/* items: the trigger shows the label (not the raw value), server-rendered too. */}
+            <Select items={sortOptions} value={params.get("sort") ?? sortOptions[0]?.value} onValueChange={(v) => update("sort", v)}>
               <SelectTrigger className="h-9 w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {sortOptions.map((o) => (
@@ -169,7 +190,7 @@ export function FilterBar({
                   params.get("verified") ? "bg-teal-ink" : "bg-border",
                 )}
               />
-              Verified only
+              {t.verifiedOnly}
             </button>
           </div>
         )}
@@ -177,7 +198,7 @@ export function FilterBar({
 
       {activeChips.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">Filters</span>
+          <span className="text-xs uppercase tracking-wide text-muted-foreground">{t.filters}</span>
           {activeChips.map((c) => (
             <button
               key={c.key}
@@ -188,7 +209,7 @@ export function FilterBar({
               }}
               className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-foreground/80 hover:border-teal-400 hover:text-foreground"
             >
-              <span className="text-muted-foreground">{c.label}:</span>
+              <span className="text-muted-foreground">{fmt(t.chipLabel, { label: c.label })}</span>
               <span className="text-foreground">{c.value}</span>
               <X className="size-3 text-muted-foreground" />
             </button>
@@ -200,7 +221,7 @@ export function FilterBar({
             onClick={clearAll}
             className="ml-1 h-7 px-2 text-xs"
           >
-            Clear all
+            {t.clearAll}
           </Button>
         </div>
       )}

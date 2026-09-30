@@ -1,8 +1,10 @@
-import Link from "next/link";
+import Link from "@/i18n/link";
 import { AlertTriangle, CheckCircle2, ClipboardCheck, Lock, MinusCircle } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { bidCheckRows, type BidCheck } from "@/lib/bid-check/schema";
 import { cn } from "@/lib/utils";
+import { getLang, getT } from "@/i18n/server";
+import { fmt } from "@/i18n/format";
 
 /**
  * "Can my company bid?" on an open RFP. The plain-English summary is free for
@@ -22,31 +24,43 @@ export function BidChecklist({
   /** The source notice is in French (SEAO): say the summary is a translation. */
   translated?: boolean;
 }) {
-  const rows = bidCheckRows(check);
+  const t = getT("shared").checklist;
+  const lang = getLang();
+  // Row labels come from the schema in English; the checklist namespace has them by key.
+  const rows = bidCheckRows(check).map((r) => {
+    if (lang === "en") return r;
+    const optional = r.key === "siteVisit" && r.state === "no" && r.value.startsWith("Optional");
+    return {
+      ...r,
+      label: t.rows[r.key] ?? r.label,
+      // "Optional: <detail>" → "Facultative : <detail>" / "Opcional: <detail>" (the detail is the notice's own text).
+      value: optional ? t.optional + r.value.slice("Optional".length).replace(/^:/, lang === "fr" ? " :" : ":") : r.value,
+    };
+  });
   const stated = rows.filter((r) => r.state !== "unknown");
   const unstated = rows.filter((r) => r.state === "unknown");
 
   return (
     <section className="rounded-2xl border border-teal-300/60 bg-teal-50/40 p-6">
       <h2 className="flex items-center gap-2 text-lg font-semibold">
-        <ClipboardCheck className="size-5 text-teal-700" /> Can my company bid?
+        <ClipboardCheck className="size-5 text-teal-700" /> {t.title}
       </h2>
       <p className="mt-3 leading-relaxed text-foreground">{check.plainSummary}</p>
-      {translated && <p className="mt-1 text-xs text-muted-foreground">Summarized in English from the French notice.</p>}
+      {translated && <p className="mt-1 text-xs text-muted-foreground">{t.translated}</p>}
 
       {locked ? (
         <div className="mt-5 rounded-xl border border-border bg-card p-4">
           <p className="flex items-center gap-2 text-sm font-medium">
             <Lock className="size-4 text-teal-700" />
             {stated.length > 0
-              ? `The notice states ${stated.length} of ${rows.length} bid requirements: ${stated.map((r) => r.label.toLowerCase()).join(", ")}.`
-              : "See which bid requirements this notice states, and which it leaves to the documents."}
+              ? fmt(t.statesSome, { stated: stated.length, total: rows.length, list: stated.map((r) => r.label.toLowerCase()).join(", ") })
+              : t.statesNone}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Trade Pro shows the full checklist and watch-outs on every tender, so you can skip the ones you can&apos;t bid.
+            {t.lockedBody}
           </p>
           <Link href={proHref} className={cn(buttonVariants({ size: "sm" }), "mt-3")}>
-            See the bid checklist with Trade Pro
+            {t.lockedCta}
           </Link>
         </div>
       ) : (
@@ -63,15 +77,16 @@ export function BidChecklist({
                     )}
                     {r.label}
                   </dt>
-                  <dd className="text-muted-foreground">{r.value || (r.state === "no" ? "Not required" : "Required")}</dd>
+                  <dd className="text-muted-foreground">{r.value || (r.state === "no" ? t.notRequired : t.required)}</dd>
                 </div>
               ))}
             </dl>
           )}
           {unstated.length > 0 && (
             <p className="mt-3 text-sm text-muted-foreground">
-              <strong className="font-medium text-foreground">Not stated in the notice:</strong>{" "}
-              {unstated.map((r) => r.label.toLowerCase()).join(", ")}. Check the solicitation documents before you price it.
+              <strong className="font-medium text-foreground">{t.notStated}</strong>{" "}
+              {unstated.map((r) => r.label.toLowerCase()).join(", ")}
+              {t.notStatedAfter}
             </p>
           )}
           {check.watchOuts.length > 0 && (
@@ -87,7 +102,7 @@ export function BidChecklist({
         </>
       )}
       <p className="mt-4 text-xs text-muted-foreground">
-        Read from the notice text by AI. Confirm every requirement in the official solicitation documents before you bid.
+        {t.footnote}
       </p>
     </section>
   );

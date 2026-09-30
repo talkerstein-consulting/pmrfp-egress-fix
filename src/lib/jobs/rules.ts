@@ -1,4 +1,6 @@
 import { z } from "zod";
+import type { Locale } from "@/i18n/config";
+import { fmt, formatNumber } from "@/i18n/format";
 
 /**
  * Jobs on PMRFP: companies hire people (GCs, trades, property managers,
@@ -36,6 +38,57 @@ export const FREE_JOB_LIMIT = 3;
 /** Days a posting stays up before it expires (renewable). */
 export const JOB_DAYS = 30;
 
+/**
+ * What the jobs forms can hear back from the server, in English: the zod
+ * messages below, lib/jobs/actions and /api/jobs/apply (keep these identical
+ * to the text that route sends). Other languages translate by key
+ * (jobsClient.errors.jobs) through localMessage.
+ */
+export const JOB_MESSAGES = {
+  jobTitle: "Give the job a title.",
+  pickTrade: "Pick the trade.",
+  pickRegion: "Pick the region.",
+  addCity: "Add the city or area.",
+  pickType: "Pick the type of job.",
+  describe: "Describe the job in at least a couple of sentences.",
+  payRange: "The top of the pay range is lower than the bottom.",
+  addName: "Add your name.",
+  badEmail: "That email doesn't look right.",
+  checkForm: "Please check the form.",
+  signInToPost: "Sign in to post a job.",
+  finishProfile: "Finish setting up your company profile first.",
+  needsApproval: "Your company profile needs to be approved before you can post jobs.",
+  unavailable: "This isn't available right now.",
+  freeLimitPost: `Free accounts can have ${FREE_JOB_LIMIT} open jobs at a time. Close one, or upgrade to Trade Pro for unlimited job posts.`,
+  freeLimitRenew: `Free accounts can have ${FREE_JOB_LIMIT} open jobs at a time. Close one first, or upgrade to Trade Pro.`,
+  switchingOn: "Job posting is switching on. Try again in a few minutes.",
+  couldNotPost: "Could not post the job. Please try again.",
+  unknownJob: "Unknown job.",
+  notYours: "That job isn't yours.",
+  couldNotUpdate: "Could not update the job.",
+  noLongerOpen: "This job is no longer taking applications.",
+  couldNotApply: "Could not send your application. Please try again.",
+};
+
+/**
+ * A message the server sent in English, in the reader's language. English
+ * passes through untouched; other languages look the text up in `en` (a
+ * *_MESSAGES registry) and use the same key in `local`, or `fallback` when
+ * the text isn't known (a zod default, a network error).
+ */
+export function localMessage<K extends string>(
+  message: string | undefined,
+  lang: Locale,
+  en: Record<K, string>,
+  local: Record<K, string>,
+  fallback: string,
+): string {
+  if (!message) return fallback;
+  if (lang === "en") return message;
+  const key = (Object.keys(en) as K[]).find((k) => en[k] === message);
+  return key ? local[key] : fallback;
+}
+
 export function canPostJob(openJobs: number, pro: boolean): boolean {
   return pro || openJobs < FREE_JOB_LIMIT;
 }
@@ -53,28 +106,59 @@ export function payLabel(min: number | null, max: number | null, unit: PayUnit |
   return `Up to ${money(max!)}${per}`;
 }
 
+/** Words for payLabelIn, from jobsClient.pay. */
+export interface PayWords {
+  unit: Record<PayUnit, string>;
+  range: string;
+  from: string;
+  upTo: string;
+}
+
+/**
+ * payLabel in the reader's language: English is payLabel exactly; French reads
+ * "32 $ à 40 $ l'heure"; Spanish (U.S. style, dollar sign first) "$32 a $40 por hora".
+ */
+export function payLabelIn(
+  lang: Locale,
+  words: PayWords,
+  min: number | null,
+  max: number | null,
+  unit: PayUnit | null,
+): string {
+  if (lang === "en") return payLabel(min, max, unit);
+  if (min == null && max == null) return "";
+  const amount = (n: number) => {
+    const num = formatNumber(n, lang, Number.isInteger(n) ? {} : { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return lang === "fr" ? `${num} $` : `$${num}`;
+  };
+  const per = unit ? ` ${words.unit[unit]}` : "";
+  if (min != null && max != null && max > min) return `${fmt(words.range, { min: amount(min), max: amount(max) })}${per}`;
+  if (min != null && (max == null || max === min)) return `${max === min ? amount(min) : fmt(words.from, { amount: amount(min) })}${per}`;
+  return `${fmt(words.upTo, { amount: amount(max!) })}${per}`;
+}
+
 export const jobSchema = z
   .object({
-    title: z.string().trim().min(4, "Give the job a title.").max(120),
-    category: z.string().trim().min(1, "Pick the trade."),
-    region: z.string().trim().min(1, "Pick the region."),
-    city: z.string().trim().min(2, "Add the city or area.").max(80),
-    employmentType: z.enum(EMPLOYMENT_TYPES, "Pick the type of job."),
+    title: z.string().trim().min(4, JOB_MESSAGES.jobTitle).max(120),
+    category: z.string().trim().min(1, JOB_MESSAGES.pickTrade),
+    region: z.string().trim().min(1, JOB_MESSAGES.pickRegion),
+    city: z.string().trim().min(2, JOB_MESSAGES.addCity).max(80),
+    employmentType: z.enum(EMPLOYMENT_TYPES, JOB_MESSAGES.pickType),
     payMin: z.coerce.number().min(0).max(1_000_000).optional(),
     payMax: z.coerce.number().min(0).max(1_000_000).optional(),
     payUnit: z.enum(PAY_UNITS).optional(),
-    description: z.string().trim().min(40, "Describe the job in at least a couple of sentences.").max(5000),
+    description: z.string().trim().min(40, JOB_MESSAGES.describe).max(5000),
     requirements: z.string().trim().max(3000).optional(),
   })
   .refine((d) => d.payMin == null || d.payMax == null || d.payMax >= d.payMin, {
-    message: "The top of the pay range is lower than the bottom.",
+    message: JOB_MESSAGES.payRange,
     path: ["payMax"],
   });
 
 export const applicationSchema = z.object({
   slug: z.string().trim().min(3).max(90),
-  name: z.string().trim().min(2, "Add your name.").max(80),
-  email: z.email("That email doesn't look right.").max(120),
+  name: z.string().trim().min(2, JOB_MESSAGES.addName).max(80),
+  email: z.email(JOB_MESSAGES.badEmail).max(120),
   phone: z.string().trim().max(30).optional().default(""),
   experienceYears: z.coerce.number().int().min(0).max(60).optional(),
   certifications: z.string().trim().max(500).optional().default(""),

@@ -18,6 +18,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useT } from "@/i18n/provider";
 
 export interface SearchableOption {
   slug: string;
@@ -28,19 +29,21 @@ export function SearchableSelect({
   options,
   value,
   onChange,
-  placeholder = "All",
-  allLabel = "All",
-  emptyText = "No matches",
+  placeholder,
+  allLabel,
+  emptyText,
   className,
 }: {
   options: SearchableOption[];
   value: string | null;
   onChange: (slug: string | null) => void;
+  /** placeholder and allLabel default to "All", emptyText to "No matches", in the visitor's language. */
   placeholder?: string;
   allLabel?: string;
   emptyText?: string;
   className?: string;
 }) {
+  const t = useT("sharedClient").select;
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [highlightIdx, setHighlightIdx] = useState(0);
@@ -117,7 +120,7 @@ export function SearchableSelect({
           !selected && "text-muted-foreground",
         )}
       >
-        <span className="line-clamp-1 text-left">{selected ? selected.name : placeholder}</span>
+        <span className="line-clamp-1 text-left">{selected ? selected.name : placeholder ?? t.all}</span>
         <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
       </button>
 
@@ -138,7 +141,7 @@ export function SearchableSelect({
                   setHighlightIdx(0);
                 }}
                 onKeyDown={onKeyDown}
-                placeholder="Search…"
+                placeholder={t.search}
                 className="h-8 w-full rounded-md border border-transparent bg-secondary/40 pl-8 pr-7 text-sm outline-none focus:border-ring focus:bg-background"
               />
               {query && (
@@ -149,7 +152,7 @@ export function SearchableSelect({
                     inputRef.current?.focus();
                   }}
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-secondary"
-                  aria-label="Clear search"
+                  aria-label={t.clearSearch}
                 >
                   <X className="size-3.5" />
                 </button>
@@ -168,13 +171,13 @@ export function SearchableSelect({
                   highlightIdx === -1 ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary/60",
                 )}
               >
-                <span>{allLabel}</span>
+                <span>{allLabel ?? t.all}</span>
                 {value === null && <Check className="size-3.5 text-teal-ink" />}
               </button>
             </li>
 
             {filtered.length === 0 ? (
-              <li className="px-2 py-6 text-center text-xs text-muted-foreground">{emptyText}</li>
+              <li className="px-2 py-6 text-center text-xs text-muted-foreground">{emptyText ?? t.empty}</li>
             ) : (
               filtered.map((o, i) => (
                 <li key={o.slug}>

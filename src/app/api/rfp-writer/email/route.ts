@@ -15,6 +15,7 @@ const bodySchema = z.object({
   name: z.string().trim().max(120).optional(),
   rfp: rfpDraftSchema,
   tradeName: z.string().trim().max(120).optional(),
+  lang: z.enum(["en", "fr", "es"]).optional(),
   // Honeypot — must stay empty.
   company_website: z.string().max(0).optional(),
 });
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
 
   const [firstName, ...rest] = (d.name ?? "").split(/\s+/).filter(Boolean);
   await Promise.allSettled([
-    sendRfpDraftEmail(d.email, d.rfp),
+    sendRfpDraftEmail(d.email, d.rfp, d.lang ?? "en"),
     upsertGhlContact({
       email: d.email,
       firstName,

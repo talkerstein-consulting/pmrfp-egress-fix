@@ -7,7 +7,7 @@
  * site's existing SiteHeader / SiteFooter chrome.
  */
 
-import Link from "next/link";
+import Link from "@/i18n/link";
 import { useEffect, useRef, useState } from "react";
 import "./pmrfp-v2.css";
 import { DxCheck, DxVChip, Rv, FinalCta, DisclaimerStrip, usePrefersReducedMotion } from "./shared";

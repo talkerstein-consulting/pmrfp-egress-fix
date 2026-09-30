@@ -7,10 +7,33 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { COPY } from "@/lib/site";
 import { RfpPhotoUploader } from "@/components/forms/rfp-photo-uploader";
+import { useLang, useT } from "@/i18n/provider";
+import { fmt } from "@/i18n/format";
+import { propertyTypeName, regionName, tradeName } from "@/i18n/terms";
+import type { ClientMessages } from "@/i18n/dictionaries";
 
 type Option = { slug: string; name: string };
+
+/**
+ * createRfpAction (src/lib/dashboard/actions.ts) and rfpPostSchema answer in
+ * English. Known messages are shown from pmClient.actions; anything else as-is.
+ */
+const ACTION_MESSAGE_KEYS: Record<string, keyof ClientMessages["pmClient"]["actions"]> = {
+  "Demo mode: connect a Supabase project to save changes.": "demo",
+  "Title is required": "titleRequired",
+  "A short summary is required": "summaryRequired",
+  "Project scope is required": "scopeRequired",
+  "Select at least one category": "categoryRequired",
+  "Region is required": "regionRequired",
+  "Too small: expected number to be >=0": "budgetNegative",
+  "Invalid input: expected date, received Date": "deadlineInvalid",
+  "Deadline cannot be in the past": "deadlinePast",
+  "Invalid email address": "emailInvalid",
+  "You must accept the terms": "termsRequired",
+  "Please complete the required fields.": "incomplete",
+  "Could not create the RFP.": "createFailed",
+};
 
 export interface RfpPostDefaults {
   title?: string;
@@ -36,7 +59,7 @@ export interface RfpPostDefaults {
 /** Same key the RFP Writer saves to (components/rfp-writer/wizard.tsx). */
 const WRITER_DRAFT_KEY = "pmrfp:rfp-draft";
 
-function readWriterDraft(): RfpPostDefaults | undefined {
+function readWriterDraft(headings: { evaluation: string; questions: string }): RfpPostDefaults | undefined {
   try {
     const raw = window.localStorage.getItem(WRITER_DRAFT_KEY);
     if (!raw) return undefined;
@@ -46,10 +69,10 @@ function readWriterDraft(): RfpPostDefaults | undefined {
     const bullets = (items: unknown) =>
       Array.isArray(items) ? items.map((i: string) => `- ${i}`).join("\n") : "";
     const evaluation = bullets(r.evaluationCriteria)
-      ? `\n\nHow bids will be evaluated:\n${bullets(r.evaluationCriteria)}`
+      ? `\n\n${headings.evaluation}\n${bullets(r.evaluationCriteria)}`
       : "";
     const questions = bullets(r.questionsForBidders)
-      ? `\n\nPlease answer in your bid:\n${bullets(r.questionsForBidders)}`
+      ? `\n\n${headings.questions}\n${bullets(r.questionsForBidders)}`
       : "";
     return {
       title: r.title,
@@ -87,120 +110,129 @@ export function RfpPostForm({
   /** ?draft=1 — prefill from the RFP Writer's saved draft (same browser). */
   loadWriterDraft?: boolean;
 }) {
+  const pm = useT("pmClient");
+  const t = pm.form;
+  const lang = useLang();
   const [state, action, pending] = useActionState(createRfpAction, {} as ActionState);
   const [writerDraft, setWriterDraft] = useState<RfpPostDefaults | undefined>(undefined);
   useEffect(() => {
     // localStorage only exists in the browser, so this can't be a server default.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (loadWriterDraft) setWriterDraft(readWriterDraft());
-  }, [loadWriterDraft]);
+    if (loadWriterDraft) setWriterDraft(readWriterDraft({ evaluation: t.draftEvaluation, questions: t.draftQuestions }));
+  }, [loadWriterDraft, t.draftEvaluation, t.draftQuestions]);
   const defaults = writerDraft ?? serverDefaults;
   const preselected = new Set(defaults?.categories ?? []);
+  const errorKey = state.error ? ACTION_MESSAGE_KEYS[state.error] : undefined;
+  const error = (errorKey && pm.actions[errorKey]) || state.error;
   return (
     // Re-mount when the writer draft arrives so the uncontrolled inputs pick it up.
     <form key={writerDraft ? "writer" : "blank"} action={action} className="space-y-6">
-      {state.error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>}
+      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
       {defaults?.fromWriter && (
         <div className="rounded-md border border-teal-300 bg-teal-100 px-4 py-3 text-sm text-teal-ink">
-          <span className="font-semibold">Pre-filled from the RFP Writer.</span> Pick your region, check
-          everything, then submit.
+          <span className="font-semibold">{t.fromWriterStrong}</span> {t.fromWriterBody}
         </div>
       )}
 
       {defaults?.templateName && (
         <div className="rounded-md border border-teal-300 bg-teal-100 px-4 py-3 text-sm text-teal-ink">
-          <span className="font-semibold">Pre-filled from template:</span> {defaults.templateName}.
-          Edit anything before submitting.
+          <span className="font-semibold">{t.templateStrong}</span> {fmt(t.templateBody, { name: defaults.templateName })}
         </div>
       )}
 
       <p className="rounded-md border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-        Clear requests get more — and more comparable — bids.{" "}
+        {t.guideIntro}{" "}
         <a href="/resources/how-to-post-a-quality-rfp" target="_blank" rel="noopener" className="font-medium text-teal-700 underline">
-          The 7-step guide to posting a quality RFP
+          {t.guideLink}
         </a>
       </p>
 
-      <Section title="Project">
-        <Field label="RFP title" req hint="Name the work, the property type and the city.">
-          <Input name="title" required defaultValue={defaults?.title ?? ""} placeholder="e.g. Condominium Electrical Maintenance Contract" />
+      <Section title={t.sections.project}>
+        <Field label={t.title} req hint={t.titleHint}>
+          <Input name="title" required defaultValue={defaults?.title ?? ""} placeholder={t.titlePlaceholder} />
         </Field>
-        <Field label="Short summary" req hint="Two sentences: what you need, plus the one detail that shapes the price.">
+        <Field label={t.summary} req hint={t.summaryHint}>
           <Textarea name="summary" rows={2} required defaultValue={defaults?.summary ?? ""} />
         </Field>
-        <Field label="Full scope" req hint="Cover the building and access, the work, what's included, what's excluded, and any add-alternates to price separately.">
+        <Field label={t.scope} req hint={t.scopeHint}>
           <Textarea name="scope" rows={defaults?.scope ? 12 : 5} required defaultValue={defaults?.scope ?? ""} />
         </Field>
-        <Field label="Requirements" hint="Insurance (and who's named as additional insured), workers' comp (WSIB/WCB in Canada, state coverage in the U.S.), licences for the trade, and references.">
-          <Textarea name="requirements" rows={defaults?.requirements ? 8 : 3} defaultValue={defaults?.requirements ?? ""} placeholder="Insurance, licensing, references, etc." />
+        <Field label={t.requirements} hint={t.requirementsHint}>
+          <Textarea name="requirements" rows={defaults?.requirements ? 8 : 3} defaultValue={defaults?.requirements ?? ""} placeholder={t.requirementsPlaceholder} />
         </Field>
       </Section>
 
-      <Section title="Classification">
-        <CheckboxGroup label="Categories" name="categories" options={categories} req preselected={preselected} />
+      <Section title={t.sections.classification}>
+        <CheckboxGroup
+          label={t.categories}
+          name="categories"
+          options={categories.map((c) => ({ slug: c.slug, name: tradeName(c.name, lang) }))}
+          req
+          preselected={preselected}
+        />
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Property type">
+          <Field label={t.propertyType}>
             <select name="propertyType" defaultValue={defaults?.propertyType ?? ""} className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm">
-              <option value="">Select…</option>
-              {propertyTypes.map((p) => <option key={p.slug} value={p.slug}>{p.name}</option>)}
+              <option value="">{t.select}</option>
+              {propertyTypes.map((p) => <option key={p.slug} value={p.slug}>{propertyTypeName(p.name, lang)}</option>)}
             </select>
           </Field>
-          <Field label="Region" req>
+          <Field label={t.region} req>
             <select name="regionSlug" required defaultValue={defaults?.regionSlug ?? ""} className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm">
-              <option value="">Select…</option>
-              {regions.map((r) => <option key={r.slug} value={r.slug}>{r.name}</option>)}
+              <option value="">{t.select}</option>
+              {regions.map((r) => <option key={r.slug} value={r.slug}>{regionName(r.name, lang)}</option>)}
             </select>
           </Field>
-          <Field label="City"><Input name="city" defaultValue={defaults?.city ?? ""} /></Field>
-          <Field label="Province / state"><Input name="province" defaultValue={defaults?.province ?? "Ontario"} /></Field>
+          <Field label={t.city}><Input name="city" defaultValue={defaults?.city ?? ""} /></Field>
+          <Field label={t.province}><Input name="province" defaultValue={defaults?.province ?? "Ontario"} /></Field>
         </div>
       </Section>
 
-      <Section title="Photos">
+      <Section title={t.sections.photos}>
         <RfpPhotoUploader organizationId={organizationId} />
       </Section>
 
-      <Section title="Budget & timeline">
+      <Section title={t.sections.budget}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Budget min" hint="In the property's currency: CAD in Canada, USD in the U.S."><Input name="budgetMin" type="number" defaultValue={defaults?.budgetMin ?? ""} /></Field>
-          <Field label="Budget max"><Input name="budgetMax" type="number" defaultValue={defaults?.budgetMax ?? ""} /></Field>
+          <Field label={t.budgetMin} hint={t.budgetMinHint}><Input name="budgetMin" type="number" defaultValue={defaults?.budgetMin ?? ""} /></Field>
+          <Field label={t.budgetMax}><Input name="budgetMax" type="number" defaultValue={defaults?.budgetMax ?? ""} /></Field>
         </div>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="budgetPublic" className="size-4" /> Show budget publicly
+          <input type="checkbox" name="budgetPublic" className="size-4" /> {t.budgetPublic}
         </label>
-        <Field label="Submission deadline" req hint="Allow three weeks for capital work or multi-year contracts, and one to two weeks for small jobs."><Input name="deadline" type="date" required defaultValue={defaults?.deadline ?? ""} /></Field>
-        <Field label="Submission instructions" hint="What to send, the site-walk date, the question cut-off, and how you'll score bids.">
+        <Field label={t.deadline} req hint={t.deadlineHint}><Input name="deadline" type="date" required defaultValue={defaults?.deadline ?? ""} /></Field>
+        <Field label={t.instructions} hint={t.instructionsHint}>
           <Textarea
             name="submissionInstructions"
             rows={defaults?.submissionInstructions ? 10 : 3}
             defaultValue={defaults?.submissionInstructions ?? ""}
-            placeholder="e.g. Lump-sum price for the base scope, add-alternates priced separately. Include insurance certificate, WSIB clearance, schedule and 3 references. Site walk May 12, 10 a.m. Evaluation: price 40%, experience 30%, scope coverage 20%, schedule 10%."
+            placeholder={t.instructionsPlaceholder}
           />
         </Field>
       </Section>
 
-      <Section title="Contact">
-        <Field label="Contact visibility" req>
+      <Section title={t.sections.contact}>
+        <Field label={t.visibility} req>
           <select name="contactVisibility" defaultValue="pmrfp_mediated" className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm">
-            <option value="public_contact">Public — paid members see my contact details</option>
-            <option value="pmrfp_mediated">Mediated — vendors express interest through PMRFP</option>
-            <option value="anonymous_until_interest_approved">Anonymous until I approve interest</option>
+            <option value="public_contact">{t.visibilityPublic}</option>
+            <option value="pmrfp_mediated">{t.visibilityMediated}</option>
+            <option value="anonymous_until_interest_approved">{t.visibilityAnonymous}</option>
           </select>
         </Field>
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Contact name"><Input name="contactName" /></Field>
-          <Field label="Contact email"><Input name="contactEmail" type="email" /></Field>
-          <Field label="Contact phone"><Input name="contactPhone" /></Field>
+          <Field label={t.contactName}><Input name="contactName" /></Field>
+          <Field label={t.contactEmail}><Input name="contactEmail" type="email" /></Field>
+          <Field label={t.contactPhone}><Input name="contactPhone" /></Field>
         </div>
       </Section>
 
       <label className="flex items-start gap-2 text-sm text-muted-foreground">
         <input type="checkbox" name="acceptTerms" required className="mt-0.5 size-4" />
-        <span>{COPY.pmPostingDisclaimer}</span>
+        <span>{t.disclaimer}</span>
       </label>
 
-      <Button type="submit" size="lg" disabled={pending}>{pending ? "Submitting…" : "Submit RFP for review"}</Button>
+      <Button type="submit" size="lg" disabled={pending}>{pending ? t.submitting : t.submit}</Button>
     </form>
   );
 }

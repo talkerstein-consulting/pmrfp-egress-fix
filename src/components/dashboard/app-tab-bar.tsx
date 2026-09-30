@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useLocalePath } from "@/i18n/provider";
+import Link from "@/i18n/link";
 import { useState } from "react";
 import {
   Bookmark,
@@ -41,8 +41,16 @@ const TAB_ICONS: Record<string, LucideIcon> = {
  * most, plus "More", which opens the full sidebar nav as a bottom sheet (on
  * phones the sidebar is hidden). Hidden at md and up, and in print.
  */
-export function AppTabBar({ nav, area }: { nav: readonly NavItem[]; area: string }) {
-  const pathname = usePathname();
+/** Strings from the (server) DashboardShell, already in the page language. `short` overrides tabLabel() by href. */
+export interface TabBarLabels {
+  more: string;
+  viewSite: string;
+  tabs: string;
+  short: Record<string, string>;
+}
+
+export function AppTabBar({ nav, area, labels }: { nav: readonly NavItem[]; area: string; labels: TabBarLabels }) {
+  const pathname = useLocalePath();
   const [moreOpen, setMoreOpen] = useState(false);
   const tabs = pickTabs(nav);
   const current = activeHref(pathname, nav.map((item) => item.href));
@@ -52,7 +60,7 @@ export function AppTabBar({ nav, area }: { nav: readonly NavItem[]; area: string
   return (
     <>
       <nav
-        aria-label={`${area} tabs`}
+        aria-label={labels.tabs}
         className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden print:hidden"
       >
         <ul className="mx-auto grid h-16 max-w-lg grid-cols-5">
@@ -67,7 +75,7 @@ export function AppTabBar({ nav, area }: { nav: readonly NavItem[]; area: string
                   className="group flex h-full flex-col items-center justify-center gap-1"
                 >
                   <TabIcon icon={Icon} active={active} />
-                  <TabText active={active}>{tabLabel(tab)}</TabText>
+                  <TabText active={active}>{labels.short[tab.href] ?? tabLabel(tab)}</TabText>
                 </Link>
               </li>
             );
@@ -81,7 +89,7 @@ export function AppTabBar({ nav, area }: { nav: readonly NavItem[]; area: string
               className="group flex h-full w-full flex-col items-center justify-center gap-1"
             >
               <TabIcon icon={Ellipsis} active={moreActive} />
-              <TabText active={moreActive}>More</TabText>
+              <TabText active={moreActive}>{labels.more}</TabText>
             </button>
           </li>
         </ul>
@@ -118,7 +126,7 @@ export function AppTabBar({ nav, area }: { nav: readonly NavItem[]; area: string
               onClick={() => setMoreOpen(false)}
               className="rounded-lg px-3 py-3 text-base font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             >
-              View site
+              {labels.viewSite}
             </Link>
           </nav>
         </SheetContent>

@@ -1,20 +1,22 @@
-import Link from "next/link";
+import Link from "@/i18n/link";
 import { isDemoMode } from "@/lib/access/access";
+import { getT } from "@/i18n/server";
 
 /** Shown on auth pages in demo mode: explains accounts need Supabase, and
  * offers direct links to preview the authenticated areas. */
 export function DemoNotice() {
   if (!isDemoMode()) return null;
+  const t = getT("auth").demo;
   return (
     <div className="mt-6 rounded-lg border border-dashed border-teal-300 bg-teal-50/60 p-4 text-sm">
-      <p className="font-medium text-foreground">Demo mode</p>
+      <p className="font-medium text-foreground">{t.title}</p>
       <p className="mt-1 text-muted-foreground">
-        Accounts require a connected Supabase project. You can still preview the dashboards:
+        {t.body}
       </p>
       <div className="mt-3 flex flex-wrap gap-3 text-teal-700">
-        <Link href="/dashboard" className="hover:underline">Trade dashboard →</Link>
-        <Link href="/pm-dashboard" className="hover:underline">PM dashboard →</Link>
-        <Link href="/admin" className="hover:underline">Admin →</Link>
+        <Link href="/dashboard" className="hover:underline">{t.trade}</Link>
+        <Link href="/pm-dashboard" className="hover:underline">{t.pm}</Link>
+        <Link href="/admin" className="hover:underline">{t.admin}</Link>
       </div>
     </div>
   );

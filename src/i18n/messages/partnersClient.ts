@@ -1,0 +1,903 @@
+/**
+ * Partner tools (client): sponsor packages and the /advertise enquiry form,
+ * the /widgets builder, badge snippets, trusted-trades components and the GC
+ * sub-trade package form. `fr` and `es` are typed against `en`, so every key must exist in each.
+ *
+ * Groups named `actions` hold messages returned in English by server actions
+ * or API routes that live outside these components. Their English values must
+ * match those strings exactly: the components look the returned message up by
+ * its English text and show the translation (anything unknown is shown as-is).
+ */
+const en = {
+  /** Sponsor packages from components/advertise/packages.ts, keyed by package id. English matches that file. */
+  packages: {
+    trade: {
+      name: "Trade Spotlight",
+      summary: "One trade, everywhere it shows up on PMRFP.",
+      features: [
+        "That trade's pages, in every region",
+        "Its tender and RFP pages, beside the scope",
+        "Dashboards of members in that trade",
+        "That trade's daily match emails",
+        "Monthly click report",
+      ],
+      note: "",
+    },
+    founding: {
+      name: "Founding Partner",
+      summary: "The whole board, for the first three partners.",
+      features: [
+        "Every trade and every region",
+        "The weekly tender digest email",
+        "Named as a founding partner on PMRFP",
+        "Price locked for 12 months",
+        "Monthly click report",
+      ],
+      note: "3 partners only",
+    },
+  },
+
+  /** /advertise enquiry form. */
+  enquiry: {
+    choice: "{name}, {price}/mo",
+    unsure: "Not sure yet",
+    sent: "Enquiry sent",
+    name: "Your name",
+    email: "Work email",
+    company: "Company",
+    website: "Website",
+    websitePlaceholder: "yourcompany.ca",
+    package: "Package",
+    phone: "Phone",
+    focus: "Which trades?",
+    focusPlaceholder: "e.g. Electrical across Ontario, or every trade in the GTA",
+    message: "Anything else",
+    messagePlaceholder: "What you sell, who you want to reach, when you'd like to start.",
+    optional: "(optional)",
+    sending: "Sending…",
+    submit: "Send enquiry",
+    /** From app/[lang]/(marketing)/advertise/actions.ts. */
+    actions: {
+      honeypot: "Thanks. We'll be in touch.",
+      rateLimited: "Too many submissions. Please wait a minute and try again.",
+      nameRequired: "Your name is required",
+      emailInvalid: "Enter a valid work email",
+      companyRequired: "Your company name is required",
+      incomplete: "Please fill in the required fields.",
+      success: "Thanks. We'll email you with the trades that are open, and a sample of your placement.",
+    },
+  },
+
+  /** /widgets builder (components/embed/widget-builder). The embedded widgets themselves stay English. */
+  widgets: {
+    tabs: {
+      feed: {
+        label: "Live tender feed",
+        for: "For associations, suppliers, trade blogs",
+        blurb: "Open tenders for a trade and region, updated every morning. Give your members or customers a reason to come back.",
+      },
+      bids: {
+        label: "Your open bids",
+        for: "For property managers",
+        blurb: "Your open RFPs on your own \"Work with us\" page. Trades respond on PMRFP, and you compare them in one place.",
+      },
+      jobs: {
+        label: "Your jobs",
+        for: "For contractors hiring",
+        blurb: "Your open jobs on your careers page. People apply in a minute, and applications land in your inbox.",
+      },
+      company: {
+        label: "Company card",
+        for: "For trades and suppliers",
+        blurb: "Your PMRFP profile as a card on your website, with a Request a quote button. Stronger than a badge.",
+      },
+      trusted: {
+        label: "Trusted trades",
+        for: "For realtors",
+        blurb: "The contractors you recommend, on your own site. Clients stop texting you for phone numbers.",
+      },
+    },
+    tablist: "Widget type",
+    trade: "Trade",
+    allTrades: "All trades",
+    region: "Region",
+    allRegions: "All regions",
+    style: "Style",
+    themes: { light: "light", dark: "dark" },
+    showUpTo: "Show up to {n}",
+    howMany: "How many items to show",
+    preview: "Live preview",
+    previewTitle: "Widget preview",
+    paste: "Paste this where you want it to appear",
+    iframeSummary: "Site builder won't take scripts? Use an iframe",
+    iframeLabel: "iframe code (fixed height)",
+    bidsNote: "Only RFPs you post with public contact details appear here. RFPs posted anonymously or through PMRFP stay private.",
+    companyPending: "Your card goes live once your company profile is approved. You can paste the code now.",
+    signIn: "Sign in",
+    locked: {
+      bids: {
+        in: "This widget is for property managers. Post an RFP from a property manager account to get your code.",
+        inCta: "Post an RFP",
+        out: "Sign in to your property manager account to get the code for your open bids.",
+      },
+      jobs: {
+        in: "Set up your company first, then post a job to get the code.",
+        inCta: "Post a job",
+        out: "Sign in to get the code for your company's open jobs.",
+      },
+      company: {
+        in: "Company cards are for listed trades and suppliers. List your company free to get yours.",
+        inCta: "Complete my profile",
+        out: "List your company free, then come back for your card.",
+        outCta: "List my company",
+      },
+      trusted: {
+        in: "Publish your trusted trades page first, then your code appears here.",
+        inCta: "Build my list",
+        out: "Sign in to get the code for your trusted trades list.",
+      },
+    },
+  },
+
+  /** Copy-to-clipboard code box (components/public/badge-embed Snippet). */
+  snippet: {
+    copy: "Copy",
+    copied: "Copied",
+    toastCopied: "Copied to clipboard",
+    toastFailed: "Could not copy",
+  },
+
+  /** /badge code snippets. `anchor` is the text pasted into the member's own site. */
+  badge: {
+    anchor: "Find us on PMRFP",
+    signature: "Find us on PMRFP: {url}",
+    preview: "Preview",
+    previewLight: "PMRFP badge (light)",
+    previewDark: "PMRFP badge (dark)",
+    light: "Website — light background",
+    dark: "Website — dark background",
+    textLink: "Text link (footer or About page)",
+    email: "Email signature",
+    markdown: "Markdown (README / docs)",
+  },
+
+  /** "Request a quote" on a trusted-trades page (components/trusted/quote-request). */
+  quote: {
+    sent: "Sent. {trade} will reply to you by email, and {recommender} is copied.",
+    open: "Request a quote",
+    title: "Request a quote from {trade}",
+    name: "Your name",
+    email: "Your email",
+    phone: "Phone (optional)",
+    message: "What needs doing, and where? (the address or area helps)",
+    sending: "Sending…",
+    submit: "Send request",
+    cancel: "Cancel",
+    privacy: "Your details go to {trade} and {recommender} only.",
+    error: "Something went wrong. Please try again.",
+    /** From /api/trusted/quote. */
+    actions: {
+      nameRequired: "Add your name.",
+      emailInvalid: "That email doesn't look right.",
+      messageShort: "Tell them a little about the job.",
+      checkForm: "Please check the form.",
+      unavailable: "This isn't available right now.",
+      pageUnavailable: "That page isn't available.",
+      notOnPage: "That company isn't on this page.",
+      rateLimited: "Too many requests. Please slow down.",
+    },
+  },
+
+  /** Save button on a directory profile (components/trusted/save-trade-button). */
+  save: {
+    realtor: "Realtor?",
+    add: "Add {name} to your own trusted-trades page",
+    after: "and send clients one link.",
+    upgrade: "Upgrade",
+    added: "{name} is on your trusted-trades page.",
+    removed: "Removed {name} from your page.",
+    viewPage: "View page",
+    saving: "Saving…",
+    saved: "On your trusted trades",
+    save: "Save to my trusted trades",
+  },
+
+  /** Trusted-trades page editor (components/trusted/trusted-editor). */
+  editor: {
+    copyFailed: "Couldn't copy. Select the link and copy it instead.",
+    copied: "Copied",
+    copyLink: "Copy link",
+    view: "View",
+    noteSaved: "Note saved.",
+    remove: "Remove {name}",
+    notePlaceholder: "Why you trust them, e.g. “Did the roof on my last three listings”",
+    link: "Your link",
+    linkHint: "pmrfp.com/trusted/…",
+    yourName: "Your name",
+    brokerage: "Brokerage or company",
+    headline: "Headline",
+    headlinePlaceholder: "The trades I trust with my clients' homes in Toronto",
+    phone: "Phone on your page",
+    email: "Email on your page",
+    proHint: "Realtor Pro",
+    public: "Page is public (anyone with the link can see it)",
+    saving: "Saving…",
+    save: "Save page",
+  },
+
+  /** From lib/trusted/actions.ts. `limit` has {limit} where the action has FREE_LIMIT. */
+  trustedActions: {
+    signIn: "Sign in to save trades to your page.",
+    roles: "Trusted-trades pages are for realtors and property managers.",
+    unavailable: "This isn't available right now.",
+    notSwitchedOn: "Trusted-trades pages aren't switched on yet. Try again soon.",
+    createFailed: "Could not create your page. Please try again.",
+    unknownCompany: "Unknown company.",
+    notListed: "That company isn't listed in the directory.",
+    limit: "A free page holds {limit} trades. Realtor Pro makes it unlimited.",
+    saveFailed: "Could not save that company. Please try again.",
+    saveFirst: "Save a trade first.",
+    noteFailed: "Could not save the note.",
+    handleShort: "Pick a link of at least 3 characters.",
+    nameShort: "Add your name.",
+    emailInvalid: "That email doesn't look right.",
+    checkForm: "Please check the form.",
+    handleInvalid: "Use 3 to 40 letters, numbers or dashes for your link.",
+    handleTaken: "That link is taken. Try another.",
+    pageFailed: "Could not save your page.",
+    saved: "Saved.",
+  },
+
+  /** "Post a sub-trade package" (components/forms/gc-package-form). */
+  gcForm: {
+    linked: "Linked to the contract you won:",
+    sections: {
+      project: "Project",
+      trade: "Trade package",
+      location: "Location",
+      photos: "Site photos",
+      quotes: "Quotes",
+      contact: "Contact",
+    },
+    projectName: "Project name",
+    projectNameHint: "Trades see this. e.g. Etobicoke school renovation",
+    related: "Related public contract (optional)",
+    relatedHint: "If you won this job as a public contract, paste its PMRFP page link. Trades will see it's real work.",
+    relatedPlaceholder: "https://pmrfp.com/rfps/…",
+    trade: "Trade",
+    tradeHint: "One trade per package. Post another package for each trade you need.",
+    select: "Select…",
+    summary: "Short summary",
+    summaryHint: "Shown to everyone. Two sentences: the work and the one detail that shapes the price.",
+    scope: "Scope of work",
+    scopeHint: "What this trade does on the job: quantities, specs, drawings to follow, what's excluded. Trade Pro members see this.",
+    requirements: "Requirements",
+    requirementsHint: "Insurance, WSIB/WCB (or U.S. workers' comp), licences, bonding, safety training.",
+    region: "Region",
+    city: "City",
+    province: "Province / state",
+    photosLabel: "Site photos (optional)",
+    photosHelp: "Photos of the site or the work area. JPEG, PNG, or WebP. Max 8 photos, 5 MB each.",
+    deadline: "Quotes due",
+    deadlineHint: "Leave subs at least a week. Two if they need a site visit.",
+    howTo: "How to quote",
+    howToHint: "What to include, site-visit date, question cut-off, start date.",
+    howToPlaceholder:
+      "e.g. Lump-sum price per the scope above, with a breakdown of labour and materials. Include your insurance certificate and WSIB clearance. Site visit Oct 3, 9 a.m. Work starts early November.",
+    visibility: "Contact visibility",
+    visibilityPublic: "Public — paid members see my contact details",
+    visibilityMediated: "Mediated — trades express interest through PMRFP",
+    visibilityAnonymous: "Anonymous until I approve interest",
+    contactName: "Contact name",
+    contactEmail: "Contact email",
+    contactPhone: "Contact phone",
+    /** Same text as COPY.pmPostingDisclaimer in lib/site. */
+    disclaimer:
+      "By submitting this RFP, you confirm that you have authority to post this opportunity or are submitting it for review. PMRFP may edit, reject, or remove listings that are incomplete, misleading, spam, or inappropriate.",
+    submitting: "Submitting…",
+    submit: "Submit package for review",
+    /** GC-only messages from createRfpAction (lib/dashboard/actions, lib/gc/packages). Shared ones come from pmClient.actions. */
+    actions: {
+      projectRequired: "Project name is required",
+      tradeRequired: "Pick the trade for this package",
+      badLink: "That link isn't a public contract award on PMRFP. Paste the award page link, or leave it blank.",
+      unavailable:
+        "Sub-trade packages aren't switched on yet. We're turning them on shortly — please try again later, or post this as a regular RFP for now.",
+    },
+  },
+};
+
+const fr: typeof en = {
+  packages: {
+    trade: {
+      name: "Vitrine métier",
+      summary: "Un corps de métier, partout où il apparaît sur PMRFP.",
+      features: [
+        "Les pages de ce corps de métier, dans toutes les régions",
+        "Ses pages d'appels d'offres, à côté de la portée des travaux",
+        "Le tableau de bord des membres de ce corps de métier",
+        "Les courriels quotidiens de jumelage de ce corps de métier",
+        "Rapport mensuel des clics",
+      ],
+      note: "",
+    },
+    founding: {
+      name: "Partenaire fondateur",
+      summary: "Tout le tableau, pour les trois premiers partenaires.",
+      features: [
+        "Tous les corps de métier et toutes les régions",
+        "Le courriel hebdomadaire des appels d'offres",
+        "Nommé partenaire fondateur sur PMRFP",
+        "Prix garanti pendant 12 mois",
+        "Rapport mensuel des clics",
+      ],
+      note: "3 partenaires seulement",
+    },
+  },
+
+  enquiry: {
+    choice: "{name}, {price}/mois",
+    unsure: "Je ne sais pas encore",
+    sent: "Demande envoyée",
+    name: "Votre nom",
+    email: "Courriel professionnel",
+    company: "Entreprise",
+    website: "Site Web",
+    websitePlaceholder: "votreentreprise.ca",
+    package: "Forfait",
+    phone: "Téléphone",
+    focus: "Quels corps de métier?",
+    focusPlaceholder: "p. ex. l'électricité partout en Ontario, ou tous les corps de métier du Grand Montréal",
+    message: "Autre chose à ajouter",
+    messagePlaceholder: "Ce que vous vendez, qui vous voulez joindre, quand vous aimeriez commencer.",
+    optional: "(facultatif)",
+    sending: "Envoi en cours…",
+    submit: "Envoyer la demande",
+    actions: {
+      honeypot: "Merci. Nous vous reviendrons bientôt.",
+      rateLimited: "Trop d'envois. Veuillez patienter une minute et réessayer.",
+      nameRequired: "Votre nom est obligatoire",
+      emailInvalid: "Entrez un courriel professionnel valide",
+      companyRequired: "Le nom de votre entreprise est obligatoire",
+      incomplete: "Veuillez remplir les champs obligatoires.",
+      success:
+        "Merci. Nous vous écrirons avec les corps de métier encore disponibles et un exemple de votre placement.",
+    },
+  },
+
+  widgets: {
+    tabs: {
+      feed: {
+        label: "Fil d'appels d'offres en direct",
+        for: "Pour les associations, les fournisseurs et les blogues de métier",
+        blurb:
+          "Les appels d'offres ouverts pour un corps de métier et une région, mis à jour chaque matin. Donnez à vos membres ou à vos clients une raison de revenir.",
+      },
+      bids: {
+        label: "Vos appels d'offres ouverts",
+        for: "Pour les gestionnaires immobiliers",
+        blurb:
+          "Vos appels d'offres ouverts sur votre propre page « Travailler avec nous ». Les entrepreneurs répondent sur PMRFP, et vous comparez leurs réponses au même endroit.",
+      },
+      jobs: {
+        label: "Vos offres d'emploi",
+        for: "Pour les entrepreneurs qui embauchent",
+        blurb:
+          "Vos postes ouverts sur votre page Carrières. Les candidats postulent en une minute, et les candidatures arrivent dans votre boîte de réception.",
+      },
+      company: {
+        label: "Carte d'entreprise",
+        for: "Pour les entrepreneurs et les fournisseurs",
+        blurb:
+          "Votre profil PMRFP sous forme de carte sur votre site Web, avec un bouton Demander une soumission. Plus convaincant qu'un badge.",
+      },
+      trusted: {
+        label: "Entrepreneurs de confiance",
+        for: "Pour les courtiers immobiliers",
+        blurb:
+          "Les entrepreneurs que vous recommandez, sur votre propre site. Vos clients cessent de vous texter pour obtenir des numéros de téléphone.",
+      },
+    },
+    tablist: "Type de widget",
+    trade: "Corps de métier",
+    allTrades: "Tous les corps de métier",
+    region: "Région",
+    allRegions: "Toutes les régions",
+    style: "Style",
+    themes: { light: "clair", dark: "foncé" },
+    showUpTo: "Afficher jusqu'à {n}",
+    howMany: "Nombre d'éléments à afficher",
+    preview: "Aperçu en direct",
+    previewTitle: "Aperçu du widget",
+    paste: "Collez ce code là où vous voulez qu'il apparaisse",
+    iframeSummary: "Votre outil de création de site refuse les scripts? Utilisez un iframe",
+    iframeLabel: "Code iframe (hauteur fixe)",
+    bidsNote:
+      "Seuls les appels d'offres publiés avec des coordonnées publiques apparaissent ici. Ceux publiés de façon anonyme ou par l'entremise de PMRFP restent privés.",
+    companyPending:
+      "Votre carte sera en ligne dès que le profil de votre entreprise sera approuvé. Vous pouvez déjà coller le code.",
+    signIn: "Se connecter",
+    locked: {
+      bids: {
+        in: "Ce widget est destiné aux gestionnaires immobiliers. Publiez un appel d'offres à partir d'un compte de gestionnaire immobilier pour obtenir votre code.",
+        inCta: "Publier un appel d'offres",
+        out: "Connectez-vous à votre compte de gestionnaire immobilier pour obtenir le code de vos appels d'offres ouverts.",
+      },
+      jobs: {
+        in: "Configurez d'abord votre entreprise, puis publiez une offre d'emploi pour obtenir le code.",
+        inCta: "Publier une offre d'emploi",
+        out: "Connectez-vous pour obtenir le code des offres d'emploi de votre entreprise.",
+      },
+      company: {
+        in: "Les cartes d'entreprise sont réservées aux entrepreneurs et aux fournisseurs inscrits au répertoire. Inscrivez votre entreprise gratuitement pour obtenir la vôtre.",
+        inCta: "Compléter mon profil",
+        out: "Inscrivez votre entreprise gratuitement, puis revenez chercher votre carte.",
+        outCta: "Inscrire mon entreprise",
+      },
+      trusted: {
+        in: "Publiez d'abord votre page d'entrepreneurs de confiance; votre code apparaîtra ensuite ici.",
+        inCta: "Créer ma liste",
+        out: "Connectez-vous pour obtenir le code de votre liste d'entrepreneurs de confiance.",
+      },
+    },
+  },
+
+  snippet: {
+    copy: "Copier",
+    copied: "Copié",
+    toastCopied: "Copié dans le presse-papiers",
+    toastFailed: "Impossible de copier",
+  },
+
+  badge: {
+    anchor: "Trouvez-nous sur PMRFP",
+    signature: "Trouvez-nous sur PMRFP : {url}",
+    preview: "Aperçu",
+    previewLight: "Badge PMRFP (clair)",
+    previewDark: "Badge PMRFP (foncé)",
+    light: "Site Web — fond clair",
+    dark: "Site Web — fond foncé",
+    textLink: "Lien texte (pied de page ou page À propos)",
+    email: "Signature de courriel",
+    markdown: "Markdown (README / documentation)",
+  },
+
+  quote: {
+    sent: "Envoyé. {trade} vous répondra par courriel, et {recommender} est en copie.",
+    open: "Demander une soumission",
+    title: "Demander une soumission à {trade}",
+    name: "Votre nom",
+    email: "Votre courriel",
+    phone: "Téléphone (facultatif)",
+    message: "Quels travaux, et où? (l'adresse ou le secteur nous aide)",
+    sending: "Envoi en cours…",
+    submit: "Envoyer la demande",
+    cancel: "Annuler",
+    privacy: "Vos coordonnées sont transmises à {trade} et à {recommender} seulement.",
+    error: "Une erreur s'est produite. Veuillez réessayer.",
+    actions: {
+      nameRequired: "Ajoutez votre nom.",
+      emailInvalid: "Ce courriel ne semble pas valide.",
+      messageShort: "Décrivez-leur un peu les travaux.",
+      checkForm: "Veuillez vérifier le formulaire.",
+      unavailable: "Ce service n'est pas disponible pour le moment.",
+      pageUnavailable: "Cette page n'est pas disponible.",
+      notOnPage: "Cette entreprise ne figure pas sur cette page.",
+      rateLimited: "Trop de demandes. Veuillez ralentir.",
+    },
+  },
+
+  save: {
+    realtor: "Courtier immobilier?",
+    add: "Ajoutez {name} à votre propre page d'entrepreneurs de confiance",
+    after: "et envoyez un seul lien à vos clients.",
+    upgrade: "Passer à Pro",
+    added: "{name} figure maintenant sur votre page d'entrepreneurs de confiance.",
+    removed: "{name} a été retiré de votre page.",
+    viewPage: "Voir la page",
+    saving: "Enregistrement…",
+    saved: "Dans vos entrepreneurs de confiance",
+    save: "Enregistrer dans mes entrepreneurs de confiance",
+  },
+
+  editor: {
+    copyFailed: "Impossible de copier. Sélectionnez le lien et copiez-le vous-même.",
+    copied: "Copié",
+    copyLink: "Copier le lien",
+    view: "Voir",
+    noteSaved: "Note enregistrée.",
+    remove: "Retirer {name}",
+    notePlaceholder: "Pourquoi vous leur faites confiance, p. ex. « A refait la toiture de mes trois dernières inscriptions »",
+    link: "Votre lien",
+    linkHint: "pmrfp.com/trusted/…",
+    yourName: "Votre nom",
+    brokerage: "Agence ou entreprise",
+    headline: "Accroche",
+    headlinePlaceholder: "Les entrepreneurs à qui je confie les maisons de mes clients à Montréal",
+    phone: "Téléphone affiché sur votre page",
+    email: "Courriel affiché sur votre page",
+    proHint: "Realtor Pro",
+    public: "Page publique (toute personne ayant le lien peut la voir)",
+    saving: "Enregistrement…",
+    save: "Enregistrer la page",
+  },
+
+  trustedActions: {
+    signIn: "Connectez-vous pour enregistrer des entrepreneurs sur votre page.",
+    roles: "Les pages d'entrepreneurs de confiance sont réservées aux courtiers immobiliers et aux gestionnaires immobiliers.",
+    unavailable: "Ce service n'est pas disponible pour le moment.",
+    notSwitchedOn: "Les pages d'entrepreneurs de confiance ne sont pas encore activées. Réessayez bientôt.",
+    createFailed: "Impossible de créer votre page. Veuillez réessayer.",
+    unknownCompany: "Entreprise inconnue.",
+    notListed: "Cette entreprise n'est pas inscrite au répertoire.",
+    limit: "Une page gratuite contient {limit} entrepreneurs. Realtor Pro la rend illimitée.",
+    saveFailed: "Impossible d'enregistrer cette entreprise. Veuillez réessayer.",
+    saveFirst: "Enregistrez d'abord un entrepreneur.",
+    noteFailed: "Impossible d'enregistrer la note.",
+    handleShort: "Choisissez un lien d'au moins 3 caractères.",
+    nameShort: "Ajoutez votre nom.",
+    emailInvalid: "Ce courriel ne semble pas valide.",
+    checkForm: "Veuillez vérifier le formulaire.",
+    handleInvalid: "Utilisez de 3 à 40 lettres, chiffres ou tirets pour votre lien.",
+    handleTaken: "Ce lien est déjà pris. Essayez-en un autre.",
+    pageFailed: "Impossible d'enregistrer votre page.",
+    saved: "Enregistré.",
+  },
+
+  gcForm: {
+    linked: "Lié au contrat que vous avez remporté :",
+    sections: {
+      project: "Projet",
+      trade: "Lot de sous-traitance",
+      location: "Emplacement",
+      photos: "Photos du chantier",
+      quotes: "Prix",
+      contact: "Coordonnées",
+    },
+    projectName: "Nom du projet",
+    projectNameHint: "Visible par les entrepreneurs. p. ex. Rénovation d'une école à Laval",
+    related: "Contrat public associé (facultatif)",
+    relatedHint:
+      "Si vous avez remporté ce chantier dans le cadre d'un contrat public, collez le lien de sa page PMRFP. Les entrepreneurs verront que le travail est réel.",
+    relatedPlaceholder: "https://pmrfp.com/rfps/…",
+    trade: "Corps de métier",
+    tradeHint: "Un corps de métier par lot. Publiez un autre lot pour chaque corps de métier dont vous avez besoin.",
+    select: "Choisir…",
+    summary: "Résumé",
+    summaryHint: "Visible par tous. Deux phrases : les travaux, et le détail qui influence le plus le prix.",
+    scope: "Portée des travaux",
+    scopeHint:
+      "Ce que ce corps de métier fait sur le chantier : quantités, devis, plans à venir, exclusions. Les membres Trade Pro voient cette section.",
+    requirements: "Exigences",
+    requirementsHint:
+      "Assurances, CNESST au Québec (WSIB/WCB ailleurs au Canada, workers' comp aux États-Unis), licences (p. ex. RBQ), cautionnement, formation en sécurité.",
+    region: "Région",
+    city: "Ville",
+    province: "Province / État",
+    photosLabel: "Photos du chantier (facultatif)",
+    photosHelp: "Photos du chantier ou de la zone des travaux. JPEG, PNG ou WebP. Maximum 8 photos, 5 Mo chacune.",
+    deadline: "Date limite pour les prix",
+    deadlineHint: "Laissez au moins une semaine aux sous-traitants. Deux s'ils doivent visiter le chantier.",
+    howTo: "Comment soumettre un prix",
+    howToHint: "Quoi inclure, date de la visite du chantier, date limite pour les questions, date de début.",
+    howToPlaceholder:
+      "p. ex. Prix forfaitaire selon la portée ci-dessus, avec la ventilation de la main-d'œuvre et des matériaux. Joindre votre certificat d'assurance et votre attestation de conformité de la CNESST. Visite du chantier le 3 octobre à 9 h. Début des travaux au début de novembre.",
+    visibility: "Visibilité des coordonnées",
+    visibilityPublic: "Publiques — les membres payants voient mes coordonnées",
+    visibilityMediated: "Par PMRFP — les entrepreneurs manifestent leur intérêt par l'entremise de PMRFP",
+    visibilityAnonymous: "Anonyme jusqu'à ce que j'approuve un intérêt",
+    contactName: "Nom de la personne-ressource",
+    contactEmail: "Courriel de la personne-ressource",
+    contactPhone: "Téléphone de la personne-ressource",
+    disclaimer:
+      "En soumettant cet appel d'offres, vous confirmez que vous avez l'autorisation de publier cette occasion ou que vous la soumettez pour examen. PMRFP peut modifier, refuser ou retirer les annonces incomplètes, trompeuses, indésirables ou inappropriées.",
+    submitting: "Envoi en cours…",
+    submit: "Soumettre le lot pour révision",
+    actions: {
+      projectRequired: "Le nom du projet est obligatoire",
+      tradeRequired: "Choisissez le corps de métier de ce lot",
+      badLink:
+        "Ce lien ne correspond pas à un contrat public octroyé sur PMRFP. Collez le lien de la page du contrat, ou laissez le champ vide.",
+      unavailable:
+        "Les lots de sous-traitance ne sont pas encore activés. Nous les activerons sous peu — réessayez plus tard, ou publiez-le pour l'instant comme un appel d'offres ordinaire.",
+    },
+  },
+};
+
+const es: typeof en = {
+  packages: {
+    trade: {
+      name: "Vitrina de oficio",
+      summary: "Un oficio, en cada lugar donde aparece en PMRFP.",
+      features: [
+        "Las páginas de ese oficio, en todas las regiones",
+        "Sus páginas de licitaciones y RFP, junto al alcance",
+        "Los paneles de los miembros de ese oficio",
+        "Los correos diarios de coincidencias de ese oficio",
+        "Informe mensual de clics",
+      ],
+      note: "",
+    },
+    founding: {
+      name: "Socio fundador",
+      summary: "Todo el tablero, para los tres primeros socios.",
+      features: [
+        "Todos los oficios y todas las regiones",
+        "El correo semanal de resumen de licitaciones",
+        "Mención como socio fundador en PMRFP",
+        "Precio fijo durante 12 meses",
+        "Informe mensual de clics",
+      ],
+      note: "Solo 3 socios",
+    },
+  },
+
+  enquiry: {
+    choice: "{name}, {price} al mes",
+    unsure: "Todavía no lo sé",
+    sent: "Consulta enviada",
+    name: "Su nombre",
+    email: "Correo electrónico de trabajo",
+    company: "Empresa",
+    website: "Sitio web",
+    websitePlaceholder: "suempresa.com",
+    package: "Paquete",
+    phone: "Teléfono",
+    focus: "¿Qué oficios?",
+    focusPlaceholder: "p. ej., electricidad en todo Texas, o todos los oficios del área de Miami",
+    message: "Algo más",
+    messagePlaceholder: "Qué vende, a quién quiere llegar y cuándo le gustaría empezar.",
+    optional: "(opcional)",
+    sending: "Enviando…",
+    submit: "Enviar consulta",
+    actions: {
+      honeypot: "Gracias. Nos pondremos en contacto.",
+      rateLimited: "Demasiados envíos. Espere un minuto y vuelva a intentarlo.",
+      nameRequired: "Su nombre es obligatorio",
+      emailInvalid: "Ingrese un correo electrónico de trabajo válido",
+      companyRequired: "El nombre de su empresa es obligatorio",
+      incomplete: "Complete los campos obligatorios.",
+      success: "Gracias. Le enviaremos un correo con los oficios que siguen disponibles y un ejemplo de su espacio.",
+    },
+  },
+
+  widgets: {
+    tabs: {
+      feed: {
+        label: "Listado de licitaciones en vivo",
+        for: "Para asociaciones, proveedores y blogs del sector",
+        blurb:
+          "Las licitaciones abiertas de un oficio y una región, actualizadas cada mañana. Dé a sus miembros o clientes un motivo para volver.",
+      },
+      bids: {
+        label: "Sus RFP abiertas",
+        for: "Para administradores de propiedades",
+        blurb:
+          "Sus RFP abiertas en su propia página “Trabaje con nosotros”. Los contratistas responden en PMRFP y usted compara sus respuestas en un solo lugar.",
+      },
+      jobs: {
+        label: "Sus empleos",
+        for: "Para contratistas que buscan personal",
+        blurb:
+          "Sus vacantes abiertas en su página de empleos. Las personas se postulan en un minuto y las solicitudes llegan a su bandeja de entrada.",
+      },
+      company: {
+        label: "Tarjeta de empresa",
+        for: "Para contratistas y proveedores",
+        blurb:
+          "Su perfil de PMRFP como una tarjeta en su sitio web, con un botón Solicitar una cotización. Más convincente que una insignia.",
+      },
+      trusted: {
+        label: "Contratistas de confianza",
+        for: "Para agentes inmobiliarios",
+        blurb:
+          "Los contratistas que usted recomienda, en su propio sitio. Sus clientes dejan de escribirle para pedirle números de teléfono.",
+      },
+    },
+    tablist: "Tipo de widget",
+    trade: "Oficio",
+    allTrades: "Todos los oficios",
+    region: "Región",
+    allRegions: "Todas las regiones",
+    style: "Estilo",
+    themes: { light: "claro", dark: "oscuro" },
+    showUpTo: "Mostrar hasta {n}",
+    howMany: "Cuántos elementos mostrar",
+    preview: "Vista previa en vivo",
+    previewTitle: "Vista previa del widget",
+    paste: "Pegue esto donde quiera que aparezca",
+    iframeSummary: "¿Su creador de sitios no acepta scripts? Use un iframe",
+    iframeLabel: "Código iframe (altura fija)",
+    bidsNote:
+      "Aquí solo aparecen las RFP que publica con datos de contacto públicos. Las RFP publicadas de forma anónima o a través de PMRFP siguen siendo privadas.",
+    companyPending: "Su tarjeta se publicará cuando se apruebe el perfil de su empresa. Ya puede pegar el código.",
+    signIn: "Iniciar sesión",
+    locked: {
+      bids: {
+        in: "Este widget es para administradores de propiedades. Publique una RFP desde una cuenta de administrador de propiedades para obtener su código.",
+        inCta: "Publicar una RFP",
+        out: "Inicie sesión en su cuenta de administrador de propiedades para obtener el código de sus RFP abiertas.",
+      },
+      jobs: {
+        in: "Primero configure su empresa y luego publique un empleo para obtener el código.",
+        inCta: "Publicar un empleo",
+        out: "Inicie sesión para obtener el código de los empleos abiertos de su empresa.",
+      },
+      company: {
+        in: "Las tarjetas de empresa son para contratistas y proveedores del directorio. Registre su empresa gratis para obtener la suya.",
+        inCta: "Completar mi perfil",
+        out: "Registre su empresa gratis y luego vuelva por su tarjeta.",
+        outCta: "Registrar mi empresa",
+      },
+      trusted: {
+        in: "Primero publique su página de contratistas de confianza; luego su código aparecerá aquí.",
+        inCta: "Crear mi lista",
+        out: "Inicie sesión para obtener el código de su lista de contratistas de confianza.",
+      },
+    },
+  },
+
+  snippet: {
+    copy: "Copiar",
+    copied: "Copiado",
+    toastCopied: "Copiado al portapapeles",
+    toastFailed: "No se pudo copiar",
+  },
+
+  badge: {
+    anchor: "Encuéntrenos en PMRFP",
+    signature: "Encuéntrenos en PMRFP: {url}",
+    preview: "Vista previa",
+    previewLight: "Insignia de PMRFP (clara)",
+    previewDark: "Insignia de PMRFP (oscura)",
+    light: "Sitio web — fondo claro",
+    dark: "Sitio web — fondo oscuro",
+    textLink: "Enlace de texto (pie de página o página Acerca de)",
+    email: "Firma de correo electrónico",
+    markdown: "Markdown (README / documentación)",
+  },
+
+  quote: {
+    sent: "Enviado. {trade} le responderá por correo electrónico, y {recommender} está en copia.",
+    open: "Solicitar una cotización",
+    title: "Solicitar una cotización a {trade}",
+    name: "Su nombre",
+    email: "Su correo electrónico",
+    phone: "Teléfono (opcional)",
+    message: "¿Qué hay que hacer y dónde? (la dirección o la zona ayuda)",
+    sending: "Enviando…",
+    submit: "Enviar solicitud",
+    cancel: "Cancelar",
+    privacy: "Sus datos se envían solo a {trade} y a {recommender}.",
+    error: "Algo salió mal. Vuelva a intentarlo.",
+    actions: {
+      nameRequired: "Agregue su nombre.",
+      emailInvalid: "Ese correo electrónico no parece correcto.",
+      messageShort: "Cuénteles un poco sobre el trabajo.",
+      checkForm: "Revise el formulario.",
+      unavailable: "Esto no está disponible en este momento.",
+      pageUnavailable: "Esa página no está disponible.",
+      notOnPage: "Esa empresa no está en esta página.",
+      rateLimited: "Demasiadas solicitudes. Espere un momento.",
+    },
+  },
+
+  save: {
+    realtor: "¿Es agente inmobiliario?",
+    add: "Agregue a {name} a su propia página de contratistas de confianza",
+    after: "y envíe a sus clientes un solo enlace.",
+    upgrade: "Mejorar plan",
+    added: "{name} está en su página de contratistas de confianza.",
+    removed: "Se quitó a {name} de su página.",
+    viewPage: "Ver la página",
+    saving: "Guardando…",
+    saved: "En sus contratistas de confianza",
+    save: "Guardar en mis contratistas de confianza",
+  },
+
+  editor: {
+    copyFailed: "No se pudo copiar. Seleccione el enlace y cópielo manualmente.",
+    copied: "Copiado",
+    copyLink: "Copiar enlace",
+    view: "Ver",
+    noteSaved: "Nota guardada.",
+    remove: "Quitar a {name}",
+    notePlaceholder: "Por qué confía en ellos, p. ej., “Hizo el techo de mis últimas tres propiedades en venta”",
+    link: "Su enlace",
+    linkHint: "pmrfp.com/trusted/…",
+    yourName: "Su nombre",
+    brokerage: "Agencia inmobiliaria o empresa",
+    headline: "Titular",
+    headlinePlaceholder: "Los contratistas a los que les confío las casas de mis clientes en Miami",
+    phone: "Teléfono en su página",
+    email: "Correo electrónico en su página",
+    proHint: "Realtor Pro",
+    public: "Página pública (cualquier persona con el enlace puede verla)",
+    saving: "Guardando…",
+    save: "Guardar página",
+  },
+
+  trustedActions: {
+    signIn: "Inicie sesión para guardar contratistas en su página.",
+    roles: "Las páginas de contratistas de confianza son para agentes inmobiliarios y administradores de propiedades.",
+    unavailable: "Esto no está disponible en este momento.",
+    notSwitchedOn: "Las páginas de contratistas de confianza aún no están activadas. Vuelva a intentarlo pronto.",
+    createFailed: "No se pudo crear su página. Vuelva a intentarlo.",
+    unknownCompany: "Empresa desconocida.",
+    notListed: "Esa empresa no está en el directorio.",
+    limit: "Una página gratuita admite {limit} contratistas. Con Realtor Pro es ilimitada.",
+    saveFailed: "No se pudo guardar esa empresa. Vuelva a intentarlo.",
+    saveFirst: "Primero guarde un contratista.",
+    noteFailed: "No se pudo guardar la nota.",
+    handleShort: "Elija un enlace de al menos 3 caracteres.",
+    nameShort: "Agregue su nombre.",
+    emailInvalid: "Ese correo electrónico no parece correcto.",
+    checkForm: "Revise el formulario.",
+    handleInvalid: "Use de 3 a 40 letras, números o guiones para su enlace.",
+    handleTaken: "Ese enlace ya está en uso. Pruebe con otro.",
+    pageFailed: "No se pudo guardar su página.",
+    saved: "Guardado.",
+  },
+
+  gcForm: {
+    linked: "Vinculado al contrato que ganó:",
+    sections: {
+      project: "Proyecto",
+      trade: "Paquete de oficio",
+      location: "Ubicación",
+      photos: "Fotos de la obra",
+      quotes: "Cotizaciones",
+      contact: "Contacto",
+    },
+    projectName: "Nombre del proyecto",
+    projectNameHint: "Los contratistas lo ven. p. ej., Renovación de una escuela en San Antonio",
+    related: "Contrato público relacionado (opcional)",
+    relatedHint:
+      "Si ganó esta obra como contrato público, pegue el enlace de su página en PMRFP. Los contratistas verán que es un trabajo real.",
+    relatedPlaceholder: "https://pmrfp.com/rfps/…",
+    trade: "Oficio",
+    tradeHint: "Un oficio por paquete. Publique otro paquete por cada oficio que necesite.",
+    select: "Seleccione…",
+    summary: "Resumen breve",
+    summaryHint: "Visible para todos. Dos oraciones: el trabajo y el detalle que más influye en el precio.",
+    scope: "Alcance del trabajo",
+    scopeHint:
+      "Lo que hace este oficio en la obra: cantidades, especificaciones, planos que se enviarán después y lo que queda excluido. Los miembros de Trade Pro ven esta sección.",
+    requirements: "Requisitos",
+    requirementsHint:
+      "Seguros, seguro de compensación laboral (WSIB/WCB en Canadá), licencias, fianzas, capacitación en seguridad.",
+    region: "Región",
+    city: "Ciudad",
+    province: "Provincia / estado",
+    photosLabel: "Fotos de la obra (opcional)",
+    photosHelp: "Fotos del sitio o de la zona de trabajo. JPEG, PNG o WebP. Máximo 8 fotos, de 5 MB cada una.",
+    deadline: "Fecha límite de cotizaciones",
+    deadlineHint: "Dé a los subcontratistas al menos una semana. Dos si necesitan visitar la obra.",
+    howTo: "Cómo cotizar",
+    howToHint: "Qué incluir, fecha de la visita a la obra, fecha límite para preguntas, fecha de inicio.",
+    howToPlaceholder:
+      "p. ej., Precio global según el alcance anterior, con desglose de mano de obra y materiales. Incluya su certificado de seguro y su comprobante del seguro de compensación laboral. Visita a la obra el 3 de octubre a las 9 a. m. El trabajo empieza a principios de noviembre.",
+    visibility: "Visibilidad del contacto",
+    visibilityPublic: "Pública: los miembros de pago ven mis datos de contacto",
+    visibilityMediated: "A través de PMRFP: los contratistas expresan interés por medio de PMRFP",
+    visibilityAnonymous: "Anónima hasta que yo apruebe un interés",
+    contactName: "Nombre de contacto",
+    contactEmail: "Correo electrónico de contacto",
+    contactPhone: "Teléfono de contacto",
+    /** Same text as pmClient (es) form.disclaimer. */
+    disclaimer:
+      "Al enviar esta RFP, usted confirma que tiene autorización para publicar esta oportunidad o que la envía para revisión. PMRFP puede editar, rechazar o eliminar publicaciones incompletas, engañosas, no deseadas (spam) o inapropiadas.",
+    submitting: "Enviando…",
+    submit: "Enviar el paquete para revisión",
+    actions: {
+      projectRequired: "El nombre del proyecto es obligatorio",
+      tradeRequired: "Elija el oficio de este paquete",
+      badLink:
+        "Ese enlace no es una adjudicación de contrato público en PMRFP. Pegue el enlace de la página de adjudicación o déjelo en blanco.",
+      unavailable:
+        "Los paquetes de subcontratación aún no están activados. Los activaremos en breve; vuelva a intentarlo más tarde o, por ahora, publíquelo como una RFP normal.",
+    },
+  },
+};
+
+export default { en, fr, es };

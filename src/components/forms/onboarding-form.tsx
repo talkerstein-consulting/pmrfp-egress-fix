@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useLang, useT } from "@/i18n/provider";
+import { regionName, tradeName } from "@/i18n/terms";
 
 type Option = { slug: string; name: string };
 
@@ -29,6 +31,8 @@ export function OnboardingForm({
   /** Award notice a GC came from — their first package gets it prefilled. */
   award?: string | null;
 }) {
+  const t = useT("auth").onboarding;
+  const lang = useLang();
   const [state, action, pending] = useActionState(completeOnboardingAction, {} as ActionState);
   const isListing = role === "trade" || role === "supplier";
 
@@ -36,11 +40,12 @@ export function OnboardingForm({
     return (
       <form action={action} className="space-y-4">
         <input type="hidden" name="intent" value="browsing" />
+        <input type="hidden" name="lang" value={lang} />
         {next && <input type="hidden" name="next" value={next} />}
         <p className="text-sm text-muted-foreground">
-          You&apos;re all set to browse the vendor directory and RFP opportunities.
+          {t.browseReady}
         </p>
-        <Button type="submit" disabled={pending}>Start browsing</Button>
+        <Button type="submit" disabled={pending}>{t.startBrowsing}</Button>
       </form>
     );
   }
@@ -48,25 +53,23 @@ export function OnboardingForm({
   return (
     <form action={action} className="space-y-6">
       {state.error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>}
+      <input type="hidden" name="lang" value={lang} />
       {next && <input type="hidden" name="next" value={next} />}
       {award && <input type="hidden" name="award" value={award} />}
 
       {role === "property_manager" && (
         <fieldset>
-          <Label className="mb-2 block">What best describes you?</Label>
+          <Label className="mb-2 block">{t.describes}</Label>
           <div className="grid gap-2 sm:grid-cols-2">
-            {[
-              { value: "property_manager", label: "Property manager or owner", hint: "Post RFPs for your buildings" },
-              { value: "builder", label: "General contractor — hiring subs", hint: "Post sub-trade packages for your jobs" },
-            ].map((o) => (
+            {(["property_manager", "builder"] as const).map((value) => (
               <label
-                key={o.value}
+                key={value}
                 className="flex cursor-pointer items-start gap-2 rounded-lg border border-border p-3 text-sm has-[:checked]:border-teal-500 has-[:checked]:bg-teal-50"
               >
-                <input type="radio" name="orgKind" value={o.value} defaultChecked={orgKind === o.value} className="mt-0.5 size-4" />
+                <input type="radio" name="orgKind" value={value} defaultChecked={orgKind === value} className="mt-0.5 size-4" />
                 <span>
-                  <span className="block font-medium">{o.label}</span>
-                  <span className="block text-xs text-muted-foreground">{o.hint}</span>
+                  <span className="block font-medium">{t.orgKinds[value].label}</span>
+                  <span className="block text-xs text-muted-foreground">{t.orgKinds[value].hint}</span>
                 </span>
               </label>
             ))}
@@ -75,38 +78,49 @@ export function OnboardingForm({
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Company name" required><Input name="name" required /></Field>
-        <Field label="Website"><Input name="website" placeholder="https://" /></Field>
-        <Field label="Phone"><Input name="phone" /></Field>
-        <Field label="Email"><Input name="email" type="email" /></Field>
-        <Field label="City"><Input name="city" /></Field>
-        <Field label="Province"><Input name="province" defaultValue="Ontario" /></Field>
+        <Field label={t.companyName} required><Input name="name" required /></Field>
+        <Field label={t.website}><Input name="website" placeholder="https://" /></Field>
+        <Field label={t.phone}><Input name="phone" /></Field>
+        <Field label={t.email}><Input name="email" type="email" /></Field>
+        <Field label={t.city}><Input name="city" /></Field>
+        <Field label={t.province}><Input name="province" defaultValue="Ontario" /></Field>
       </div>
 
-      <Field label="Short description">
-        <Textarea name="shortDescription" rows={2} maxLength={300} placeholder="One sentence about your company." />
+      <Field label={t.shortDescription}>
+        <Textarea name="shortDescription" rows={2} maxLength={300} placeholder={t.shortDescriptionPlaceholder} />
       </Field>
 
       {isListing && (
         <>
-          <CheckboxGroup label="Service categories (select all that apply)" name="categories" options={categories} required />
-          <CheckboxGroup label="Service regions" name="regions" options={regions} required preselected={preselectedRegions} />
-          <Field label="How should buyers contact you?">
+          <CheckboxGroup
+            label={t.categories}
+            name="categories"
+            options={categories.map((o) => ({ ...o, name: tradeName(o.name, lang) }))}
+            required
+          />
+          <CheckboxGroup
+            label={t.regions}
+            name="regions"
+            options={regions.map((o) => ({ ...o, name: regionName(o.name, lang) }))}
+            required
+            preselected={preselectedRegions}
+          />
+          <Field label={t.contact}>
             <select
               name="publicContactVisibility"
               defaultValue="request_intro"
               className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
             >
-              <option value="show_contact">Show my contact details publicly</option>
-              <option value="request_intro">Let buyers request an introduction</option>
-              <option value="hide_contact">Hide contact details</option>
+              <option value="show_contact">{t.contactShow}</option>
+              <option value="request_intro">{t.contactIntro}</option>
+              <option value="hide_contact">{t.contactHide}</option>
             </select>
           </Field>
         </>
       )}
 
       <Button type="submit" size="lg" disabled={pending}>
-        {pending ? "Saving…" : isListing ? "Finish & go to dashboard" : "Create organization"}
+        {pending ? t.saving : isListing ? t.finish : t.createOrg}
       </Button>
     </form>
   );

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/i18n/link";
 import { Container, Eyebrow } from "@/components/container";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";

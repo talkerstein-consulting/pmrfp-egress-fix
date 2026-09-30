@@ -1,5 +1,8 @@
 import type { RfpListItem } from "@/lib/data/types";
 import { publicTenderSource } from "@/lib/tenders/sources";
+import type { Locale } from "@/i18n/config";
+import { fmt } from "@/i18n/format";
+import sharedClient from "@/i18n/messages/sharedClient";
 
 /**
  * Urgency from REAL data only — countdowns from actual closing dates, dollar
@@ -30,11 +33,13 @@ export function daysUntil(deadline: string | null, now = new Date()): number | n
   return Math.round((Date.parse(deadline.slice(0, 10)) - today) / 86_400_000);
 }
 
-export function closingLabel(days: number | null): string | null {
+/** "Closes today" / "Closes tomorrow" / "Closes in 3 days"; null outside the last week. */
+export function closingLabel(days: number | null, lang: Locale = "en"): string | null {
   if (days === null || days < 0 || days > 7) return null;
-  if (days === 0) return "Closes today";
-  if (days === 1) return "Closes tomorrow";
-  return `Closes in ${days} days`;
+  const t = ((sharedClient as Partial<Record<Locale, typeof sharedClient.en>>)[lang] ?? sharedClient.en).labels;
+  if (days === 0) return t.closesToday;
+  if (days === 1) return t.closesTomorrow;
+  return fmt(t.closesInDays, { n: days });
 }
 
 export interface BoardStats {
@@ -59,8 +64,27 @@ export function boardStats(rfps: RfpListItem[]): BoardStats {
   return { open, closingThisWeek, pastContracts, awardedValue };
 }
 
-/** "$204M", "$1.2M", "$840K" — for headline totals. */
-export function compactDollars(n: number): string {
+/**
+ * "$204M", "$1.2M", "$840K" — for headline totals. French: "204 M$", "1,2 M$", "840 k$".
+ * Spanish (U.S.): "$204 M", "$1.2 M", "$840 mil"; billions stay in millions ("$1,400 M")
+ * because "billón" means a million million in Spanish.
+ */
+export function compactDollars(n: number, lang: Locale = "en"): string {
+  if (lang === "es") {
+    const nbsp = " "; // keeps "$1.2 M" on one line
+    if (n >= 1e9) return `$${(Math.round(n / 1e8) * 100).toLocaleString("en-US")}${nbsp}M`;
+    if (n >= 1e6) return `$${(n / 1e6).toFixed(n >= 1e8 ? 0 : 1).replace(/\.0$/, "")}${nbsp}M`;
+    if (n >= 1e3) return `$${Math.round(n / 1e3)}${nbsp}mil`;
+    return `$${Math.round(n)}`;
+  }
+  if (lang === "fr") {
+    const num = (v: number, digits: number) => v.toFixed(digits).replace(/\.0$/, "").replace(".", ",");
+    const nbsp = "\u00a0"; // keeps "1,2 M$" on one line
+    if (n >= 1e9) return `${num(n / 1e9, 1)}${nbsp}G$`;
+    if (n >= 1e6) return `${num(n / 1e6, n >= 1e8 ? 0 : 1)}${nbsp}M$`;
+    if (n >= 1e3) return `${Math.round(n / 1e3)}${nbsp}k$`;
+    return `${Math.round(n)}${nbsp}$`;
+  }
   if (n >= 1e9) return `$${(n / 1e9).toFixed(1).replace(/\.0$/, "")}B`;
   if (n >= 1e6) return `$${(n / 1e6).toFixed(n >= 1e8 ? 0 : 1).replace(/\.0$/, "")}M`;
   if (n >= 1e3) return `$${Math.round(n / 1e3)}K`;

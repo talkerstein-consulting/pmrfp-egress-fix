@@ -6,12 +6,16 @@ import { FileSignature } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useLang, useT } from "@/i18n/provider";
+import { fmt } from "@/i18n/format";
+import { portalName } from "@/lib/gc/packages";
 
 /**
  * "Need help bidding on this?" — shown on open public tenders. Most small
  * trades have never bid on a government tender (supplier registration, the
  * bid forms, the evaluation grid), so this offers a free call with our bid
  * support affiliate. Leads go to /api/bid-help → admin email + GHL.
+ * `portal` arrives in English (lib/tenders/sources.ts); portalName() shows it in the visitor's language.
  */
 export function BidHelpCard({
   rfpSlug,
@@ -24,6 +28,8 @@ export function BidHelpCard({
   trade?: string;
   portal: string;
 }) {
+  const t = useT("sharedClient").bidHelp;
+  const lang = useLang();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -51,7 +57,7 @@ export function BidHelpCard({
       if (!res.ok) throw new Error();
       setDone(true);
     } catch {
-      toast.error("Something went wrong. Please try again.");
+      toast.error(t.error);
     } finally {
       setSubmitting(false);
     }
@@ -64,45 +70,42 @@ export function BidHelpCard({
           <FileSignature className="size-4.5" />
         </span>
         <div className="min-w-0">
-          <h2 className="text-base font-semibold">Need help bidding on this?</h2>
+          <h2 className="text-base font-semibold">{t.title}</h2>
           <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            Never bid on a government tender? We&apos;ll get you registered on {portal}, walk
-            through what this one asks for, and help you put the bid together. Start with a free
-            15-minute call — we&apos;ll tell you honestly whether it&apos;s worth bidding.
+            {fmt(t.body, { portal: portalName(portal, lang) })}
           </p>
         </div>
       </div>
 
       {done ? (
         <p className="mt-4 rounded-md bg-teal-50 px-3 py-2 text-sm text-teal-800">
-          Got it — we&apos;ll email you within one business day to book the call.
+          {t.done}
         </p>
       ) : !open ? (
         <Button className="mt-4" onClick={() => setOpen(true)}>
-          Get bid help
+          {t.open}
         </Button>
       ) : (
         <form onSubmit={onSubmit} className="mt-4 space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
-            <Input name="name" placeholder="Your name" required autoComplete="name" />
-            <Input name="email" type="email" placeholder="Email" required autoComplete="email" />
-            <Input name="phone" type="tel" placeholder="Phone (optional)" autoComplete="tel" />
-            <Input name="company" placeholder="Company (optional)" autoComplete="organization" />
+            <Input name="name" placeholder={t.name} required autoComplete="name" />
+            <Input name="email" type="email" placeholder={t.email} required autoComplete="email" />
+            <Input name="phone" type="tel" placeholder={t.phone} autoComplete="tel" />
+            <Input name="company" placeholder={t.company} autoComplete="organization" />
           </div>
           <Textarea
             name="message"
             rows={2}
-            placeholder="Anything we should know? (optional) — e.g. first government bid, already registered, need insurance docs"
+            placeholder={t.message}
           />
           <input type="text" name="company_website" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden />
           <Button type="submit" disabled={submitting}>
-            {submitting ? "Sending…" : "Book my free call"}
+            {submitting ? t.sending : t.submit}
           </Button>
         </form>
       )}
       <p className="mt-3 text-xs text-muted-foreground">
-        Bid support is provided by Talkerstein Consulting Group, an affiliate of PMRFP. No one can
-        guarantee an award.
+        {t.disclaimer}
       </p>
     </div>
   );
