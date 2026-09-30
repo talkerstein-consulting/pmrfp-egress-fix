@@ -21,36 +21,34 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCategories } from "@/lib/data/taxonomy";
-import { COPY } from "@/lib/site";
 import { PHOTOS } from "@/lib/photos";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "For Property Managers, Builders & Owners",
-  description:
-    "Post your building project free, and compare the trades that bid — by category and region. No obligation to hire.",
-};
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const t = getDictionary(l).sales.forPms.meta;
+  return {
+    title: t.title,
+    description: t.description,
+    alternates: alternatesFor(l, "/for-property-managers"),
+  };
+}
 
+/** Step order and icons; the words live in messages/sales.ts (forPms.how.steps). */
 const STEPS = [
-  {
-    icon: ClipboardList,
-    title: "Post your project",
-    body: "Describe the work, set your category, region, and property type, and publish a clear RFP in minutes. No drawn-out forms.",
-  },
-  {
-    icon: Filter,
-    title: "Find vendors by category and region",
-    body: "Browse a focused directory of trades and service companies, filtered to exactly the work and locations you need covered.",
-  },
-  {
-    icon: Clock,
-    title: "Reduce time wasted searching",
-    body: "Stop chasing referrals and cold-calling contractors. Let qualified companies come to you and review interest in one place.",
-  },
-];
+  { icon: ClipboardList, key: "post" },
+  { icon: Filter, key: "find" },
+  { icon: Clock, key: "time" },
+] as const;
 
 export default async function ForPropertyManagersPage({ params }: { params: Promise<object> }) {
   await setLangFrom(params);
+  const t = getT("sales");
+  const p = t.forPms;
   const categories = await getCategories();
 
   return (
@@ -58,31 +56,29 @@ export default async function ForPropertyManagersPage({ params }: { params: Prom
       <section className="border-b border-border bg-background">
         <Container className="grid items-center gap-12 py-20 sm:py-28 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
           <div className="max-w-3xl">
-            <Eyebrow>For property managers, builders, owners &amp; real estate professionals</Eyebrow>
+            <Eyebrow>{p.eyebrow}</Eyebrow>
             <Badge className="mt-5 bg-teal-100 text-teal-700 hover:bg-teal-100">
-              Free for property managers
+              {p.badge}
             </Badge>
             <h1 className="mt-4 text-4xl font-semibold leading-[1.08] text-foreground sm:text-5xl">
-              Post a project. Find the right vendors. No pressure to hire.
+              {p.title}
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground">
-              Post your building project free. Trades that match your category and region see it
-              and bid. Compare them in one place — no obligation to hire. Built for property
-              managers, builders, owners, and{" "}
+              {p.lead.before}
               <Link href="/for/real-estate" className="underline decoration-teal-400/60 decoration-2 underline-offset-4 hover:text-foreground">
-                real estate professionals
+                {p.lead.link}
               </Link>
-              .
+              {p.lead.after}
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/sign-up?role=property_manager" className={buttonVariants({ size: "lg" })}>
-                Post an RFP — free
+                {p.postFree}
               </Link>
               <Link
                 href="/rfp-writer"
                 className={buttonVariants({ size: "lg", variant: "outline" })}
               >
-                Write my RFP — free tool
+                {p.writeRfp}
               </Link>
             </div>
             <ReferBanner variant="subtle" className="mt-10 max-w-3xl" />
@@ -90,7 +86,7 @@ export default async function ForPropertyManagersPage({ params }: { params: Prom
           <figure className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-border bg-indigo lg:aspect-[4/5]">
             <Image
               src={PHOTOS.retailAerial.src}
-              alt={PHOTOS.retailAerial.alt}
+              alt={t.photoAlt.retailAerial}
               fill
               loading="eager"
               fetchPriority="high"
@@ -98,7 +94,7 @@ export default async function ForPropertyManagersPage({ params }: { params: Prom
               className="object-cover object-[45%_50%]"
             />
             <figcaption className="absolute inset-x-3 bottom-3 rounded-xl bg-indigo/85 px-4 py-3 text-sm text-white backdrop-blur-sm">
-              Retail, office, industrial, condo: post the work for any building you run.
+              {p.caption}
             </figcaption>
           </figure>
         </Container>
@@ -106,20 +102,20 @@ export default async function ForPropertyManagersPage({ params }: { params: Prom
 
       <Section>
         <SectionHeading
-          eyebrow="How it works"
-          title="A focused way to source commercial trades"
+          eyebrow={p.how.eyebrow}
+          title={p.how.title}
         />
         <div className="mt-10 grid gap-6 md:grid-cols-3">
           {STEPS.map((s) => (
-            <Card key={s.title}>
+            <Card key={s.key}>
               <CardHeader>
                 <span className="flex size-10 items-center justify-center rounded-md bg-secondary text-teal-600">
                   <s.icon className="size-5" />
                 </span>
-                <CardTitle className="mt-3">{s.title}</CardTitle>
+                <CardTitle className="mt-3">{p.how.steps[s.key].title}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="leading-relaxed text-muted-foreground">{s.body}</p>
+                <p className="leading-relaxed text-muted-foreground">{p.how.steps[s.key].body}</p>
               </CardContent>
             </Card>
           ))}
@@ -128,9 +124,9 @@ export default async function ForPropertyManagersPage({ params }: { params: Prom
 
       <Section tone="muted">
         <SectionHeading
-          eyebrow="Directory"
-          title="Find vendors by category and region"
-          description="Explore trades across the categories that keep commercial properties running, then filter to your region."
+          eyebrow={p.directory.eyebrow}
+          title={p.directory.title}
+          description={p.directory.description}
         />
         <div className="mt-10">
           <CategoryGrid categories={categories} limit={12} />
@@ -140,7 +136,7 @@ export default async function ForPropertyManagersPage({ params }: { params: Prom
             href="/directory"
             className={buttonVariants({ variant: "outline", size: "lg" })}
           >
-            View full directory
+            {p.directory.cta}
           </Link>
         </div>
       </Section>
@@ -152,13 +148,11 @@ export default async function ForPropertyManagersPage({ params }: { params: Prom
               <span className="flex size-10 items-center justify-center rounded-md bg-secondary text-teal-600">
                 <Lock className="size-5" />
               </span>
-              <CardTitle className="mt-3">Keep details private if needed</CardTitle>
+              <CardTitle className="mt-3">{p.privacy.title}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="leading-relaxed text-muted-foreground">
-                You control contact visibility. Share your details openly to
-                speed things up, or keep them private and review interested
-                vendors before deciding who to connect with.
+                {p.privacy.body}
               </p>
             </CardContent>
           </Card>
@@ -167,11 +161,11 @@ export default async function ForPropertyManagersPage({ params }: { params: Prom
               <span className="flex size-10 items-center justify-center rounded-md bg-secondary text-teal-600">
                 <ShieldCheck className="size-5" />
               </span>
-              <CardTitle className="mt-3">No obligation to hire</CardTitle>
+              <CardTitle className="mt-3">{p.noObligation}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="leading-relaxed text-muted-foreground">
-                {COPY.pmValue}
+                {t.copy.pmValue}
               </p>
             </CardContent>
           </Card>
@@ -182,12 +176,12 @@ export default async function ForPropertyManagersPage({ params }: { params: Prom
       </Section>
 
       <CTASection
-        title="Find the right vendors for your next commercial project."
-        description="Post your project free. Trades come to you with their interest."
+        title={p.cta.title}
+        description={p.cta.description}
         primaryHref="/sign-up?role=property_manager"
-        primaryLabel="Post an RFP — free"
+        primaryLabel={p.postFree}
         secondaryHref="/directory"
-        secondaryLabel="Browse the directory"
+        secondaryLabel={p.cta.secondary}
       />
     </>
   );

@@ -13,21 +13,31 @@ import { listVendors } from "@/lib/data/directory";
 import { getCategories, getPropertyTypes, getRegions } from "@/lib/data/taxonomy";
 import { getRegionLiquidityBySlug } from "@/lib/data/liquidity";
 import { cn } from "@/lib/utils";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale, localizePath } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { fmt, plural } from "@/i18n/format";
+import { tradeName } from "@/i18n/terms";
 
-export const metadata: Metadata = {
-  title: "Vendor Directory — Commercial Property Trades",
-  description:
-    "Browse qualified trade and service companies for commercial property work. Filter by category, region, and property type.",
-  // Filtered views (?category=, ?region=, ?q=) are the same page to Google.
-  alternates: { canonical: "/directory" },
-};
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const t = getDictionary(l).directory.meta;
+  return {
+    title: t.title,
+    description: t.description,
+    // Filtered views (?category=, ?region=, ?q=) are the same page to Google.
+    alternates: alternatesFor(l, "/directory"),
+  };
+}
 
 export default async function DirectoryPage({
   searchParams, params }: {
   searchParams: Promise<Record<string, string | undefined>>;
 } & { params: Promise<object> }) {
-  await setLangFrom(params);
+  const lang = await setLangFrom(params);
+  const t = getT("directory");
   const sp = await searchParams;
   const hasFilters = Boolean(
     sp.category || sp.region || sp.propertyType || sp.verified || sp.q,
@@ -76,8 +86,8 @@ export default async function DirectoryPage({
     <>
       <JsonLd
         data={itemListSchema(
-          "Commercial property vendor directory",
-          vendors.slice(0, 50).map((v) => ({ name: v.name, path: `/directory/${v.slug}` })),
+          t.meta.listName,
+          vendors.slice(0, 50).map((v) => ({ name: v.name, path: localizePath(`/directory/${v.slug}`, lang) })),
         )}
       />
 
@@ -86,29 +96,28 @@ export default async function DirectoryPage({
         <Container className="relative z-10 grid items-end gap-10 pb-20 pt-12 lg:grid-cols-[1fr_auto]">
           <div>
             <span className="eyebrow inline-flex items-center gap-2 text-teal-300">
-              <span className="h-px w-5 bg-teal-300" /> Trade directory
+              <span className="h-px w-5 bg-teal-300" /> {t.hero.eyebrow}
             </span>
             <h1 className="mt-4 max-w-xl text-balance font-heading text-4xl font-semibold leading-[1.05] tracking-tight text-white sm:text-5xl">
-              Trades worth shortlisting.
+              {t.hero.title}
             </h1>
             <p className="mt-4 max-w-lg text-[16.5px] leading-relaxed text-indigo-100/75">
-              Commercial property trades across Canada and the U.S., browsable by category, region and
-              property type. Property managers browse and post free.
+              {t.hero.body}
             </p>
           </div>
           <div className="flex flex-col items-start gap-4 pb-1 lg:items-end">
             <div className="flex gap-7">
               <div className="lg:text-right">
                 <div className="text-[26px] font-extrabold leading-none text-teal-300">{pool.length}</div>
-                <div className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-indigo-100/60">Companies</div>
+                <div className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-indigo-100/60">{t.hero.statCompanies}</div>
               </div>
               <div className="lg:text-right">
                 <div className="text-[26px] font-extrabold leading-none text-teal-300">{activeCats.length}</div>
-                <div className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-indigo-100/60">Categories</div>
+                <div className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-indigo-100/60">{t.hero.statCategories}</div>
               </div>
               <div className="lg:text-right">
                 <div className="text-[26px] font-extrabold leading-none text-teal-300">{regions.length}</div>
-                <div className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-indigo-100/60">Regions</div>
+                <div className="mt-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-indigo-100/60">{t.hero.statRegions}</div>
               </div>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -116,7 +125,7 @@ export default async function DirectoryPage({
                 href="/sign-up?role=property_manager"
                 className={buttonVariants({ size: "sm", variant: "accent" })}
               >
-                Post a project free
+                {t.hero.postProject}
               </Link>
               <Link
                 href="/sign-up"
@@ -125,7 +134,7 @@ export default async function DirectoryPage({
                   "border-white/25 bg-transparent text-white hover:bg-white/10 hover:text-white",
                 )}
               >
-                Get listed <ArrowRight className="size-3.5" />
+                {t.hero.getListed} <ArrowRight className="size-3.5" />
               </Link>
             </div>
           </div>
@@ -142,8 +151,8 @@ export default async function DirectoryPage({
             showVerified
             sticky={false}
             sortOptions={[
-              { value: "featured", label: "Featured first" },
-              { value: "alpha", label: "A–Z" },
+              { value: "featured", label: t.sort.featured },
+              { value: "alpha", label: t.sort.alpha },
             ]}
           />
         </div>
@@ -160,7 +169,7 @@ export default async function DirectoryPage({
                   : "border-border bg-card text-foreground hover:border-teal-300 hover:bg-teal-50",
               )}
             >
-              <LayoutGrid className="size-3.5" /> All trades
+              <LayoutGrid className="size-3.5" /> {t.allTrades}
             </Link>
             {activeCats.map((c) => (
               <Link
@@ -173,7 +182,7 @@ export default async function DirectoryPage({
                     : "border-border bg-card text-foreground hover:border-teal-300 hover:bg-teal-50",
                 )}
               >
-                {c.name}
+                {tradeName(c.name, lang)}
                 <span className={cn("font-mono text-[11px]", sp.category === c.slug ? "text-teal-300" : "text-muted-foreground")}>
                   {c.count}
                 </span>
@@ -200,10 +209,10 @@ export default async function DirectoryPage({
         <Container className="pt-9">
           <div className="mb-4 flex items-baseline justify-between gap-4">
             <span className="inline-flex items-center gap-2 font-mono text-[11.5px] uppercase tracking-[0.16em] text-teal-700">
-              <span className="h-0.5 w-5 rounded bg-teal-700" /> Featured partners · Sponsored placement
+              <span className="h-0.5 w-5 rounded bg-teal-700" /> {t.featured.eyebrow}
             </span>
             <Link href="/pricing" className="text-[13px] font-semibold text-periwinkle hover:underline">
-              What is a featured listing?
+              {t.featured.what}
             </Link>
           </div>
           <div
@@ -227,22 +236,22 @@ export default async function DirectoryPage({
         <div className="mb-4 flex items-baseline justify-between gap-4">
           <span className="inline-flex items-center gap-2 font-mono text-[11.5px] uppercase tracking-[0.16em] text-teal-700">
             <span className="h-0.5 w-5 rounded bg-teal-700" />
-            {hasFilters ? `${rows.length} results` : `All companies · ${vendors.length}`}
+            {hasFilters ? plural(rows.length, t.ledger.results) : fmt(t.ledger.all, { n: vendors.length })}
           </span>
           <Link href="/regions" className="text-[13px] font-semibold text-periwinkle hover:underline">
-            Browse by region
+            {t.ledger.byRegion}
           </Link>
         </div>
 
         {rows.length === 0 ? (
           <div className="flex flex-col items-center gap-4">
             <EmptyState
-              title="No companies match these filters"
-              description="Widen the region or trade. New companies join every week, and property managers can post a project so trades come to them."
+              title={t.ledger.emptyTitle}
+              description={t.ledger.emptyBody}
             />
             {hasFilters && (
               <Link href="/directory" className={buttonVariants({ variant: "outline" })}>
-                Clear all filters
+                {t.ledger.clear}
               </Link>
             )}
           </div>
@@ -256,7 +265,7 @@ export default async function DirectoryPage({
         )}
 
         <div className="flex items-center justify-center gap-2.5 pt-4 font-mono text-xs text-muted-foreground">
-          Profiles are free to view · Posting a project is free for property managers
+          {t.ledger.footnote}
         </div>
       </Container>
 
@@ -265,15 +274,15 @@ export default async function DirectoryPage({
         <div className="relative grid items-center gap-8 overflow-hidden rounded-lg bg-indigo p-10 text-white sm:p-12 lg:grid-cols-[1fr_auto]">
           <div className="relative">
             <h2 className="max-w-lg font-heading text-3xl font-semibold leading-tight tracking-tight text-white">
-              Property managers browse this page before they post.
+              {t.cta.title}
             </h2>
             <p className="mt-3 max-w-md text-[15px] text-indigo-100/70">
-              Get your company listed, or take a featured slot and be the first name they see.
+              {t.cta.body}
             </p>
           </div>
           <div className="relative flex flex-wrap gap-3">
             <Link href="/pricing" className={buttonVariants({ size: "lg", variant: "accent" })}>
-              Get featured <ArrowRight className="size-4" />
+              {t.cta.featured} <ArrowRight className="size-4" />
             </Link>
             <Link
               href="/sign-up"
@@ -282,7 +291,7 @@ export default async function DirectoryPage({
                 "border-white/25 bg-transparent text-white hover:bg-white/10 hover:text-white",
               )}
             >
-              Join free
+              {t.cta.join}
             </Link>
           </div>
         </div>

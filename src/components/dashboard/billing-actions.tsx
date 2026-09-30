@@ -3,10 +3,14 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/i18n/provider";
+
+type Msgs = { unavailable: string; failed: string };
 
 async function go(
   endpoint: string,
   setBusy: (b: boolean) => void,
+  msgs: Msgs,
   body?: Record<string, unknown>,
 ) {
   setBusy(true);
@@ -21,16 +25,16 @@ async function go(
       window.location.href = json.url;
       return;
     }
-    toast.error(json.error ?? "Billing is not available right now.");
+    toast.error(json.error ?? msgs.unavailable);
   } catch {
-    toast.error("Something went wrong. Please try again.");
+    toast.error(msgs.failed);
   } finally {
     setBusy(false);
   }
 }
 
 export function ActivateButton({
-  label = "Activate Trade Pro",
+  label,
   plan = "pro",
   interval = "annual",
   variant = "default",
@@ -42,6 +46,7 @@ export function ActivateButton({
   variant?: "default" | "outline" | "accent";
   className?: string;
 }) {
+  const t = useT("dashClient").billing;
   const [busy, setBusy] = useState(false);
   return (
     <Button
@@ -49,18 +54,19 @@ export function ActivateButton({
       variant={variant}
       disabled={busy}
       className={className}
-      onClick={() => go("/api/stripe/checkout", setBusy, { plan, interval })}
+      onClick={() => go("/api/stripe/checkout", setBusy, t, { plan, interval })}
     >
-      {busy ? "Redirecting…" : label}
+      {busy ? t.redirecting : (label ?? t.activate)}
     </Button>
   );
 }
 
 export function ManageBillingButton() {
+  const t = useT("dashClient").billing;
   const [busy, setBusy] = useState(false);
   return (
-    <Button variant="outline" disabled={busy} onClick={() => go("/api/stripe/portal", setBusy)}>
-      {busy ? "Opening…" : "Manage billing"}
+    <Button variant="outline" disabled={busy} onClick={() => go("/api/stripe/portal", setBusy, t)}>
+      {busy ? t.opening : t.manage}
     </Button>
   );
 }

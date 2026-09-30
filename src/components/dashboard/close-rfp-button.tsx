@@ -18,6 +18,24 @@ import { useActionState, useState } from "react";
 import { closeRfpAction } from "@/lib/dashboard/actions";
 import type { ActionState } from "@/lib/auth/actions";
 import { Check, X, Loader2 } from "lucide-react";
+import { useT } from "@/i18n/provider";
+import type { ClientMessages } from "@/i18n/dictionaries";
+
+/**
+ * closeRfpAction (src/lib/dashboard/actions.ts) answers in English. Known
+ * messages are shown from pmClient.actions; anything else as-is.
+ */
+const ACTION_MESSAGE_KEYS: Record<string, keyof ClientMessages["pmClient"]["actions"]> = {
+  "Demo mode: connect a Supabase project to save changes.": "demo",
+  "Missing or invalid outcome.": "invalidOutcome",
+  "RFP not found.": "notFound",
+  "Only the posting PM can close this RFP.": "notOwner",
+  "This RFP is no longer active.": "inactive",
+  "Could not close the RFP.": "closeFailed",
+  "RFP marked as awarded. If this project came through the referral program, the finder's fee is now eligible.": "awarded",
+  "RFP marked as expired. It's off the public board — re-post any time.": "expired",
+  "RFP closed without award.": "closedNoAward",
+};
 
 export function CloseRfpButton({
   rfpId,
@@ -26,14 +44,20 @@ export function CloseRfpButton({
   rfpId: string;
   alreadyClosed: boolean;
 }) {
+  const pm = useT("pmClient");
+  const t = pm.close;
   const [state, action, pending] = useActionState(closeRfpAction, {} as ActionState);
   const [confirming, setConfirming] = useState<null | "awarded" | "closed" | "expired">(null);
+  const message = (m: string | undefined) => {
+    const key = m ? ACTION_MESSAGE_KEYS[m] : undefined;
+    return (key && pm.actions[key]) || m;
+  };
 
   if (alreadyClosed || state.success) {
     return (
       <div className="rounded-lg border border-success/30 bg-success/10 p-4 text-sm text-success">
         <Check className="mb-1 size-4" />
-        {state.success ?? "This RFP is closed."}
+        {message(state.success) ?? t.closed}
       </div>
     );
   }
@@ -42,16 +66,15 @@ export function CloseRfpButton({
     <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold">Close this RFP</h3>
+          <h3 className="text-sm font-semibold">{t.title}</h3>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            When you&rsquo;ve picked a vendor (or decided not to proceed), close the RFP so
-            it stops appearing as an open opportunity to trades.
+            {t.body}
           </p>
         </div>
       </div>
 
       {state.error && (
-        <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">{state.error}</p>
+        <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">{message(state.error)}</p>
       )}
 
       {confirming ? (
@@ -60,10 +83,10 @@ export function CloseRfpButton({
           <input type="hidden" name="outcome" value={confirming} />
           <p className="rounded-md border border-teal-300/60 bg-teal-100/40 px-3 py-2 text-xs text-foreground">
             {confirming === "awarded"
-              ? "Confirm: you've awarded this RFP to a vendor (on-platform or off)."
+              ? t.confirmAwarded
               : confirming === "expired"
-                ? "Confirm: mark this RFP expired — it drops off the public board. You can re-post any time."
-                : "Confirm: close this RFP without awarding it."}
+                ? t.confirmExpired
+                : t.confirmClosed}
           </p>
           <div className="flex gap-2">
             <button
@@ -73,10 +96,10 @@ export function CloseRfpButton({
             >
               {pending ? (
                 <>
-                  <Loader2 className="size-3.5 animate-spin" /> Closing…
+                  <Loader2 className="size-3.5 animate-spin" /> {t.closing}
                 </>
               ) : (
-                "Yes, close it"
+                t.yes
               )}
             </button>
             <button
@@ -85,7 +108,7 @@ export function CloseRfpButton({
               disabled={pending}
               className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
             >
-              Cancel
+              {t.cancel}
             </button>
           </div>
         </form>
@@ -96,21 +119,21 @@ export function CloseRfpButton({
             onClick={() => setConfirming("awarded")}
             className="inline-flex items-center gap-1.5 rounded-md border border-success/40 bg-success/10 px-3 py-1.5 text-xs font-semibold text-success hover:bg-success/15"
           >
-            <Check className="size-3.5" /> Mark as awarded
+            <Check className="size-3.5" /> {t.markAwarded}
           </button>
           <button
             type="button"
             onClick={() => setConfirming("closed")}
             className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
           >
-            <X className="size-3.5" /> Close without award
+            <X className="size-3.5" /> {t.closeNoAward}
           </button>
           <button
             type="button"
             onClick={() => setConfirming("expired")}
             className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
           >
-            <X className="size-3.5" /> Mark expired
+            <X className="size-3.5" /> {t.markExpired}
           </button>
         </div>
       )}

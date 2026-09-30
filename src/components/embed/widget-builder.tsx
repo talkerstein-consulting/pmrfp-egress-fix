@@ -7,6 +7,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { SearchableSelect, type SearchableOption } from "@/components/ui/searchable-select";
 import { Snippet } from "@/components/public/badge-embed";
 import { cn } from "@/lib/utils";
+import { useT } from "@/i18n/provider";
+import { fmt } from "@/i18n/format";
 import {
   DEFAULT_LIMIT,
   MAX_ITEMS,
@@ -28,37 +30,13 @@ export interface WidgetAccess {
   signedIn: boolean;
 }
 
-const TABS: Record<WidgetKind, { label: string; who: string; icon: React.ReactNode; blurb: string }> = {
-  feed: {
-    label: "Live tender feed",
-    who: "Associations, suppliers, trade blogs",
-    icon: <Radio className="size-4" />,
-    blurb: "Open tenders for a trade and region, updated every morning. Give your members or customers a reason to come back.",
-  },
-  bids: {
-    label: "Your open bids",
-    who: "Property managers",
-    icon: <ClipboardList className="size-4" />,
-    blurb: "Your open RFPs on your own \"Work with us\" page. Trades respond on PMRFP, and you compare them in one place.",
-  },
-  jobs: {
-    label: "Your jobs",
-    who: "Contractors hiring",
-    icon: <Briefcase className="size-4" />,
-    blurb: "Your open jobs on your careers page. People apply in a minute, and applications land in your inbox.",
-  },
-  company: {
-    label: "Company card",
-    who: "Trades and suppliers",
-    icon: <Building2 className="size-4" />,
-    blurb: "Your PMRFP profile as a card on your website, with a Request a quote button. Stronger than a badge.",
-  },
-  trusted: {
-    label: "Trusted trades",
-    who: "Realtors",
-    icon: <Users className="size-4" />,
-    blurb: "The contractors you recommend, on your own site. Clients stop texting you for phone numbers.",
-  },
+/** Tab icons; labels, audiences and blurbs are in partnersClient.widgets.tabs. */
+const TAB_ICONS: Record<WidgetKind, React.ReactNode> = {
+  feed: <Radio className="size-4" />,
+  bids: <ClipboardList className="size-4" />,
+  jobs: <Briefcase className="size-4" />,
+  company: <Building2 className="size-4" />,
+  trusted: <Users className="size-4" />,
 };
 
 function sign(next: string) {
@@ -78,6 +56,7 @@ export function WidgetBuilder({
   regions: SearchableOption[];
   access: WidgetAccess;
 }) {
+  const t = useT("partnersClient").widgets;
   const [kind, setKind] = useState<WidgetKind>(initialKind);
   const [trade, setTrade] = useState<string | null>(null);
   const [region, setRegion] = useState<string | null>(null);
@@ -118,7 +97,7 @@ export function WidgetBuilder({
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
       <div>
-        <div role="tablist" aria-label="Widget type" className="grid gap-2">
+        <div role="tablist" aria-label={t.tablist} className="grid gap-2">
           {WIDGET_KINDS.map((k) => (
             <button
               key={k}
@@ -137,11 +116,11 @@ export function WidgetBuilder({
                   kind === k ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground",
                 )}
               >
-                {TABS[k].icon}
+                {TAB_ICONS[k]}
               </span>
               <span className="min-w-0">
-                <span className="block font-semibold">{TABS[k].label}</span>
-                <span className="block text-xs text-muted-foreground">For {TABS[k].who.toLowerCase()}</span>
+                <span className="block font-semibold">{t.tabs[k].label}</span>
+                <span className="block text-xs text-muted-foreground">{t.tabs[k].for}</span>
               </span>
             </button>
           ))}
@@ -150,8 +129,8 @@ export function WidgetBuilder({
 
       <div className="min-w-0 space-y-6">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight">{TABS[kind].label}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{TABS[kind].blurb}</p>
+          <h2 className="text-xl font-semibold tracking-tight">{t.tabs[kind].label}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t.tabs[kind].blurb}</p>
         </div>
 
         {config ? (
@@ -159,33 +138,33 @@ export function WidgetBuilder({
             <div className="grid gap-3 sm:grid-cols-2">
               {kind === "feed" && (
                 <>
-                  <Field label="Trade">
-                    <SearchableSelect options={categories} value={trade} onChange={setTrade} allLabel="All trades" placeholder="All trades" />
+                  <Field label={t.trade}>
+                    <SearchableSelect options={categories} value={trade} onChange={setTrade} allLabel={t.allTrades} placeholder={t.allTrades} />
                   </Field>
-                  <Field label="Region">
-                    <SearchableSelect options={regions} value={region} onChange={setRegion} allLabel="All regions" placeholder="All regions" />
+                  <Field label={t.region}>
+                    <SearchableSelect options={regions} value={region} onChange={setRegion} allLabel={t.allRegions} placeholder={t.allRegions} />
                   </Field>
                 </>
               )}
-              <Field label="Style">
+              <Field label={t.style}>
                 <div className="grid grid-cols-2 gap-1 rounded-lg border border-border bg-secondary/40 p-1">
-                  {(["light", "dark"] as const).map((t) => (
+                  {(["light", "dark"] as const).map((th) => (
                     <button
-                      key={t}
+                      key={th}
                       type="button"
-                      onClick={() => setTheme(t)}
+                      onClick={() => setTheme(th)}
                       className={cn(
                         "rounded-md px-3 py-1.5 text-sm font-medium capitalize",
-                        theme === t ? "bg-card shadow-sm" : "text-muted-foreground hover:text-foreground",
+                        theme === th ? "bg-card shadow-sm" : "text-muted-foreground hover:text-foreground",
                       )}
                     >
-                      {t}
+                      {t.themes[th]}
                     </button>
                   ))}
                 </div>
               </Field>
               {kind !== "company" && (
-                <Field label={`Show up to ${limit}`}>
+                <Field label={fmt(t.showUpTo, { n: limit })}>
                   <input
                     type="range"
                     min={1}
@@ -193,7 +172,7 @@ export function WidgetBuilder({
                     value={limit}
                     onChange={(e) => setLimit(Number(e.target.value))}
                     className="h-9 w-full accent-[#0c7a5a]"
-                    aria-label="How many items to show"
+                    aria-label={t.howMany}
                   />
                 </Field>
               )}
@@ -201,35 +180,35 @@ export function WidgetBuilder({
 
             <div className={cn("rounded-xl border border-dashed border-border p-4 sm:p-6", theme === "dark" ? "bg-[#161834]" : "bg-secondary/40")}>
               <p className={cn("mb-3 text-xs font-medium", theme === "dark" ? "text-[#a9adce]" : "text-muted-foreground")}>
-                Live preview
+                {t.preview}
               </p>
               {previewSrc && (
                 <iframe
                   key={previewSrc}
                   ref={frame}
                   src={previewSrc}
-                  title="Widget preview"
+                  title={t.previewTitle}
                   style={{ height }}
                   className="block w-full max-w-[640px] border-0"
                 />
               )}
             </div>
 
-            <Snippet label="Paste this where you want it to appear" code={scriptSnippet(base, config, options)} />
+            <Snippet label={t.paste} code={scriptSnippet(base, config, options)} />
             <details className="rounded-lg border border-border bg-card p-4">
-              <summary className="cursor-pointer text-sm font-semibold">Site builder won&apos;t take scripts? Use an iframe</summary>
+              <summary className="cursor-pointer text-sm font-semibold">{t.iframeSummary}</summary>
               <div className="mt-4">
-                <Snippet label="iframe code (fixed height)" code={iframeSnippet(base, config, options)} />
+                <Snippet label={t.iframeLabel} code={iframeSnippet(base, config, options)} />
               </div>
             </details>
             {kind === "bids" && (
               <p className="text-xs text-muted-foreground">
-                Only RFPs you post with public contact details appear here. RFPs posted anonymously or through PMRFP stay private.
+                {t.bidsNote}
               </p>
             )}
             {kind === "company" && access.company && !access.company.ready && (
               <p className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
-                Your card goes live once your company profile is approved. You can paste the code now.
+                {t.companyPending}
               </p>
             )}
           </>
@@ -252,20 +231,22 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 /** What to do to unlock a widget that needs an account, listing or published page. */
 function Locked({ kind, signedIn }: { kind: WidgetKind; signedIn: boolean }) {
+  const t = useT("partnersClient").widgets;
+  const l = t.locked;
   const next = `/widgets?w=${kind}`;
   const copy: Record<Exclude<WidgetKind, "feed">, { text: string; cta: string; href: string }> = {
     bids: signedIn
-      ? { text: "This widget is for property managers. Post an RFP from a property manager account to get your code.", cta: "Post an RFP", href: "/pm-dashboard/rfps/new" }
-      : { text: "Sign in to your property manager account to get the code for your open bids.", cta: "Sign in", href: sign(next) },
+      ? { text: l.bids.in, cta: l.bids.inCta, href: "/pm-dashboard/rfps/new" }
+      : { text: l.bids.out, cta: t.signIn, href: sign(next) },
     jobs: signedIn
-      ? { text: "Set up your company first, then post a job to get the code.", cta: "Post a job", href: "/jobs/post" }
-      : { text: "Sign in to get the code for your company's open jobs.", cta: "Sign in", href: sign(next) },
+      ? { text: l.jobs.in, cta: l.jobs.inCta, href: "/jobs/post" }
+      : { text: l.jobs.out, cta: t.signIn, href: sign(next) },
     company: signedIn
-      ? { text: "Company cards are for listed trades and suppliers. List your company free to get yours.", cta: "Complete my profile", href: "/dashboard/company" }
-      : { text: "List your company free, then come back for your card.", cta: "List my company", href: "/sign-up" },
+      ? { text: l.company.in, cta: l.company.inCta, href: "/dashboard/company" }
+      : { text: l.company.out, cta: l.company.outCta, href: "/sign-up" },
     trusted: signedIn
-      ? { text: "Publish your trusted trades page first, then your code appears here.", cta: "Build my list", href: "/pm-dashboard/saved-vendors" }
-      : { text: "Sign in to get the code for your trusted trades list.", cta: "Sign in", href: sign(next) },
+      ? { text: l.trusted.in, cta: l.trusted.inCta, href: "/pm-dashboard/saved-vendors" }
+      : { text: l.trusted.out, cta: t.signIn, href: sign(next) },
   };
   if (kind === "feed") return null;
   const c = copy[kind];

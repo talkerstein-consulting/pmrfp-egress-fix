@@ -5,18 +5,16 @@ import { Markdown } from "@/components/public/markdown";
 import { CTASection } from "@/components/public/section";
 import { JsonLd, breadcrumbSchema, faqSchema } from "@/lib/seo/jsonld";
 import { SITE } from "@/lib/site";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
+import { LOCALE_TAG, hasLocale, localizePath, type Locale } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { MAINTENANCE_RFP_GUIDE_FR, type StaticGuide } from "../guides.fr";
+import { MAINTENANCE_RFP_GUIDE_ES } from "../guides.es";
 
 const SLUG = "how-to-write-a-commercial-property-maintenance-rfp";
 const TITLE = "How to Write a Commercial Property Maintenance RFP";
 const META_DESC =
   "A working property manager's guide to writing commercial maintenance RFPs that get real, comparable bids — scope, insurance, evaluation, and the mistakes to avoid. Canada-specific.";
-
-export const metadata: Metadata = {
-  title: TITLE,
-  description: META_DESC,
-  alternates: { canonical: `/resources/${SLUG}` },
-};
 
 const FAQS = [
   {
@@ -228,53 +226,84 @@ Usually the tender period was too short, the scope was unclear, or the posting d
 
 That's a governance problem more than a procurement one. The board sets the threshold ("a competitive process for anything over $25,000") and should understand that lowest price is one input, not the only one. Your job is to document the evaluation clearly enough that they can see why the awarded bid was the best value. Most boards, shown a clear evaluation, accept a reasoned recommendation.`;
 
+/** English page text; the French and Spanish versions live in ../guides.fr.ts and ../guides.es.ts. */
+const EN: StaticGuide = {
+  title: TITLE,
+  metaDescription: META_DESC,
+  eyebrow: "Guide",
+  lead: "A working property manager's guide to running a competitive process that gets you real, comparable bids — and a decision you can defend to your board.",
+  faqs: FAQS,
+  article: ARTICLE,
+  cta: {
+    title: "Post your project — free",
+    description:
+      "Once your scope is written, posting takes about two minutes. Qualified trades respond, and you stay anonymous until you choose to engage.",
+    primaryLabel: "Post a project — free",
+    secondaryLabel: "Browse RFP templates",
+  },
+};
+
+const guideFor = (lang: Locale) => (lang === "fr" ? MAINTENANCE_RFP_GUIDE_FR : lang === "es" ? MAINTENANCE_RFP_GUIDE_ES : EN);
+
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const g = guideFor(l);
+  return {
+    title: g.title,
+    description: g.metaDescription,
+    alternates: alternatesFor(l, `/resources/${SLUG}`),
+  };
+}
+
 export default async function RfpGuidePage({ params }: { params: Promise<object> }) {
-  await setLangFrom(params);
+  const lang = await setLangFrom(params);
+  const c = getT("content");
+  const g = guideFor(lang);
   return (
     <>
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", path: "/" },
-          { name: "Resources", path: "/resources" },
-          { name: TITLE, path: `/resources/${SLUG}` },
+          { name: c.crumbs.home, path: localizePath("/", lang) },
+          { name: c.crumbs.resources, path: localizePath("/resources", lang) },
+          { name: g.title, path: localizePath(`/resources/${SLUG}`, lang) },
         ])}
       />
-      <JsonLd data={faqSchema(FAQS)} />
+      <JsonLd data={faqSchema(g.faqs)} />
       <JsonLd
         data={{
           "@context": "https://schema.org",
           "@type": "Article",
-          headline: TITLE,
-          description: META_DESC,
+          headline: g.title,
+          description: g.metaDescription,
           author: { "@type": "Organization", name: SITE.name, url: SITE.url },
           publisher: { "@type": "Organization", name: SITE.name, url: SITE.url },
-          mainEntityOfPage: `${SITE.url}/resources/${SLUG}`,
-          inLanguage: "en-CA",
+          mainEntityOfPage: `${SITE.url}${localizePath(`/resources/${SLUG}`, lang)}`,
+          inLanguage: LOCALE_TAG[lang],
         }}
       />
 
       <Container size="narrow" className="py-14">
         <Link href="/resources" className="text-sm text-muted-foreground hover:text-foreground">
-          ← All resources
+          {c.resource.back}
         </Link>
-        <p className="mt-6 font-mono text-xs uppercase tracking-widest text-teal-ink">Guide</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{TITLE}</h1>
+        <p className="mt-6 font-mono text-xs uppercase tracking-widest text-teal-ink">{g.eyebrow}</p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{g.title}</h1>
         <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-          A working property manager&apos;s guide to running a competitive process that gets you
-          real, comparable bids — and a decision you can defend to your board.
+          {g.lead}
         </p>
         <article className="mt-8">
-          <Markdown content={ARTICLE} />
+          <Markdown content={g.article} />
         </article>
       </Container>
 
       <CTASection
-        title="Post your project — free"
-        description="Once your scope is written, posting takes about two minutes. Qualified trades respond, and you stay anonymous until you choose to engage."
+        title={g.cta.title}
+        description={g.cta.description}
         primaryHref="/sign-up?role=property_manager"
-        primaryLabel="Post a project — free"
+        primaryLabel={g.cta.primaryLabel}
         secondaryHref="/rfp-templates"
-        secondaryLabel="Browse RFP templates"
+        secondaryLabel={g.cta.secondaryLabel}
       />
     </>
   );

@@ -13,7 +13,7 @@ export const DEFAULT_LOCALE: Locale = "en";
  * English and stays out of the switcher, hreflang and the sitemap, so a
  * half-translated language never ships.
  */
-export const ENABLED_LOCALES: readonly Locale[] = ["en", "fr"];
+export const ENABLED_LOCALES: readonly Locale[] = ["en", "fr", "es"];
 
 /** Remembers the visitor's choice so unprefixed links and redirects keep their language. */
 export const LOCALE_COOKIE = "NEXT_LOCALE";
@@ -26,7 +26,7 @@ export function isEnabledLocale(v: unknown): v is Locale {
 }
 
 /** BCP 47 tags: <html lang>, Intl formatting and Open Graph. */
-export const LOCALE_TAG: Record<Locale, string> = { en: "en-CA", fr: "fr-CA", es: "es" };
+export const LOCALE_TAG: Record<Locale, string> = { en: "en-CA", fr: "fr-CA", es: "es-US" };
 export const OG_LOCALE: Record<Locale, string> = { en: "en_CA", fr: "fr_CA", es: "es_US" };
 export const LOCALE_NAME: Record<Locale, string> = { en: "English", fr: "Français", es: "Español" };
 

@@ -9,12 +9,14 @@
  *
  * Lives at /use-template instead of /rfp-templates/.../use because it's not a content page —
  * it's a router. Keeping it outside (marketing) avoids accidental sitemap inclusion.
+ * Renders no text of its own; redirects keep the visitor's language prefix.
  */
 import { redirect, notFound } from "next/navigation";
 import { getSession } from "@/lib/access/access";
 import { getRfpTemplate } from "@/lib/seo/rfp-templates";
 import { EVENT, trackEvent } from "@/lib/analytics";
 import { setLangFrom } from "@/i18n/server";
+import { localizePath } from "@/i18n/config";
 
 export const dynamic = "force-dynamic";
 export const metadata = { robots: { index: false, follow: false } };
@@ -24,12 +26,12 @@ export default async function UseTemplateRouter({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  await setLangFrom(params);
+  const lang = await setLangFrom(params);
   const { slug } = await params;
   const template = getRfpTemplate(slug);
   if (!template) notFound();
 
-  const destination = `/pm-dashboard/rfps/new?template=${template.slug}`;
+  const destination = localizePath(`/pm-dashboard/rfps/new?template=${template.slug}`, lang);
   const session = await getSession();
 
   await trackEvent(EVENT.TEMPLATE_USED, {
@@ -41,7 +43,7 @@ export default async function UseTemplateRouter({
   if (!session) {
     // Anonymous: send to signup with role pre-picked + next path preserved.
     redirect(
-      `/sign-up?role=property_manager&next=${encodeURIComponent(destination)}`,
+      localizePath(`/sign-up?role=property_manager&next=${encodeURIComponent(destination)}`, lang),
     );
   }
 

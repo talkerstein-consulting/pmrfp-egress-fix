@@ -5,15 +5,23 @@ import { ContinueWithGoogle } from "@/components/forms/google-button";
 import { DemoNotice } from "@/components/forms/demo-notice";
 import { safeNextPath } from "@/lib/auth/next";
 import { isGoogleAuthEnabled } from "@/lib/auth/google";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
 
-export const metadata: Metadata = { title: "Sign in" };
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  return { title: getDictionary(l).auth.meta.signIn, alternates: alternatesFor(l, "/sign-in") };
+}
 
 export default async function SignInPage({
   searchParams, params }: {
   searchParams: Promise<{ next?: string; error?: string }>;
 } & { params: Promise<object> }) {
   await setLangFrom(params);
+  const t = getT("auth").signIn;
   const { next: rawNext, error } = await searchParams;
   const next = safeNextPath(rawNext);
   const signUpHref = next ? `/sign-up?next=${encodeURIComponent(next)}` : "/sign-up";
@@ -21,11 +29,11 @@ export default async function SignInPage({
 
   return (
     <div className="rounded-xl border border-border bg-card p-8 shadow-sm">
-      <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Sign in to your PMRFP account.</p>
+      <h1 className="text-2xl font-semibold tracking-tight">{t.heading}</h1>
+      <p className="mt-1 text-sm text-muted-foreground">{t.intro}</p>
       {error === "google" && (
         <p className="mt-6 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          We couldn&apos;t sign you in with Google. Please try again, or use your email and password.
+          {t.googleError}
         </p>
       )}
       <div className="mt-6">
@@ -38,9 +46,9 @@ export default async function SignInPage({
       </div>
       <DemoNotice />
       <p className="mt-6 text-center text-sm text-muted-foreground">
-        New to PMRFP?{" "}
+        {t.newTo}{" "}
         <Link href={signUpHref} className="font-medium text-teal-700 hover:underline">
-          Create an account
+          {t.createAccount}
         </Link>
       </p>
     </div>

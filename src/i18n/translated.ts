@@ -6,18 +6,29 @@ import { ENABLED_LOCALES, type Locale } from "./config";
  * else is listed in English only (its /fr copy canonicalizes to English).
  * Add a pattern here when a page's translation ships.
  */
-const TRANSLATED: Partial<Record<Locale, RegExp[]>> = {
-  fr: [
-    /^\/$/,
-    /^\/rfps(\/[^/]+)?$/,
-    /^\/directory(\/[^/]+)?$/,
-    /^\/suppliers$/,
-    /^\/pricing$/,
-    /^\/for-trades$/,
-    /^\/for-property-managers$/,
-    /^\/rfp-writer$/,
-  ],
-};
+const PAGES: RegExp[] = [
+  /^\/$/,
+  /^\/rfps(\/[^/]+)?$/,
+  /^\/directory(\/[^/]+)?$/,
+  /^\/suppliers$/,
+  /^\/pricing$/,
+  /^\/for-trades$/,
+  /^\/for-property-managers$/,
+  /^\/rfp-writer$/,
+  /^\/jobs(\/[^/]+)?$/,
+  /^\/talent(\/[^/]+)?$/,
+  /^\/(about|contact|terms|privacy|disclaimer|refer|refer-a-trade|refer-a-project|get-found|services-for-trades)$/,
+  /^\/(advertise|widgets|badge|reports\/public-building-contracts)$/,
+  /^\/contract-winners(\/[^/]+)?$/,
+  /^\/trades(\/[^/]+){0,2}$/,
+  /^\/(regions|for|vs)(\/[^/]+)?$/,
+  /^\/(rfp-templates|cost-guides)(\/[^/]+)?$/,
+  /^\/resources(\/(grow|how-to-post-a-quality-rfp|how-to-write-a-commercial-property-maintenance-rfp))?$/,
+  /^\/case-studies$/,
+];
+
+// French and Spanish cover the same pages.
+const TRANSLATED: Partial<Record<Locale, RegExp[]>> = { fr: PAGES, es: PAGES };
 
 /** Languages (besides English) this path is translated into. */
 export function translationsOf(path: string): Locale[] {

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
 import { oauthCallbackPath } from "@/lib/auth/oauth";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/i18n/provider";
 
 /**
  * "Continue with Google", then an "or" divider above the email form. Only
@@ -11,6 +12,7 @@ import { Button } from "@/components/ui/button";
  * `next` is where to go after Google; it's re-checked on the way back.
  */
 export function ContinueWithGoogle({ next }: { next?: string | null }) {
+  const t = useT("auth").google;
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,7 +26,7 @@ export function ContinueWithGoogle({ next }: { next?: string | null }) {
     // On success the browser is already on its way to Google.
     if (error) {
       setPending(false);
-      setError("Google sign-in isn't working right now. Please use your email instead.");
+      setError(t.error);
     }
   }
 
@@ -33,11 +35,11 @@ export function ContinueWithGoogle({ next }: { next?: string | null }) {
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       <Button type="button" variant="outline" className="w-full gap-2" onClick={start} disabled={pending}>
         <GoogleMark />
-        {pending ? "Opening Google…" : "Continue with Google"}
+        {pending ? t.opening : t.continue}
       </Button>
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <span className="h-px flex-1 bg-border" />
-        or
+        {t.or}
         <span className="h-px flex-1 bg-border" />
       </div>
     </div>

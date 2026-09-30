@@ -63,6 +63,24 @@ const en = {
     legal: "Legal",
     copyright: "Commercial property RFPs and tenders, Canada and the U.S.",
   },
+  install: {
+    title: "Install the PMRFP app",
+    button: "Install app",
+    iosBefore: "Tap",
+    share: "Share",
+    iosThen: ", then",
+    addHome: "Add to Home Screen",
+    notNow: "Not now",
+    pitch: {
+      trade: "New RFPs that match your trade, one tap away on your home screen. Opens full-screen, like any app.",
+      pm: "Your RFPs and the trades bidding on them, one tap away on your home screen. Opens full-screen, like any app.",
+      other: "PMRFP one tap away on your home screen. Opens full-screen, like any app.",
+    },
+  },
+  sponsor: {
+    Sponsored: "Sponsored",
+    "From our sister company": "From our sister company",
+  },
   disclaimer:
     "PMRFP is a platform for posting RFPs and finding trades. We do not guarantee project availability, bid success, contract awards, property manager response, or revenue. Members are responsible for their own due diligence, qualifications, insurance, licensing, pricing, and agreements.",
 };
@@ -132,8 +150,113 @@ const fr: typeof en = {
     legal: "Mentions légales",
     copyright: "Appels d'offres immobiliers commerciaux et marchés publics, au Canada et aux États-Unis.",
   },
+  install: {
+    title: "Installez l'application PMRFP",
+    button: "Installer l'application",
+    iosBefore: "Touchez",
+    share: "Partager",
+    iosThen: ", puis",
+    addHome: "Sur l'écran d'accueil",
+    notNow: "Plus tard",
+    pitch: {
+      trade: "Les nouveaux appels d'offres dans votre corps de métier, à un toucher de votre écran d'accueil. S'ouvre en plein écran, comme une application.",
+      pm: "Vos appels d'offres et les entrepreneurs qui soumissionnent, à un toucher de votre écran d'accueil. S'ouvre en plein écran, comme une application.",
+      other: "PMRFP à un toucher de votre écran d'accueil. S'ouvre en plein écran, comme une application.",
+    },
+  },
+  sponsor: {
+    Sponsored: "Commandité",
+    "From our sister company": "De notre entreprise sœur",
+  },
   disclaimer:
     "PMRFP est une plateforme pour publier des appels d'offres et trouver des entrepreneurs. Nous ne garantissons ni la disponibilité des projets, ni le succès des soumissions, ni l'octroi de contrats, ni la réponse des gestionnaires immobiliers, ni des revenus. Les membres sont responsables de leur propre diligence raisonnable, de leurs qualifications, de leurs assurances, de leurs licences, de leurs prix et de leurs ententes.",
 };
 
-export default { en, fr };
+const es: typeof en = {
+  meta: {
+    defaultTitle: "PMRFP — Solicitudes de propuestas para propiedades comerciales y directorio de contratistas",
+    description:
+      "En PMRFP, los administradores de propiedades publican gratis solicitudes de propuestas (RFP) para edificios comerciales y residenciales, y contratistas verificados se registran y presentan ofertas, región por región, en Canadá y Estados Unidos.",
+    tagline:
+      "Los administradores de propiedades publican RFP gratis. Contratistas verificados presentan ofertas. Región por región, en Canadá y Estados Unidos.",
+  },
+  nav: {
+    home: "Inicio de PMRFP",
+    rfps: "Licitaciones",
+    directory: "Directorio",
+    jobs: "Empleos",
+    forPms: "Administradores de propiedades",
+    pricing: "Precios",
+    signIn: "Iniciar sesión",
+    join: "Registrarse",
+    toggleMenu: "Abrir el menú",
+  },
+  lang: {
+    label: "Idioma",
+    switchTo: "English",
+  },
+  footer: {
+    sister: "Del equipo detrás de {brand}.",
+    cols: {
+      work: "Encontrar trabajo",
+      who: "Para quién es",
+      resources: "Recursos",
+    },
+    links: {
+      rfps: "Ver licitaciones",
+      jobs: "Empleos en oficios",
+      talent: "Encontrar trabajadores de oficios",
+      winners: "Adjudicatarios",
+      report: "Informe de contratos públicos",
+      trades: "Oficios",
+      regions: "Regiones",
+      suppliers: "Directorio de proveedores",
+      forTrades: "Para contratistas",
+      forPms: "Para administradores de propiedades",
+      forRealtors: "Para agentes inmobiliarios",
+      solutions: "Todas las soluciones",
+      getFound: "Aparezca en búsquedas (SEO e IA)",
+      pricing: "Precios",
+      advertise: "Anúnciese con nosotros",
+      writer: "Redactor de RFP (gratis)",
+      templates: "Plantillas de RFP",
+      costGuides: "Guías de costos",
+      guides: "Guías",
+      caseStudies: "Casos de éxito",
+      compare: "Comparar",
+      badge: "Insignia de proveedor",
+      widgets: "Widgets para su sitio web",
+      services: "Servicios para contratistas",
+      refer: "Recomiende a un contratista: gane ${fee}",
+      about: "Acerca de",
+      contact: "Contacto",
+      terms: "Términos",
+      privacy: "Privacidad",
+      disclaimer: "Aviso legal",
+    },
+    legal: "Legal",
+    copyright: "Solicitudes de propuestas y licitaciones para propiedades comerciales, en Canadá y Estados Unidos.",
+  },
+  install: {
+    title: "Instale la aplicación PMRFP",
+    button: "Instalar la aplicación",
+    iosBefore: "Toque",
+    share: "Compartir",
+    iosThen: " y luego",
+    addHome: "Agregar a pantalla de inicio",
+    notNow: "Ahora no",
+    pitch: {
+      trade: "Las nuevas RFP de su oficio, a un toque desde su pantalla de inicio. Se abre en pantalla completa, como cualquier aplicación.",
+      pm: "Sus RFP y los contratistas que presentan ofertas, a un toque desde su pantalla de inicio. Se abre en pantalla completa, como cualquier aplicación.",
+      other: "PMRFP a un toque desde su pantalla de inicio. Se abre en pantalla completa, como cualquier aplicación.",
+    },
+  },
+  sponsor: {
+    Sponsored: "Patrocinado",
+    "From our sister company": "De nuestra empresa hermana",
+  },
+  disclaimer:
+    "PMRFP es una plataforma para publicar solicitudes de propuestas (RFP) y encontrar contratistas. No garantizamos la disponibilidad de proyectos, el éxito de las ofertas, la adjudicación de contratos, la respuesta de los administradores de propiedades ni ingresos. Los miembros son responsables de su propia diligencia debida, calificaciones, seguros, licencias, precios y acuerdos.",
+};
+
+export default { en, fr, es };

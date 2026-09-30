@@ -1,5 +1,7 @@
 import { publicTenderSource } from "@/lib/tenders/sources";
 import { isPastContract } from "@/lib/data/fomo";
+import type { Locale } from "@/i18n/config";
+import sharedClient from "@/i18n/messages/sharedClient";
 
 /**
  * GC sub-trade packages: a general contractor posts one package per trade
@@ -22,10 +24,37 @@ export function isGcPackage(r: { sourceType: string | null }): boolean {
 }
 
 /** Card/page badge for where a listing came from, or null for a plain PM RFP. */
-export function sourceTypeLabel(sourceType: string | null, slug: string): string | null {
-  if (sourceType === GC_PACKAGE) return GC_BADGE;
-  if (sourceType === "public_source") return publicTenderSource(slug).badge;
+export function sourceTypeLabel(sourceType: string | null, slug: string, lang: Locale = "en"): string | null {
+  if (sourceType === GC_PACKAGE) return lang === "en" ? GC_BADGE : sourceLabels(lang).gcPackage;
+  if (sourceType === "public_source") return translateBadge(publicTenderSource(slug).badge, lang);
   return null;
+}
+
+type SourceLabels = typeof sharedClient.en.labels;
+
+function sourceLabels(lang: Locale): SourceLabels {
+  return ((sharedClient as Partial<Record<Locale, typeof sharedClient.en>>)[lang] ?? sharedClient.en).labels;
+}
+
+/** The same phrase in another language, matched on its English text; unknown text stays English. */
+function translatePhrase<T extends Record<string, string>>(text: string, en: T, target: T): string {
+  const key = (Object.keys(en) as (keyof T)[]).find((k) => en[k] === text);
+  return key ? target[key] : text;
+}
+
+/** "Public tender · City of Toronto" → "Appel d'offres public · Ville de Toronto". */
+function translateBadge(badge: string, lang: Locale): string {
+  if (lang === "en") return badge;
+  const en = sourceLabels("en");
+  const t = sourceLabels(lang);
+  const [kind, issuer] = badge.split(" · ");
+  const out = translatePhrase(kind, en.sourceKind, t.sourceKind);
+  return issuer === undefined ? out : `${out} · ${translatePhrase(issuer, en.issuer, t.issuer)}`;
+}
+
+/** A tender portal's name ("the City of Toronto bid portal", "CanadaBuys") in the visitor's language. */
+export function portalName(portal: string, lang: Locale = "en"): string {
+  return lang === "en" ? portal : translatePhrase(portal, sourceLabels("en").portal, sourceLabels(lang).portal);
 }
 
 /** A trade name mid-sentence: "Roofing" → "roofing", "HVAC" stays, "EV Charging" → "EV charging". */

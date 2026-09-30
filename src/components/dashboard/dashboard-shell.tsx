@@ -5,8 +5,47 @@ import { Logo } from "@/components/logo";
 import { InstallApp, type InstallAudience } from "@/components/pwa/install-app";
 import { signOutAction } from "@/lib/auth/actions";
 import { SITE } from "@/lib/site";
+import { getDictionary, type Messages } from "@/i18n/dictionaries";
+import { getLang } from "@/i18n/server";
+import { fmt } from "@/i18n/format";
 
 type NavItem = { href: string; label: string };
+type Shell = Messages["dash"]["shell"];
+
+/** TRADE_NAV / PM_NAV hrefs (src/lib/site.ts) -> translated label. Admin stays English. */
+const NAV_KEY: Record<string, keyof Shell["nav"]> = {
+  "/dashboard": "home",
+  "/dashboard/company": "company",
+  "/dashboard/rfps": "rfps",
+  "/dashboard/saved-rfps": "savedRfps",
+  "/dashboard/interests": "interests",
+  "/dashboard/projects": "projects",
+  "/jobs/manage": "hiring",
+  "/dashboard/billing": "billing",
+  "/dashboard/settings": "settings",
+  "/pm-dashboard": "home",
+  "/pm-dashboard/rfps": "pmRfps",
+  "/pm-dashboard/rfps/new": "pmPost",
+  "/rfp-writer": "pmWriter",
+  "/pm-dashboard/saved-vendors": "pmTrusted",
+};
+
+/** Phone tab-bar short names (src/lib/pwa/tabs.ts TAB_LABELS), by href. */
+const TAB_KEY: Record<string, keyof Shell["tabs"]> = {
+  "/dashboard": "home",
+  "/dashboard/rfps": "feed",
+  "/dashboard/saved-rfps": "saved",
+  "/dashboard/interests": "interests",
+  "/pm-dashboard": "home",
+  "/pm-dashboard/rfps": "pmRfps",
+  "/pm-dashboard/rfps/new": "pmPost",
+  "/pm-dashboard/saved-vendors": "pmTrades",
+};
+
+const AREA_KEY: Record<string, keyof Shell["area"]> = {
+  "Trade Dashboard": "trade",
+  "Property Manager": "pm",
+};
 
 /** Who's looking at this shell, judged by its nav (for the install card's pitch). */
 function audienceFor(nav: readonly NavItem[]): InstallAudience {
@@ -32,29 +71,37 @@ export function DashboardShell({
   children: React.ReactNode;
 }) {
   const audience = audienceFor(nav);
+  // The admin area stays English; trade and PM dashboards follow the page language.
+  const lang = audience === "other" ? "en" : getLang();
+  const t = getDictionary(lang).dash.shell;
+  // English keeps the labels from src/lib/site.ts as they are.
+  const items = lang === "en" ? nav : nav.map((item) => ({ ...item, label: NAV_KEY[item.href] ? t.nav[NAV_KEY[item.href]] : item.label }));
+  const areaLabel = lang !== "en" && AREA_KEY[area] ? t.area[AREA_KEY[area]] : area;
+  const tabLabels: Record<string, string> = {};
+  if (lang !== "en") for (const [href, key] of Object.entries(TAB_KEY)) tabLabels[href] = t.tabs[key];
   return (
     <div className="flex min-h-screen bg-background">
       <aside className="hidden w-64 shrink-0 flex-col bg-sidebar p-4 md:flex print:hidden">
-        <Link href="/" className="mb-6 flex items-center px-2" aria-label="PMRFP home">
+        <Link href="/" className="mb-6 flex items-center px-2" aria-label={t.home}>
           <Logo className="text-teal-300" />
         </Link>
-        <div className="eyebrow mb-3 px-3 text-teal-300/60">{area}</div>
-        <SidebarNav items={nav} />
+        <div className="eyebrow mb-3 px-3 text-teal-300/60">{areaLabel}</div>
+        <SidebarNav items={items} />
         <InstallApp variant="sidebar" audience={audience} className="mt-6" />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 items-center justify-between border-b border-border px-5 print:hidden">
           <div className="eyebrow text-muted-foreground md:hidden">
-            {SITE.name} · {area}
+            {SITE.name} · {areaLabel}
           </div>
           <div className="ml-auto flex items-center gap-4 text-sm text-muted-foreground">
             <Link href="/" className="hover:text-foreground">
-              View site
+              {t.viewSite}
             </Link>
             <form action={signOutAction}>
               <button type="submit" className="hover:text-foreground">
-                Sign out
+                {t.signOut}
               </button>
             </form>
           </div>
@@ -68,7 +115,11 @@ export function DashboardShell({
         </main>
       </div>
 
-      <AppTabBar nav={nav} area={area} />
+      <AppTabBar
+        nav={items}
+        area={areaLabel}
+        labels={{ more: t.more, viewSite: t.viewSite, tabs: fmt(t.tabsAria, { area: areaLabel }), short: tabLabels }}
+      />
     </div>
   );
 }

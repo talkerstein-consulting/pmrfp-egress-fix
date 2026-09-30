@@ -24,33 +24,40 @@ import { isIndexableRfp } from "@/lib/seo/rfp-indexing";
 import { BidChecklist } from "@/components/public/bid-checklist";
 import { getBidCheckBySlug } from "@/lib/bid-check/data";
 import { GcPackageCta } from "@/components/public/gc-package-cta";
-import { GC_BADGE, isGcPackage, tradeWords } from "@/lib/gc/packages";
+import { isGcPackage, sourceTypeLabel, tradeWords } from "@/lib/gc/packages";
 import { getAwardById, listPackagesForAward } from "@/lib/gc/data";
 import { getAwardIndex, intelFor } from "@/lib/data/award-intel";
 import { AwardIntelCard } from "@/components/public/award-intel-card";
 import { SponsorSlot } from "@/components/sponsors/sponsor-slot";
 import { rfpMarket } from "@/lib/visitor-geo";
-import { setLangFrom } from "@/i18n/server";
+import { getLang, getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale, type Locale } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { fmt as fill, formatDate, formatNumber, plural } from "@/i18n/format";
+import { propertyTypeName, regionName, tradeName } from "@/i18n/terms";
 
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ lang: string; slug: string }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
+  const { lang: raw, slug } = await params;
+  const lang: Locale = hasLocale(raw) ? raw : "en";
+  const t = getDictionary(lang).board.detail.meta;
   const rfp = await getRfpTeaser(slug);
-  if (!rfp) return { title: "Opportunity not found" };
+  if (!rfp) return { title: t.notFound };
   return {
-    title: `${rfp.title} | RFP Opportunity`,
-    description: rfp.summary ?? "Commercial property RFP opportunity on PMRFP.",
+    title: fill(t.title, { title: rfp.title }),
+    description: rfp.summary ?? t.description,
     // ?view=locked and tracking params were being indexed as duplicates.
-    alternates: { canonical: `/rfps/${rfp.slug}` },
+    alternates: alternatesFor(lang, `/rfps/${rfp.slug}`),
     ...(isIndexableRfp(rfp) ? {} : { robots: { index: false, follow: true } }),
   };
 }
 
-function fmt(d: string | null) {
-  return d ? new Date(d).toLocaleDateString("en-CA", { month: "long", day: "numeric", year: "numeric" }) : "—";
+function fmt(d: string | null, lang: Locale) {
+  return d ? formatDate(d, lang, { month: "long", day: "numeric", year: "numeric" }) : "—";
 }
 
 export default async function RfpDetailPage({
@@ -61,6 +68,19 @@ export default async function RfpDetailPage({
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
   await setLangFrom(params);
+  const t = getT("board").detail;
+  const lang = getLang();
+  // Counts: raw in English (as before), grouped the local way elsewhere.
+  const num = (n: number) => (lang === "en" ? String(n) : formatNumber(n, lang));
+  // "$120,000 CAD" from award summaries: as-is in English, "120 000 $ CAD" in French, "$120,000 CAD" in Spanish.
+  const money = (v: string) => {
+    if (lang === "en") return v;
+    const n = Number(v.replace(/[^\d]/g, ""));
+    return n ? fill(t.moneyCad, { n: formatNumber(n, lang) }) : v;
+  };
+  const budget = (n: number | null | undefined) =>
+    n == null ? "—" : lang === "en" ? n.toLocaleString() : formatNumber(n, lang);
+  const trade = (name: string) => tradeName(name, lang);
   const { slug } = await params;
   const sp = await searchParams;
   const teaser = await getRfpTeaser(slug);
@@ -100,6 +120,8 @@ export default async function RfpDetailPage({
   const teaserIsOpen = teaser.status === "open";
   const isPublicTender = teaser.sourceType === "public_source";
   const tenderSource = publicTenderSource(teaser.slug);
+  // Issuer, portal, bid label and credit line in the visitor's language (English: the lib as-is).
+  const source = { ...tenderSource, ...t.sources[tenderSource.key] };
   // Quebec SEAO notices are published in French; say so to Google and screen readers.
   const noticeLang = isPublicTender && tenderSource.key === "seao" ? "fr" : undefined;
   // Past public contracts (CanadaBuys award notices) aren't biddable — show who
@@ -140,7 +162,7 @@ export default async function RfpDetailPage({
     isGc ? getAwardById(teaser.awardedRfpId) : Promise.resolve(null),
     isAward ? listPackagesForAward(teaser.slug) : Promise.resolve([]),
   ]);
-  const closesLabel = isGc ? "Quotes due" : "Closes";
+  const closesLabel = isGc ? t.facts.quotesDue : t.facts.closes;
   // "What this job is worth": open tenders only; the numbers render for members only.
   const intel = !isAward && !isClosed ? intelFor(teaser, await getAwardIndex()) : null;
   const upgradeHref = session ? "/dashboard/billing?plan=pro&interval=monthly" : signUpHrefForPlan("pro", "monthly");
@@ -153,28 +175,32 @@ export default async function RfpDetailPage({
   ) : null;
   // Notice header.
   const bannerPhoto = tradePhotoForName(teaser.categories[0]);
-  const noticeKind = isAward ? "Award notice" : isGc ? "GC sub-trade package" : isPublicTender ? "Public tender" : "Private RFP";
-  const place = [teaser.city, teaser.province].filter(Boolean).join(", ") || teaser.regionName;
+  const noticeKind = isAward ? t.kind.award : isGc ? t.kind.gc : isPublicTender ? t.kind.public : t.kind.private;
+  const place =
+    [teaser.city, teaser.province && regionName(teaser.province, lang)].filter(Boolean).join(", ") ||
+    (teaser.regionName ? regionName(teaser.regionName, lang) : teaser.regionName);
   const days = !isAward && !isClosed ? daysUntil(teaser.deadline) : null;
-  const daysLeft = days === null || days < 0 || days > 7 ? null : days === 0 ? "today" : days === 1 ? "tomorrow" : `${days} days left`;
+  const soon = days === null || days < 0 || days > 7 ? null : days;
+  const daysLeft = soon === null ? null : soon === 0 ? t.daysLeft.today : soon === 1 ? t.daysLeft.tomorrow : fill(t.daysLeft.n, { n: soon });
+  const closesIn = soon === null ? null : soon === 0 ? t.closesIn.today : soon === 1 ? t.closesIn.tomorrow : fill(t.closesIn.n, { n: soon });
 
   return (
     <Container className="py-10">
-      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Link href="/rfps" className="hover:text-foreground">Tender board</Link>
+      <nav aria-label={t.breadcrumb.aria} className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Link href="/rfps" className="hover:text-foreground">{t.breadcrumb.board}</Link>
         <span aria-hidden>/</span>
-        {teaser.categories[0] ? <span className="truncate">{teaser.categories[0]}</span> : <span>Listing</span>}
+        {teaser.categories[0] ? <span className="truncate">{trade(teaser.categories[0])}</span> : <span>{t.breadcrumb.listing}</span>}
       </nav>
 
       {!configured && (
         <div className="mt-4 rounded-lg border border-dashed border-teal-300 bg-teal-50/50 p-3 text-sm text-muted-foreground">
-          <strong className="text-foreground">Demo preview.</strong>{" "}
+          <strong className="text-foreground">{t.demo.title}</strong>{" "}
           {showFull ? (
-            <>You&apos;re seeing the full Trade Pro member view.{" "}
-              <Link href={`/rfps/${slug}?view=locked`} className="text-teal-700 underline">See the visitor (locked) view</Link>.</>
+            <>{t.demo.fullView}{" "}
+              <Link href={`/rfps/${slug}?view=locked`} className="text-teal-700 underline">{t.demo.seeLocked}</Link>.</>
           ) : (
-            <>You&apos;re seeing the visitor (locked) view.{" "}
-              <Link href={`/rfps/${slug}`} className="text-teal-700 underline">See the full member view</Link>.</>
+            <>{t.demo.lockedView}{" "}
+              <Link href={`/rfps/${slug}`} className="text-teal-700 underline">{t.demo.seeFull}</Link>.</>
           )}
         </div>
       )}
@@ -188,36 +214,36 @@ export default async function RfpDetailPage({
         <div className="p-5 sm:p-7">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
             <span className="text-teal-ink">{noticeKind}</span>
-            {teaser.isDemo && <span>· Sample listing</span>}
+            {teaser.isDemo && <span>{t.kind.sample}</span>}
           </div>
           <h1 lang={noticeLang} className="mt-3 max-w-4xl font-heading text-2xl font-semibold leading-tight tracking-tight text-indigo sm:text-3xl">
             {teaser.title}
           </h1>
           <div className="mt-4 flex flex-wrap gap-1.5">
-            {teaser.categories.map((c) => <Badge key={c} variant="secondary">{c}</Badge>)}
-            {teaser.propertyTypeName && <Badge variant="outline">{teaser.propertyTypeName}</Badge>}
-            {isGc && <Badge variant="outline" className="border-teal-400 text-teal-ink">{GC_BADGE}</Badge>}
+            {teaser.categories.map((c) => <Badge key={c} variant="secondary">{trade(c)}</Badge>)}
+            {teaser.propertyTypeName && <Badge variant="outline">{propertyTypeName(teaser.propertyTypeName, lang)}</Badge>}
+            {isGc && <Badge variant="outline" className="border-teal-400 text-teal-ink">{sourceTypeLabel(teaser.sourceType, teaser.slug, lang)}</Badge>}
           </div>
         </div>
         <dl className="grid grid-cols-2 border-t border-border sm:grid-cols-4 [&>div]:border-border [&>div]:px-5 [&>div]:py-3.5 sm:[&>div]:px-7">
           <div className="border-b border-r sm:border-b-0">
-            <dt className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground"><Hash className="size-3" /> Reference</dt>
-            <dd className="mt-1 truncate font-mono text-sm text-foreground">{teaser.reference ?? "Not published"}</dd>
+            <dt className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground"><Hash className="size-3" /> {t.facts.reference}</dt>
+            <dd className="mt-1 truncate font-mono text-sm text-foreground">{teaser.reference ?? t.facts.notPublished}</dd>
           </div>
           <div className="border-b sm:border-b-0 sm:border-r">
-            <dt className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground"><Landmark className="size-3" /> Source</dt>
-            <dd className="mt-1 truncate text-sm font-medium text-foreground">{isPublicTender ? tenderSource.portal.replace(/^the /, "") : isGc ? "General contractor" : "Property manager"}</dd>
+            <dt className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground"><Landmark className="size-3" /> {t.facts.source}</dt>
+            <dd className="mt-1 truncate text-sm font-medium text-foreground">{isPublicTender ? source.portal.replace(/^(the|le|la|les|el|los|las) /, "") : isGc ? t.facts.gc : t.facts.pm}</dd>
           </div>
           <div className="border-r">
-            <dt className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground"><CalendarClock className="size-3" /> {isAward ? "Awarded" : isClosed ? "Closed" : closesLabel}</dt>
+            <dt className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground"><CalendarClock className="size-3" /> {isAward ? t.facts.awarded : isClosed ? t.facts.closed : closesLabel}</dt>
             <dd className="mt-1 text-sm font-medium tabular-nums text-foreground">
-              {teaser.deadline ? fmt(teaser.deadline) : "Ongoing"}
+              {teaser.deadline ? fmt(teaser.deadline, lang) : t.facts.ongoing}
               {daysLeft && <span className="ml-1.5 text-teal-ink">· {daysLeft}</span>}
             </dd>
           </div>
           <div>
-            <dt className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground"><MapPin className="size-3" /> Location</dt>
-            <dd className="mt-1 text-sm font-medium text-foreground">{place ?? "Not specified"}</dd>
+            <dt className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground"><MapPin className="size-3" /> {t.facts.location}</dt>
+            <dd className="mt-1 text-sm font-medium text-foreground">{place ?? t.facts.notSpecified}</dd>
           </div>
         </dl>
       </header>
@@ -231,15 +257,13 @@ export default async function RfpDetailPage({
               <span>
                 {isAward ? (
                   <>
-                    <strong className="text-foreground">Past public contract.</strong> Already awarded by{" "}
-                    {tenderSource.issuer}. Listed so trades can see what this kind of work sells for and who wins
-                    it. It did not go through PMRFP.
+                    <strong className="text-foreground">{t.publicNote.pastTitle}</strong>{" "}
+                    {fill(t.publicNote.pastBody, { issuer: source.issuer })}
                   </>
                 ) : (
                   <>
-                    <strong className="text-foreground">Public tender.</strong> Issued by {tenderSource.issuer} and
-                    published on {tenderSource.portal}. PMRFP collects the tenders that fit commercial trades. Bids
-                    go directly to the issuer, not through PMRFP.
+                    <strong className="text-foreground">{t.publicNote.openTitle}</strong>{" "}
+                    {fill(t.publicNote.openBody, { issuer: source.issuer, portal: source.portal })}
                   </>
                 )}
               </span>
@@ -250,17 +274,19 @@ export default async function RfpDetailPage({
             <p className="mt-4 flex items-start gap-2 rounded-lg border border-teal-300 bg-teal-50/60 p-3 text-sm text-muted-foreground">
               <HardHat className="mt-0.5 size-4 shrink-0 text-teal-600" />
               <span>
-                <strong className="text-foreground">GC sub-trade package.</strong> A general contractor is collecting{" "}
-                {teaser.categories[0] ? `${tradeWords(teaser.categories[0])} ` : ""}quotes
-                {teaser.gcProjectName ? <> for <strong className="text-foreground">{teaser.gcProjectName}</strong></> : null}.
+                <strong className="text-foreground">{t.gcNote.title}</strong>{" "}{t.gcNote.collecting}
+                {teaser.categories[0] ? fill(t.gcNote.quotesTrade, { trade: tradeWords(trade(teaser.categories[0])) }) : t.gcNote.quotes}
+                {teaser.gcProjectName ? <>{t.gcNote.forProject}<strong className="text-foreground">{teaser.gcProjectName}</strong></> : null}
+                {t.gcNote.end}
                 {gcAward && (
                   <>
-                    {" "}It&apos;s part of a public contract:{" "}
+                    {t.gcNote.partOf}
                     <Link href={`/rfps/${gcAward.slug}`} className="font-medium text-teal-700 hover:underline">
                       {gcAward.title}
                     </Link>
-                    {gcAward.winner ? `, won by ${gcAward.winner}` : ""}
-                    {gcAward.value ? ` (${gcAward.value})` : ""}.
+                    {gcAward.winner ? fill(t.gcNote.wonBy, { winner: gcAward.winner }) : ""}
+                    {gcAward.value ? fill(t.gcNote.value, { value: money(gcAward.value) }) : ""}
+                    {t.gcNote.end}
                   </>
                 )}
               </span>
@@ -280,13 +306,12 @@ export default async function RfpDetailPage({
 
           {full?.status === "awarded" && (
             <div className="mt-6 rounded-lg border border-success/30 bg-success/10 p-4 text-sm text-success">
-              <strong>This RFP has been awarded.</strong> Watch for similar opportunities on the
-              feed, or post your own RFP if you have a project.
+              <strong>{t.status.awardedTitle}</strong> {t.status.awardedBody}
             </div>
           )}
           {full?.status === "closed" && (
             <div className="mt-6 rounded-lg border border-border bg-secondary/40 p-4 text-sm text-muted-foreground">
-              <strong>This RFP is closed.</strong> No vendor was awarded the work through PMRFP.
+              <strong>{t.status.closedTitle}</strong> {t.status.closedBody}
             </div>
           )}
 
@@ -309,7 +334,7 @@ export default async function RfpDetailPage({
                   >
                     <Image
                       src={u}
-                      alt={`Property photo ${i + 1}`}
+                      alt={fill(t.photos.alt, { n: i + 1 })}
                       fill
                       sizes={i === 0 ? "(min-width: 1024px) 800px, 100vw" : "(min-width: 1024px) 280px, 33vw"}
                       priority={i === 0}
@@ -320,7 +345,7 @@ export default async function RfpDetailPage({
               </div>
               {teaser.photoUrls.length > 6 && (
                 <p className="mt-2 text-xs text-muted-foreground">
-                  + {teaser.photoUrls.length - 6} more photo{teaser.photoUrls.length - 6 === 1 ? "" : "s"}
+                  {plural(teaser.photoUrls.length - 6, t.photos.more)}
                 </p>
               )}
             </div>
@@ -330,7 +355,7 @@ export default async function RfpDetailPage({
             <div className="mt-8 rounded-lg border border-teal-400/50 bg-teal-100/30 p-6">
               {award?.winner && (
                 <div className="mb-5 rounded-lg border border-border bg-card p-4">
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground">Won by</div>
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground">{t.award.wonBy}</div>
                   <div className="mt-0.5 text-lg font-semibold">
                     {winnerPage ? (
                       <Link href={`/contract-winners/${winnerPage.slug}`} className="hover:text-teal-700 hover:underline">
@@ -342,16 +367,16 @@ export default async function RfpDetailPage({
                   </div>
                   {winnerPage && (
                     <Link href={`/contract-winners/${winnerPage.slug}`} className="mt-1 inline-block text-xs font-medium text-teal-700 hover:underline">
-                      See all {winnerPage.awards.length} contracts they&apos;ve won
+                      {fill(t.award.allWins, { n: num(winnerPage.awards.length) })}
                     </Link>
                   )}
-                  {award.value && <div className="mt-1 text-3xl font-extrabold tracking-tight text-indigo">{award.value}</div>}
+                  {award.value && <div className="mt-1 text-3xl font-extrabold tracking-tight text-indigo">{money(award.value)}</div>}
                 </div>
               )}
               {awardPackages.length > 0 && (
                 <div className="mb-5 rounded-lg border border-border bg-card p-4">
                   <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                    The winner is hiring subs for this job
+                    {t.award.hiringSubs}
                   </div>
                   <ul className="mt-2 space-y-1.5 text-sm">
                     {awardPackages.map((p) => (
@@ -359,55 +384,60 @@ export default async function RfpDetailPage({
                         <Link href={`/rfps/${p.slug}`} className="font-medium text-teal-700 hover:underline">
                           {p.title}
                         </Link>
-                        {p.deadline && <span className="text-muted-foreground"> · quotes due {fmt(p.deadline)}</span>}
+                        {p.deadline && <span className="text-muted-foreground">{fill(t.award.quotesDue, { date: fmt(p.deadline, lang) })}</span>}
                       </li>
                     ))}
                   </ul>
                 </div>
               )}
               <h2 className="text-lg font-semibold tracking-tight">
-                This contract is gone.{" "}
+                {t.award.gone}{" "}
                 {similarOpen > 0
-                  ? `${similarOpen} open ${teaser.categories[0]?.toLowerCase() ?? "trade"} tender${similarOpen === 1 ? " is" : "s are"} live right now.`
-                  : "The next one won't wait either."}
+                  ? plural(similarOpen, t.award.similar, {
+                      n: num(similarOpen),
+                      trade: teaser.categories[0]
+                        ? fill(t.award.tradePhrase, {
+                            trade: lang === "en" ? teaser.categories[0].toLowerCase() : tradeWords(trade(teaser.categories[0])),
+                          })
+                        : t.award.tradeFallback,
+                    })
+                  : t.award.nextWontWait}
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Trade Pro emails you the day a new public tender in your trade and region is posted, with the
-                direct link, full scope and buyer contact, so you&apos;re bidding on the next contract, not
-                reading about who won the last one.
+                {t.award.pitch}
               </p>
               <Link
                 href={session ? "/dashboard/billing?plan=pro&interval=annual" : signUpHrefForPlan("pro")}
                 className="mt-4 inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-indigo-700"
               >
-                Get tender alerts for my trade
+                {t.award.cta}
               </Link>
               {similarOpen > 0 && teaser.categories[0] && (
                 <Link href="/rfps" className="ml-3 mt-4 inline-flex text-sm font-medium text-teal-700 hover:underline">
-                  See the open ones
+                  {t.award.seeOpen}
                 </Link>
               )}
-              <p className="mt-4 text-xs text-muted-foreground">{tenderSource.attribution}</p>
+              <p className="mt-4 text-xs text-muted-foreground">{source.attribution}</p>
             </div>
           ) : showFull && full ? (
             <div className="mt-8 space-y-8">
               {bidChecklist}
               {intelCard}
-              <Block title="Project scope" body={full.scope} />
-              <Block title="Requirements" body={full.requirements} />
+              <Block title={t.full.scope} body={full.scope} />
+              <Block title={t.full.requirements} body={full.requirements} />
               {(full.budgetPublic && (full.budgetMin || full.budgetMax)) && (
-                <Section2 title="Budget range" icon={<DollarSign className="size-4" />}>
-                  ${full.budgetMin?.toLocaleString() ?? "—"} – ${full.budgetMax?.toLocaleString() ?? "—"} {isUsState(full.province) ? "USD" : "CAD"}
+                <Section2 title={t.full.budget} icon={<DollarSign className="size-4" />}>
+                  {fill(t.full.budgetRange, { min: budget(full.budgetMin), max: budget(full.budgetMax), currency: isUsState(full.province) ? "USD" : "CAD" })}
                 </Section2>
               )}
-              <Block title="Submission instructions" body={full.submissionInstructions} />
-              <Section2 title="Contact" icon={<Building2 className="size-4" />}>
+              <Block title={t.full.submission} body={full.submissionInstructions} />
+              <Section2 title={t.full.contact} icon={<Building2 className="size-4" />}>
                 {full.contactVisibility === "public_contact" ? (
-                  <span>{[full.contactName, full.contactEmail, full.contactPhone].filter(Boolean).join(" · ") || "Provided after sign-in"}</span>
+                  <span>{[full.contactName, full.contactEmail, full.contactPhone].filter(Boolean).join(" · ") || t.full.afterSignIn}</span>
                 ) : full.contactVisibility === "anonymous_until_interest_approved" ? (
-                  <span>Contact details are revealed after the property manager approves your interest.</span>
+                  <span>{t.full.afterApproval}</span>
                 ) : (
-                  <span>This opportunity is mediated by PMRFP. Express interest to connect.</span>
+                  <span>{t.full.mediated}</span>
                 )}
               </Section2>
               {isPublicTender && full.sourceUrl && (
@@ -418,9 +448,9 @@ export default async function RfpDetailPage({
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-indigo-700"
                   >
-                    Open the official notice on {tenderSource.portal} <ExternalLink className="size-4" />
+                    {fill(t.full.openNotice, { portal: source.portal })} <ExternalLink className="size-4" />
                   </a>
-                  <p className="mt-3 text-xs text-muted-foreground">{tenderSource.attribution}</p>
+                  <p className="mt-3 text-xs text-muted-foreground">{source.attribution}</p>
                 </div>
               )}
               <TrustDisclaimer />
@@ -428,29 +458,28 @@ export default async function RfpDetailPage({
           ) : isClosed ? (
             <div className="mt-8 rounded-lg border border-border bg-secondary/40 p-6">
               <h2 className="text-lg font-semibold tracking-tight">
-                This one closed on {fmt(teaser.deadline)}.{" "}
+                {fill(t.closed.title, { date: fmt(teaser.deadline, lang) })}{" "}
                 {regionMatchCount > 0 && teaser.regionName
-                  ? `${regionMatchCount} open RFP${regionMatchCount === 1 ? " is" : "s are"} live in ${teaser.regionName} right now.`
+                  ? plural(regionMatchCount, t.closed.region, { n: num(regionMatchCount), region: regionName(teaser.regionName, lang) })
                   : totalOpenCount > 0
-                    ? `${totalOpenCount} open RFPs are live right now.`
+                    ? plural(totalOpenCount, t.closed.total, { n: num(totalOpenCount) })
                     : ""}
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Trade Pro emails you the day a new RFP in your trade and region is posted, so you see the
-                next one while it&apos;s still open.
+                {t.closed.body}
               </p>
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 <Link
                   href={session ? "/dashboard/billing?plan=pro&interval=annual" : signUpHrefForPlan("pro")}
                   className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-indigo-700"
                 >
-                  Get alerts for my trade
+                  {t.closed.cta}
                 </Link>
                 <Link href="/rfps" className="text-sm font-medium text-teal-700 hover:underline">
-                  See what&apos;s open
+                  {t.closed.seeOpen}
                 </Link>
               </div>
-              {isPublicTender && <p className="mt-4 text-xs text-muted-foreground">{tenderSource.attribution}</p>}
+              {isPublicTender && <p className="mt-4 text-xs text-muted-foreground">{source.attribution}</p>}
             </div>
           ) : (
             <div className="mt-8 space-y-6">
@@ -460,23 +489,23 @@ export default async function RfpDetailPage({
                 <div className="rounded-lg border border-teal-400/50 bg-teal-100/30 p-5">
                   <p className="text-sm font-semibold text-foreground">
                     {regionMatchCount > 0 && teaser.regionName
-                      ? `${regionMatchCount + (teaserIsOpen ? 1 : 0)} open commercial RFPs in ${teaser.regionName} right now`
-                      : `${totalOpenCount} open commercial RFPs on PMRFP right now`}
+                      ? plural(regionMatchCount + (teaserIsOpen ? 1 : 0), t.locked.region, {
+                          n: num(regionMatchCount + (teaserIsOpen ? 1 : 0)),
+                          region: regionName(teaser.regionName, lang),
+                        })
+                      : plural(totalOpenCount, t.locked.total, { n: num(totalOpenCount) })}
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Trade Pro members get the full scope and contacts for every one, plus an email
-                    the day a new one matches their trade.
+                    {t.locked.proof}
                   </p>
                 </div>
               )}
               {isPublicTender && (
                 <div className="rounded-lg border border-border bg-card p-5 text-sm leading-relaxed text-muted-foreground">
                   <p>
-                    This tender is public. What Trade Pro adds: every public tender that fits your trade in
-                    one place, a daily email when a new one is posted in your region, and the direct link,
-                    full scope and buyer contact for each, instead of checking government bid portals yourself.
+                    {t.locked.publicPitch}
                   </p>
-                  <p className="mt-2 text-xs">{tenderSource.attribution}</p>
+                  <p className="mt-2 text-xs">{source.attribution}</p>
                 </div>
               )}
               <LockedContentPanel signedIn={Boolean(session)} />
@@ -488,17 +517,17 @@ export default async function RfpDetailPage({
           <div className="rounded-lg border border-border bg-card p-5">
             <div className="border-b border-border pb-4">
               <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                {isAward ? "Awarded" : isClosed ? "Closed" : closesLabel}
+                {isAward ? t.facts.awarded : isClosed ? t.facts.closed : closesLabel}
               </div>
               <div className="mt-1 font-heading text-2xl font-semibold tabular-nums text-indigo">
-                {teaser.deadline ? fmt(teaser.deadline) : "Ongoing"}
+                {teaser.deadline ? fmt(teaser.deadline, lang) : t.facts.ongoing}
               </div>
-              {daysLeft && <div className="mt-0.5 text-sm text-teal-ink">Closes {daysLeft === "today" || daysLeft === "tomorrow" ? daysLeft : `in ${daysLeft.replace(" left", "")}`}</div>}
+              {closesIn && <div className="mt-0.5 text-sm text-teal-ink">{closesIn}</div>}
             </div>
             <div className="space-y-3 py-4">
-              <Meta label="Region" value={teaser.regionName ?? "Not specified"} />
-              <Meta label="Property type" value={teaser.propertyTypeName ?? "Not specified"} />
-              {teaser.categories.length > 0 && <Meta label="Trade" value={teaser.categories.join(", ")} />}
+              <Meta label={t.side.region} value={teaser.regionName ? regionName(teaser.regionName, lang) : t.facts.notSpecified} />
+              <Meta label={t.side.propertyType} value={teaser.propertyTypeName ? propertyTypeName(teaser.propertyTypeName, lang) : t.facts.notSpecified} />
+              {teaser.categories.length > 0 && <Meta label={t.side.trade} value={teaser.categories.map(trade).join(", ")} />}
             </div>
             {isAward && awardUrl ? (
               <div className="pt-2">
@@ -508,7 +537,7 @@ export default async function RfpDetailPage({
                   rel="noopener noreferrer"
                   className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary"
                 >
-                  Official award notice <ExternalLink className="size-4" />
+                  {t.award.official} <ExternalLink className="size-4" />
                 </a>
               </div>
             ) : showFull && full ? (
@@ -521,7 +550,7 @@ export default async function RfpDetailPage({
                       rel="noopener noreferrer"
                       className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-indigo-700"
                     >
-                      {tenderSource.bidLabel} <ExternalLink className="size-4" />
+                      {source.bidLabel} <ExternalLink className="size-4" />
                     </a>
                   )
                 ) : (
@@ -536,12 +565,10 @@ export default async function RfpDetailPage({
                   className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-indigo px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700"
                 >
                   <FileText className="size-4" />
-                  {isClosed ? "Get alerts for my trade" : "Unlock full details"}
+                  {isClosed ? t.side.alerts : t.side.unlock}
                 </Link>
                 <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                  {isClosed
-                    ? "This RFP is closed. Trade Pro members get alerted to new ones in their trade and region."
-                    : "Scope, documents, buyer contact and the ability to express interest are included with Trade Pro."}
+                  {isClosed ? t.side.closedNote : t.side.unlockNote}
                 </p>
               </div>
             )}

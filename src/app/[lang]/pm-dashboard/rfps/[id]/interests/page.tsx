@@ -13,9 +13,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { setLangFrom } from "@/i18n/server";
+import type { Metadata } from "next";
+import { getLang, getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale } from "@/i18n/config";
+import { formatDate } from "@/i18n/format";
+import { regionName } from "@/i18n/terms";
 
-export const metadata = { title: "Interested Vendors" };
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  return { title: getDictionary(hasLocale(lang) ? lang : "en").pm.interests.metaTitle };
+}
 
 type OrgRel = { name: string; slug: string; city: string | null; province: string | null };
 
@@ -28,16 +36,14 @@ interface InterestRow {
   organizations: OrgRel | OrgRel[] | null;
 }
 
-function fmt(d: string) {
-  return new Date(d).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
-}
-
 export default async function RfpInterestsPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   await setLangFrom(params);
+  const t = getT("pm").interests;
+  const lang = getLang();
   await requireRole(["property_manager", "real_estate_agent"]);
   const { id } = await params;
 
@@ -70,8 +76,8 @@ export default async function RfpInterestsPage({
   return (
     <div>
       <PageHeader
-        title="Interested vendors"
-        description="Trades that have expressed interest in this RFP."
+        title={t.title}
+        description={t.description}
       />
 
       {!isDemoMode() && (
@@ -82,18 +88,18 @@ export default async function RfpInterestsPage({
 
       {interests.length === 0 ? (
         <EmptyState
-          title="No vendors have expressed interest yet"
-          description="Once trades express interest in this RFP, they'll appear here for you to review."
+          title={t.emptyTitle}
+          description={t.emptyDescription}
         />
       ) : (
         <div className="rounded-lg border border-border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Company</TableHead>
-                <TableHead>Message</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Submitted</TableHead>
+                <TableHead>{t.colCompany}</TableHead>
+                <TableHead>{t.colMessage}</TableHead>
+                <TableHead>{t.colStatus}</TableHead>
+                <TableHead>{t.colSubmitted}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -107,7 +113,7 @@ export default async function RfpInterestsPage({
                           {org.name}
                           {org.city && (
                             <span className="block text-xs font-normal text-muted-foreground">
-                              {[org.city, org.province].filter(Boolean).join(", ")}
+                              {[org.city, org.province && regionName(org.province, lang)].filter(Boolean).join(", ")}
                             </span>
                           )}
                         </Link>
@@ -121,7 +127,7 @@ export default async function RfpInterestsPage({
                     <TableCell>
                       <StatusBadge status={it.status} />
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{fmt(it.created_at)}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatDate(it.created_at, lang)}</TableCell>
                   </TableRow>
                 );
               })}

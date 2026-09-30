@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Bookmark, BookmarkCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/i18n/provider";
 
 export function SaveButton({
   rfpId,
@@ -12,6 +13,7 @@ export function SaveButton({
   rfpId: string;
   initialSaved?: boolean;
 }) {
+  const t = useT("boardClient").save;
   const [saved, setSaved] = useState(initialSaved);
   const [busy, setBusy] = useState(false);
 
@@ -26,17 +28,17 @@ export function SaveButton({
       });
       const json = await res.json().catch(() => ({}));
       if (res.status === 403) {
-        toast.error("Trade Pro membership required to save opportunities.");
+        toast.error(t.proRequired);
         return;
       }
       if (!res.ok) throw new Error();
       if (json.demo) {
-        toast.info("Demo mode — connect Supabase to save opportunities.");
+        toast.info(t.demo);
       }
       setSaved(next);
-      if (next && !json.demo) toast.success("Saved to your dashboard.");
+      if (next && !json.demo) toast.success(t.success);
     } catch {
-      toast.error("Could not update. Please try again.");
+      toast.error(t.error);
     } finally {
       setBusy(false);
     }
@@ -45,7 +47,7 @@ export function SaveButton({
   return (
     <Button variant="outline" onClick={toggle} disabled={busy}>
       {saved ? <BookmarkCheck className="size-4" /> : <Bookmark className="size-4" />}
-      {saved ? "Saved" : "Save"}
+      {saved ? t.saved : t.save}
     </Button>
   );
 }

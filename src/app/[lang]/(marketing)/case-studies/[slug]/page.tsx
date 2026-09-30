@@ -10,7 +10,11 @@ import { getQualifyingCombo } from "@/lib/data/trade-city";
 import { getProjectExtras, listPublishedReviews } from "@/lib/data/projects";
 import { ProjectGallery, ReviewList } from "@/components/projects/public";
 import { SITE } from "@/lib/site";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale, localizePath } from "@/i18n/config";
+import { fmt } from "@/i18n/format";
+import { regionName, tradeName } from "@/i18n/terms";
 
 export const revalidate = 3600;
 
@@ -22,15 +26,18 @@ export async function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ lang: string; slug: string }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
+  const { lang, slug } = await params;
+  const t = getDictionary(hasLocale(lang) ? lang : "en").content.caseStudy;
   const cs = await getCaseStudy(slug);
-  if (!cs) return { title: "Case study not found" };
+  if (!cs) return { title: t.notFound };
   const extras = await getProjectExtras(cs.id);
   const description = (extras.summary ?? cs.challenge).slice(0, 155);
+  // The study itself is English database content: every language
+  // canonicalizes to the English URL rather than claim a French version.
   return {
-    title: `${cs.title} — Case Study`,
+    title: fmt(t.metaTitle, { title: cs.title }),
     description,
     alternates: { canonical: `/case-studies/${cs.slug}` },
     ...(extras.heroUrl ? { openGraph: { images: [{ url: extras.heroUrl }] } } : {}),
@@ -42,7 +49,9 @@ export default async function CaseStudyPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  await setLangFrom(params);
+  const lang = await setLangFrom(params);
+  const c = getT("content");
+  const t = c.caseStudy;
   const { slug } = await params;
   const cs = await getCaseStudy(slug);
   if (!cs) notFound();
@@ -57,16 +66,16 @@ export default async function CaseStudyPage({
   ]);
 
   const sections = [
-    { label: "The challenge", body: cs.challenge },
-    { label: "The approach", body: cs.approach },
-    { label: "The outcome", body: cs.outcome },
+    { label: t.challenge, body: cs.challenge },
+    { label: t.approach, body: cs.approach },
+    { label: t.outcome, body: cs.outcome },
   ];
 
   return (
     <>
       <JsonLd data={breadcrumbSchema([
-        { name: "Home", path: "/" },
-        { name: "Case Studies", path: "/case-studies" },
+        { name: c.crumbs.home, path: localizePath("/", lang) },
+        { name: c.crumbs.caseStudies, path: localizePath("/case-studies", lang) },
         { name: cs.title, path: `/case-studies/${cs.slug}` },
       ])} />
       <JsonLd
@@ -88,18 +97,21 @@ export default async function CaseStudyPage({
       <section className="border-b border-border bg-secondary/30">
         <Container size="narrow" className="py-12">
           <nav className="mb-3 text-xs text-muted-foreground">
-            <Link href="/case-studies" className="hover:text-foreground">Case Studies</Link>
+            <Link href="/case-studies" className="hover:text-foreground">{c.crumbs.caseStudies}</Link>
             {" / "}
             {cs.title}
           </nav>
           <Eyebrow>
-            {[cs.categoryName, [cs.city, cs.province].filter(Boolean).join(", ")]
+            {[
+              cs.categoryName ? tradeName(cs.categoryName, lang) : cs.categoryName,
+              [cs.city, cs.province ? regionName(cs.province, lang) : cs.province].filter(Boolean).join(", "),
+            ]
               .filter(Boolean)
               .join(" · ")}
           </Eyebrow>
           <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{cs.title}</h1>
           <p className="mt-4 text-sm text-muted-foreground">
-            A completed project by{" "}
+            {t.by}{" "}
             <Link href={`/directory/${cs.orgSlug}`} className="font-medium text-teal-ink hover:underline">
               {cs.orgName}
             </Link>
@@ -127,30 +139,33 @@ export default async function CaseStudyPage({
           </div>
         ))}
 
-        <ReviewList reviews={reviews} heading="What the client said" showSummary={false} />
+        <ReviewList reviews={reviews} heading={t.reviewsHeading} showSummary={false} />
 
         <div className="mt-10 flex flex-wrap gap-3">
           <Link href={`/directory/${cs.orgSlug}`} className={buttonVariants()}>
-            View {cs.orgName}
+            {fmt(t.viewOrg, { org: cs.orgName })}
           </Link>
           {combo && (
             <Link
               href={`/trades/${combo.category.slug}/${combo.region.slug}`}
               className={buttonVariants({ variant: "outline" })}
             >
-              More {combo.category.name} in {combo.region.name}
+              {fmt(t.more, {
+                trade: tradeName(combo.category.name, lang),
+                region: regionName(combo.region.name, lang),
+              })}
             </Link>
           )}
         </div>
       </Container>
 
       <CTASection
-        title="Have a project like this coming up?"
-        description={`Post it free on ${SITE.name} — qualified trades express interest and you compare them in one place.`}
+        title={t.cta.title}
+        description={fmt(t.cta.description, { brand: SITE.name })}
         primaryHref="/sign-up"
-        primaryLabel="Post an RFP free"
+        primaryLabel={t.cta.primary}
         secondaryHref="/case-studies"
-        secondaryLabel="More case studies"
+        secondaryLabel={t.cta.secondary}
       />
     </>
   );

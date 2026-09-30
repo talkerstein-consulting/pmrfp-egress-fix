@@ -13,10 +13,16 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { JsonLd, breadcrumbSchema, faqSchema } from "@/lib/seo/jsonld";
-import { COST_GUIDES, getCostGuide } from "@/lib/seo/cost-guides";
+import { COST_GUIDES } from "@/lib/seo/cost-guides";
+import { getCostGuideFor } from "@/lib/seo/cost-guides.fr";
 import { getTemplateForCostGuide } from "@/lib/seo/rfp-templates";
+import { localizeRfpTemplate } from "@/lib/seo/rfp-templates.fr";
 import { SITE } from "@/lib/site";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale, localizePath } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { fmt } from "@/i18n/format";
 
 export const revalidate = 86400;
 
@@ -27,16 +33,22 @@ export async function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ lang: string; slug: string }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
-  const g = getCostGuide(slug);
-  if (!g) return { title: "Not found" };
+  const { lang, slug } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const g = getCostGuideFor(slug, l);
+  if (!g) return { title: getDictionary(l).content.costGuide.notFound };
   return {
     title: g.metaTitle,
     description: g.metaDescription,
-    alternates: { canonical: `/cost-guides/${g.slug}` },
+    alternates: alternatesFor(l, `/cost-guides/${g.slug}`),
   };
+}
+
+/** "Toiture" -> "toiture" mid-sentence; acronyms like "CVC" stay. */
+function lowerFirst(s: string): string {
+  return /^[A-ZÀ-Ý][a-zà-ÿ]/.test(s) ? s[0].toLowerCase() + s.slice(1) : s;
 }
 
 export default async function CostGuidePage({
@@ -44,32 +56,42 @@ export default async function CostGuidePage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  await setLangFrom(params);
+  const lang = await setLangFrom(params);
+  const c = getT("content");
+  const t = c.costGuide;
   const { slug } = await params;
-  const g = getCostGuide(slug);
+  const g = getCostGuideFor(slug, lang);
   if (!g) notFound();
-  const template = getTemplateForCostGuide(g.slug);
+  const baseTemplate = getTemplateForCostGuide(g.slug);
+  const template = baseTemplate ? localizeRfpTemplate(baseTemplate, lang) : undefined;
+  const vars = {
+    brand: SITE.name,
+    trade: g.tradeName,
+    tradeLower: lang === "en" ? g.tradeName.toLowerCase() : lowerFirst(g.tradeName),
+    name: g.name,
+    nameLower: lang === "en" ? g.name.toLowerCase() : lowerFirst(g.name),
+  };
 
   return (
     <>
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", path: "/" },
-          { name: "Cost Guides", path: "/cost-guides" },
-          { name: g.name, path: `/cost-guides/${g.slug}` },
+          { name: c.crumbs.home, path: localizePath("/", lang) },
+          { name: c.crumbs.costGuides, path: localizePath("/cost-guides", lang) },
+          { name: g.name, path: localizePath(`/cost-guides/${g.slug}`, lang) },
         ])}
       />
       <JsonLd data={faqSchema(g.faqs)} />
 
       <section className="border-b border-border bg-background">
         <Container className="py-14 sm:py-16">
-          <Eyebrow>{g.tradeName} cost guide</Eyebrow>
+          <Eyebrow>{fmt(t.eyebrow, vars)}</Eyebrow>
           <h1 className="mt-4 max-w-3xl text-3xl font-semibold leading-[1.1] tracking-tight sm:text-4xl">
             {g.headline}
           </h1>
           <div className="mt-6 inline-flex flex-col rounded-xl border border-border bg-secondary/40 px-5 py-4">
             <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Typical Canadian range
+              {t.rangeLabel}
             </span>
             <span className="mt-1 text-2xl font-bold text-indigo">{g.typicalRange}</span>
             <span className="text-sm text-muted-foreground">{g.rangeUnit}</span>
@@ -77,30 +99,29 @@ export default async function CostGuidePage({
           <p className="mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground">{g.intro}</p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Link href="/sign-up" className={buttonVariants({ size: "lg" })}>
-              Get real quotes — post an RFP
+              {t.getQuotes}
             </Link>
             <Link
               href={`/trades/${g.tradeSlug}`}
               className={buttonVariants({ size: "lg", variant: "outline" })}
             >
-              Browse {g.tradeName} companies
+              {fmt(t.browseCompanies, vars)}
             </Link>
           </div>
         </Container>
       </section>
 
       <Container className="py-12">
-        <h2 className="text-2xl font-semibold tracking-tight">Typical price breakdown</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">{t.breakdownTitle}</h2>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          General planning ranges for Canadian commercial work. Your actual price depends on scope,
-          region, building condition, and access.
+          {t.breakdownLead}
         </p>
         <div className="mt-6 overflow-hidden rounded-xl border border-border">
           <table className="w-full border-collapse text-left text-sm">
             <thead className="bg-secondary/50">
               <tr>
-                <th className="px-4 py-3 font-semibold">Item</th>
-                <th className="px-4 py-3 font-semibold whitespace-nowrap">Typical range</th>
+                <th className="px-4 py-3 font-semibold">{t.thItem}</th>
+                <th className="px-4 py-3 font-semibold whitespace-nowrap">{t.thRange}</th>
               </tr>
             </thead>
             <tbody>
@@ -122,7 +143,7 @@ export default async function CostGuidePage({
 
       <section className="bg-secondary/30">
         <Container className="py-12">
-          <h2 className="text-2xl font-semibold tracking-tight">What moves the price</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">{t.factorsTitle}</h2>
           <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {g.factors.map((f) => (
               <div key={f.title} className="rounded-lg border border-border bg-card p-6">
@@ -138,45 +159,39 @@ export default async function CostGuidePage({
         <div className="rounded-2xl border border-border bg-card p-6 sm:p-8">
           <Search className="size-6 text-teal-600" />
           <h2 className="mt-3 text-xl font-semibold tracking-tight sm:text-2xl">
-            How to get an accurate price
+            {t.accurateTitle}
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            The numbers above are for budgeting. To get a real, scope-specific price, post your
-            project as an RFP on {SITE.name} — describe the building, the work, and your region, and
-            qualified {g.tradeName.toLowerCase()} companies respond with their own pricing. Posting
-            is free, and getting two or three competitive responses is the simplest way to know the
-            true market rate.
+            {fmt(t.accurateBody, vars)}
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link href="/sign-up" className={buttonVariants()}>
-              Post an RFP <ArrowRight className="size-4" />
+              {t.postRfp} <ArrowRight className="size-4" />
             </Link>
             <Link href="/for-property-managers" className={buttonVariants({ variant: "outline" })}>
-              How PMRFP works
+              {t.howWorks}
             </Link>
           </div>
         </div>
 
         {template && (
           <div className="mt-6 rounded-2xl border border-teal-300 bg-teal-100/40 p-6 sm:p-8">
-            <Eyebrow>Skip the blank page</Eyebrow>
+            <Eyebrow>{t.templateEyebrow}</Eyebrow>
             <h2 className="mt-3 text-xl font-semibold tracking-tight sm:text-2xl">
-              Use the {template.name.replace(/ RFP Template$/, "")} template
+              {fmt(t.templateTitle, { name: template.shortName })}
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              We&rsquo;ve already built the scope, requirements, and evaluation criteria for this kind of
-              project. Customize in seconds and post — go from cost guide to live RFP without writing
-              from scratch.
+              {t.templateBody}
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <Link href={`/rfp-templates/${template.slug}`} className={buttonVariants()}>
-                See the template <ArrowRight className="size-4" />
+                {t.seeTemplate} <ArrowRight className="size-4" />
               </Link>
               <Link
                 href={`/pm-dashboard/rfps/new?template=${template.slug}`}
                 className={buttonVariants({ variant: "outline" })}
               >
-                Use this template
+                {t.useTemplate}
               </Link>
             </div>
           </div>
@@ -185,7 +200,7 @@ export default async function CostGuidePage({
 
       <section className="border-t border-border">
         <Container size="narrow" className="py-12">
-          <h2 className="text-2xl font-semibold tracking-tight">Questions</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">{t.faqTitle}</h2>
           <Accordion className="mt-4">
             {g.faqs.map((f, i) => (
               <AccordionItem key={i} value={`q${i}`}>
@@ -201,12 +216,12 @@ export default async function CostGuidePage({
       </section>
 
       <CTASection
-        title={`Budgeting ${g.name.toLowerCase()}? Get real numbers.`}
-        description={`Post your project on ${SITE.name} and qualified Canadian trades respond with real, scope-specific pricing. Free to post.`}
+        title={fmt(t.cta.title, vars)}
+        description={fmt(t.cta.description, vars)}
         primaryHref="/sign-up"
-        primaryLabel="Post an RFP"
+        primaryLabel={t.cta.primary}
         secondaryHref={`/trades/${g.tradeSlug}`}
-        secondaryLabel={`Browse ${g.tradeName}`}
+        secondaryLabel={fmt(t.cta.secondary, vars)}
       />
     </>
   );

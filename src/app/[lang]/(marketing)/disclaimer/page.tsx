@@ -2,15 +2,22 @@ import type { Metadata } from "next";
 import Link from "@/i18n/link";
 import { ShieldAlert } from "lucide-react";
 import { Container, Eyebrow } from "@/components/container";
-import { COPY, SITE } from "@/lib/site";
-import { setLangFrom } from "@/i18n/server";
+import { SITE } from "@/lib/site";
+import { getLang, getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { fmt, formatDate } from "@/i18n/format";
 
-export const metadata: Metadata = {
-  title: "Disclaimer",
-  description: `Important information about how ${SITE.name} works and what it does not guarantee.`,
-};
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const t = getDictionary(l).misc.disclaimer.meta;
+  return { title: t.title, description: t.description, alternates: alternatesFor(l, "/disclaimer") };
+}
 
 const LAST_UPDATED = "May 29, 2026";
+const LAST_UPDATED_ISO = "2026-05-29";
 
 function DisclaimerBlock({
   label,
@@ -33,50 +40,56 @@ function DisclaimerBlock({
 
 export default async function DisclaimerPage({ params }: { params: Promise<object> }) {
   await setLangFrom(params);
+  const lang = getLang();
+  const m = getT("misc");
+  const t = m.disclaimer;
+  const updated =
+    lang === "en" ? LAST_UPDATED : formatDate(LAST_UPDATED_ISO, lang, { day: "numeric", month: "long", year: "numeric" });
+  const [contactBefore, contactAfter] = t.contact.split("{email}");
   return (
     <section className="bg-background">
       <Container size="narrow" className="py-16 sm:py-24">
-        <Eyebrow>Legal</Eyebrow>
+        <Eyebrow>{m.legal.eyebrow}</Eyebrow>
         <h1 className="mt-5 text-4xl font-semibold tracking-tight text-foreground">
-          Disclaimer
+          {t.title}
         </h1>
         <p className="mt-3 text-sm text-muted-foreground">
-          Last updated: {LAST_UPDATED}
+          {fmt(m.legal.lastUpdated, { date: updated })}
         </p>
+        {m.legal.translationNote && (
+          <p className="mt-4 text-sm italic text-muted-foreground">{m.legal.translationNote}</p>
+        )}
 
         <div className="mt-8 flex gap-4 rounded-xl border border-teal-400/60 bg-teal-100/40 p-6">
           <ShieldAlert className="size-6 shrink-0 text-teal-600" />
           <p className="text-base font-medium leading-relaxed text-foreground">
-            {COPY.disclaimer}
+            {m.copy.disclaimer}
           </p>
         </div>
 
         <p className="mt-10 leading-relaxed text-muted-foreground">
-          {SITE.name} connects trade companies with property managers, builders,
-          and owners. We are not a broker, procurement agent, or legal advisor,
-          and we do not act on behalf of either party. The following statements
-          apply at specific points in the Service.
+          {t.intro}
         </p>
 
-        <DisclaimerBlock label="When you sign up" text={COPY.signupDisclaimer} />
+        <DisclaimerBlock label={t.signupLabel} text={m.copy.signup} />
         <DisclaimerBlock
-          label="For property managers posting an RFP"
-          text={COPY.pmPostingDisclaimer}
+          label={t.pmLabel}
+          text={m.copy.pmPosting}
         />
         <DisclaimerBlock
-          label="For trades expressing interest"
-          text={COPY.interestDisclaimer}
+          label={t.interestLabel}
+          text={m.copy.interest}
         />
 
         <p className="mt-10 text-sm leading-relaxed text-muted-foreground">
-          Questions about this disclaimer? Reach us at{" "}
+          {contactBefore}
           <Link
             href={`mailto:${SITE.email}`}
             className="font-medium text-teal-600 underline underline-offset-4"
           >
             {SITE.email}
           </Link>
-          .
+          {contactAfter}
         </p>
       </Container>
     </section>

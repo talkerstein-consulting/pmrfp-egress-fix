@@ -2,6 +2,7 @@ import Image from "next/image";
 import { ArrowUpRight } from "lucide-react";
 import { pickSponsor, sponsorHref, type SponsorContext } from "@/lib/sponsors/registry";
 import { cn } from "@/lib/utils";
+import { getT } from "@/i18n/server";
 
 /**
  * One quiet, labelled sponsor card, or nothing when no sponsor is relevant
@@ -11,10 +12,12 @@ export function SponsorSlot({ ctx, className }: { ctx: SponsorContext; className
   const picked = pickSponsor(ctx);
   if (!picked) return null;
   const { sponsor, creative } = picked;
+  // The label is ours; the ad copy is the advertiser's and stays as supplied.
+  const label = getT("common").sponsor[sponsor.label];
   const href = sponsorHref(sponsor.id, ctx.placement, ctx.categories?.[0]);
   return (
-    <aside aria-label={`${sponsor.label}: ${sponsor.name}`} className={cn("rounded-xl border border-border bg-card p-4", className)}>
-      <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">{sponsor.label}</p>
+    <aside aria-label={`${label}: ${sponsor.name}`} className={cn("rounded-xl border border-border bg-card p-4", className)}>
+      <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
       <a href={href} target="_blank" rel="sponsored noopener" className="group mt-2 flex gap-3">
         <Image
           src={sponsor.logo}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/i18n/provider";
 import { useSyncExternalStore } from "react";
 import { Download, Share, SquarePlus, X } from "lucide-react";
 import { LogoMark } from "@/components/logo";
@@ -18,11 +19,6 @@ captureInstallPrompt();
 
 export type InstallAudience = "trade" | "pm" | "other";
 
-const PITCH: Record<InstallAudience, string> = {
-  trade: "New RFPs that match your trade, one tap away on your home screen. Opens full-screen, like any app.",
-  pm: "Your RFPs and the trades bidding on them, one tap away on your home screen. Opens full-screen, like any app.",
-  other: "PMRFP one tap away on your home screen. Opens full-screen, like any app.",
-};
 
 /**
  * "Install the PMRFP app" card. One tap on Chrome / Edge / Samsung Internet;
@@ -42,6 +38,7 @@ export function InstallApp({
   audience: InstallAudience;
   className?: string;
 }) {
+  const t = useT("common").install;
   const mode = useSyncExternalStore(subscribeInstall, getInstallMode, getServerInstallMode);
   if (mode === "hidden") return null;
 
@@ -55,18 +52,18 @@ export function InstallApp({
         onClick={() => void promptInstall()}
       >
         <Download className="size-3.5" />
-        Install app
+        {t.button}
       </Button>
     ) : (
       <p className={cn("mt-2 text-xs leading-relaxed", dark ? "text-sidebar-accent-foreground" : "text-foreground")}>
-        Tap <Share className="inline size-3.5 -translate-y-px" aria-hidden /> <strong>Share</strong>, then{" "}
-        <strong>Add to Home Screen</strong> <SquarePlus className="inline size-3.5 -translate-y-px" aria-hidden />
+        {t.iosBefore} <Share className="inline size-3.5 -translate-y-px" aria-hidden /> <strong>{t.share}</strong>{t.iosThen}{" "}
+        <strong>{t.addHome}</strong> <SquarePlus className="inline size-3.5 -translate-y-px" aria-hidden />
       </p>
     );
 
   return (
     <section
-      aria-label="Install the PMRFP app"
+      aria-label={t.title}
       className={cn(
         "relative rounded-xl border p-3.5",
         dark ? "border-sidebar-border bg-sidebar-accent" : "flex items-start gap-3 border-border bg-card shadow-sm",
@@ -76,18 +73,18 @@ export function InstallApp({
       {!dark && <LogoMark className="size-10 shrink-0 text-indigo" />}
       <div className="min-w-0 flex-1 pr-6">
         <p className={cn("text-sm font-semibold", dark ? "text-white" : "text-foreground")}>
-          Install the PMRFP app
+          {t.title}
         </p>
         <p className={cn("mt-1 text-xs leading-relaxed", dark ? "text-sidebar-foreground" : "text-muted-foreground")}>
-          {PITCH[audience]}
+          {t.pitch[audience]}
         </p>
         {action}
       </div>
       <button
         type="button"
         onClick={dismissInstall}
-        aria-label="Not now"
-        title="Not now"
+        aria-label={t.notNow}
+        title={t.notNow}
         className={cn(
           "absolute top-2 right-2 inline-flex size-7 items-center justify-center rounded-full transition-colors",
           dark

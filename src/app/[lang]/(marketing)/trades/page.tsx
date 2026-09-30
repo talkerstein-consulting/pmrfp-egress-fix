@@ -5,30 +5,44 @@ import { DynamicIcon } from "@/components/public/dynamic-icon";
 import { CTASection } from "@/components/public/section";
 import { getCategories } from "@/lib/data/taxonomy";
 import { SITE } from "@/lib/site";
-import { setLangFrom } from "@/i18n/server";
+import { getLang, getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { fmt } from "@/i18n/format";
+import { tradeName } from "@/i18n/terms";
+import { frTradeOf } from "@/lib/seo/phrases.fr";
+import { esTradeOf } from "@/lib/seo/phrases.es";
 
 export const revalidate = 3600;
 
-export const metadata: Metadata = {
-  title: "Trade Categories — Commercial Property Contractors in Canada",
-  description: `Browse every trade category on ${SITE.name} — from electrical and HVAC to snow removal and fire safety. Find commercial property contractors and RFP opportunities across Canada.`,
-  alternates: { canonical: "/trades" },
-};
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const t = getDictionary(l).seo.tradesIndex.meta;
+  return {
+    title: t.title,
+    description: fmt(t.description, { site: SITE.name }),
+    alternates: alternatesFor(l, "/trades"),
+  };
+}
 
 export default async function TradesIndexPage({ params }: { params: Promise<object> }) {
   await setLangFrom(params);
+  const t = getT("seo");
+  const p = t.tradesIndex;
+  const lang = getLang();
   const categories = await getCategories();
   return (
     <>
       <section className="border-b border-border bg-secondary/30">
         <Container className="py-12">
-          <Eyebrow>Trade categories</Eyebrow>
+          <Eyebrow>{p.eyebrow}</Eyebrow>
           <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl">
-            Commercial property trades & service categories
+            {p.title}
           </h1>
           <p className="mt-4 max-w-2xl text-muted-foreground">
-            Every category property managers source on {SITE.name}. Pick a trade to find contractors,
-            see open RFP opportunities, and explore demand by region.
+            {fmt(p.lead, { site: SITE.name })}
           </p>
         </Container>
       </section>
@@ -44,20 +58,22 @@ export default async function TradesIndexPage({ params }: { params: Promise<obje
                 <DynamicIcon name={c.icon} className="size-5" />
               </span>
               <span>
-                <span className="block text-sm font-semibold text-foreground group-hover:text-teal-700">{c.name}</span>
-                <span className="block text-xs text-muted-foreground">Commercial {c.name.toLowerCase()} contractors & RFPs</span>
+                <span className="block text-sm font-semibold text-foreground group-hover:text-teal-700">{tradeName(c.name, lang)}</span>
+                <span className="block text-xs text-muted-foreground">
+                  {fmt(p.card, { lower: c.name.toLowerCase(), of: lang === "es" ? esTradeOf(c.name) : frTradeOf(c.name) })}
+                </span>
               </span>
             </Link>
           ))}
         </div>
       </Container>
       <CTASection
-        title="Get listed in your trade category"
-        description="Become easy to find for property managers searching your category across Canada."
+        title={p.cta.title}
+        description={p.cta.description}
         primaryHref="/sign-up"
-        primaryLabel="Join as a Trade Company"
+        primaryLabel={t.joinTrade}
         secondaryHref="/regions"
-        secondaryLabel="Browse by region"
+        secondaryLabel={t.browseByRegion}
       />
     </>
   );

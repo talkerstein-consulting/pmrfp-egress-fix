@@ -4,6 +4,15 @@ import { BadgeCheck, Camera, ImageIcon } from "lucide-react";
 import { groupPhotos, type ProjectPhoto } from "@/lib/projects/photos";
 import { reviewStats, type PublicReview } from "@/lib/projects/reviews";
 import type { ProjectCard } from "@/lib/data/projects";
+import { getLang, getT } from "@/i18n/server";
+import { fmt, formatDate, formatNumber, plural } from "@/i18n/format";
+import { regionName } from "@/i18n/terms";
+import type { Locale } from "@/i18n/config";
+
+/** "4.7" in English and Spanish (es-US), "4,7" in French. */
+export function oneDecimal(n: number, lang: Locale): string {
+  return lang === "en" ? n.toFixed(1) : formatNumber(n, lang, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
 
 /**
  * Public-facing pieces for Projects: the photo gallery on a case study, the
@@ -21,6 +30,7 @@ export function ProjectGallery({
   title: string;
   capturedOnSite: boolean;
 }) {
+  const t = getT("directory").projects;
   const { hero, groups } = groupPhotos(photos, heroUrl);
   if (!hero) return null;
   return (
@@ -34,7 +44,7 @@ export function ProjectGallery({
       >
         <Image
           src={hero.url}
-          alt={`${title}: ${hero.kind} photo`}
+          alt={fmt(t.heroAlt, { title, kind: t.kindWords[hero.kind] })}
           fill
           priority
           sizes="(min-width: 1024px) 832px, 100vw"
@@ -43,7 +53,7 @@ export function ProjectGallery({
       </a>
       {groups.map((g) => (
         <div key={g.kind} className="mt-6">
-          <h2 className="eyebrow text-muted-foreground">{g.label}</h2>
+          <h2 className="eyebrow text-muted-foreground">{t.kinds[g.kind]}</h2>
           <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
             {g.photos.map((p, i) => (
               <a
@@ -55,7 +65,7 @@ export function ProjectGallery({
               >
                 <Image
                   src={p.url}
-                  alt={`${title}: ${g.label.toLowerCase()} photo ${i + 1}`}
+                  alt={fmt(t.photoAlt, { title, kind: t.kindWords[g.kind], n: i + 1 })}
                   fill
                   sizes="(min-width: 640px) 280px, 50vw"
                   className="object-cover transition-transform hover:scale-[1.02]"
@@ -67,7 +77,7 @@ export function ProjectGallery({
       ))}
       {capturedOnSite && (
         <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Camera className="size-3.5" /> Photos taken on site with PMRFP
+          <Camera className="size-3.5" /> {t.onSite}
         </p>
       )}
     </div>
@@ -76,10 +86,12 @@ export function ProjectGallery({
 
 export function ProjectGrid({ projects, companyName }: { projects: ProjectCard[]; companyName: string }) {
   if (projects.length === 0) return null;
+  const t = getT("directory").projects;
+  const lang = getLang();
   return (
     <div className="mt-10">
-      <h2 className="eyebrow text-muted-foreground">Projects</h2>
-      <p className="mt-1 text-sm text-muted-foreground">Completed jobs by {companyName}.</p>
+      <h2 className="eyebrow text-muted-foreground">{t.heading}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{fmt(t.sub, { name: companyName })}</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {projects.map((p) => (
           <Link
@@ -103,7 +115,12 @@ export function ProjectGrid({ projects, companyName }: { projects: ProjectCard[]
             <div className="p-3">
               <p className="line-clamp-2 text-sm font-medium leading-snug">{p.title}</p>
               {(p.city || p.province) && (
-                <p className="mt-0.5 text-xs text-muted-foreground">{[p.city, p.province].filter(Boolean).join(", ")}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {[p.city, p.province]
+                    .filter((x): x is string => Boolean(x))
+                    .map((x) => regionName(x, lang))
+                    .join(", ")}
+                </p>
               )}
             </div>
           </Link>
@@ -115,19 +132,23 @@ export function ProjectGrid({ projects, companyName }: { projects: ProjectCard[]
 
 export function Stars({ rating, className }: { rating: number; className?: string }) {
   const full = Math.round(rating);
+  const lang = getLang();
+  const label = fmt(getT("directory").projects.stars, {
+    rating: lang === "en" ? String(rating) : formatNumber(rating, lang, { maximumFractionDigits: 1 }),
+  });
   return (
-    <span className={className} aria-label={`${rating} out of 5 stars`} role="img">
+    <span className={className} aria-label={label} role="img">
       <span aria-hidden className="text-amber-500">{"★".repeat(full)}</span>
       <span aria-hidden className="text-slate-300">{"★".repeat(Math.max(0, 5 - full))}</span>
     </span>
   );
 }
 
-const fmtMonth = (d: string) => new Date(d).toLocaleDateString("en-CA", { month: "long", year: "numeric" });
+const fmtMonth = (d: string, lang: Locale) => formatDate(d, lang, { month: "long", year: "numeric" });
 
 export function ReviewList({
   reviews,
-  heading = "Reviews",
+  heading,
   showSummary = true,
 }: {
   reviews: PublicReview[];
@@ -135,16 +156,18 @@ export function ReviewList({
   showSummary?: boolean;
 }) {
   if (reviews.length === 0) return null;
+  const t = getT("directory").projects;
+  const lang = getLang();
   const { count, average } = reviewStats(reviews);
   return (
     <section className="mt-10" aria-labelledby="reviews-h">
-      <h2 id="reviews-h" className="eyebrow text-muted-foreground">{heading}</h2>
+      <h2 id="reviews-h" className="eyebrow text-muted-foreground">{heading ?? t.reviews}</h2>
       {showSummary && (
         <p className="mt-2 flex items-center gap-2 text-sm">
           <Stars rating={average} className="text-lg" />
-          <span className="font-semibold">{average.toFixed(1)}</span>
+          <span className="font-semibold">{oneDecimal(average, lang)}</span>
           <span className="text-muted-foreground">
-            from {count} client {count === 1 ? "review" : "reviews"}
+            {plural(count, t.summary)}
           </span>
         </p>
       )}
@@ -153,21 +176,21 @@ export function ReviewList({
           <li key={r.id} className="rounded-lg border border-border bg-card p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <Stars rating={r.rating} />
-              <span className="text-xs text-muted-foreground">{fmtMonth(r.createdAt)}</span>
+              <span className="text-xs text-muted-foreground">{fmtMonth(r.createdAt, lang)}</span>
             </div>
             <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-foreground/90">{r.body}</p>
             <p className="mt-3 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
               <span className="font-medium text-foreground">{r.name}</span>
               {r.company && <span>{r.company}</span>}
               {r.verifiedVia === "project_invite" && (
-                <span className="inline-flex items-center gap-1 text-teal-ink" title="Sent through a one-time link PMRFP emailed to the client of this project.">
-                  <BadgeCheck className="size-3.5" /> Via PMRFP review link
+                <span className="inline-flex items-center gap-1 text-teal-ink" title={t.viaTitle}>
+                  <BadgeCheck className="size-3.5" /> {t.viaLink}
                 </span>
               )}
             </p>
             {r.reply && (
               <p className="mt-3 border-l-2 border-teal-300 pl-3 text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">Reply:</span> {r.reply}
+                <span className="font-medium text-foreground">{t.reply}</span> {r.reply}
               </p>
             )}
           </li>

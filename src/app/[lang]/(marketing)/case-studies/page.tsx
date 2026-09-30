@@ -8,42 +8,54 @@ import { JsonLd, breadcrumbSchema, itemListSchema } from "@/lib/seo/jsonld";
 import { listCaseStudies } from "@/lib/data/case-studies";
 import { heroUrlsBySlug } from "@/lib/data/projects";
 import { SITE } from "@/lib/site";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale, localizePath } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { fmt } from "@/i18n/format";
+import { regionName, tradeName } from "@/i18n/terms";
 
 export const revalidate = 3600;
 
-export const metadata: Metadata = {
-  title: "Commercial Property Project Case Studies",
-  description: `Real completed projects from ${SITE.name} member trades — the challenge, the approach, and the outcome, by trade and region across Canada.`,
-  alternates: { canonical: "/case-studies" },
-};
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const t = getDictionary(l).content.caseStudiesIndex.meta;
+  return {
+    title: t.title,
+    description: fmt(t.description, { brand: SITE.name }),
+    alternates: alternatesFor(l, "/case-studies"),
+  };
+}
 
 export default async function CaseStudiesIndexPage({ params }: { params: Promise<object> }) {
-  await setLangFrom(params);
+  const lang = await setLangFrom(params);
+  const c = getT("content");
+  const t = c.caseStudiesIndex;
+  // Case study text is database content (written by member trades); only the
+  // page around it and the trade / province names are translated.
   const studies = await listCaseStudies();
   const heroes = await heroUrlsBySlug(studies.map((s) => s.slug));
 
   return (
     <>
       <JsonLd data={breadcrumbSchema([
-        { name: "Home", path: "/" },
-        { name: "Case Studies", path: "/case-studies" },
+        { name: c.crumbs.home, path: localizePath("/", lang) },
+        { name: c.crumbs.caseStudies, path: localizePath("/case-studies", lang) },
       ])} />
       <JsonLd data={itemListSchema(
-        "Commercial property project case studies",
+        t.listName,
         studies.map((s) => ({ name: s.title, path: `/case-studies/${s.slug}` })),
       )} />
 
       <section className="border-b border-border bg-secondary/30">
         <Container className="py-12">
-          <Eyebrow>Real projects</Eyebrow>
+          <Eyebrow>{t.eyebrow}</Eyebrow>
           <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl">
-            Commercial property project case studies
+            {t.h1}
           </h1>
           <p className="mt-4 max-w-2xl text-muted-foreground">
-            Completed work from {SITE.name} member trades — what the building needed, how the
-            contractor approached it, and how it turned out. Written by the companies that did
-            the work, reviewed before publishing.
+            {fmt(t.lead, { brand: SITE.name })}
           </p>
         </Container>
       </section>
@@ -51,8 +63,8 @@ export default async function CaseStudiesIndexPage({ params }: { params: Promise
       <Container className="py-12">
         {studies.length === 0 ? (
           <EmptyState
-            title="First case studies are in review"
-            description="Member trades are writing up their recent projects now. Check back shortly — or if you're a member, submit yours from your dashboard."
+            title={t.emptyTitle}
+            description={t.emptyDescription}
           />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -75,7 +87,10 @@ export default async function CaseStudiesIndexPage({ params }: { params: Promise
                 )}
                 <div className="flex flex-1 flex-col p-5">
                   <p className="text-xs font-medium uppercase tracking-wide text-teal-ink">
-                    {[s.categoryName, [s.city, s.province].filter(Boolean).join(", ")]
+                    {[
+                      s.categoryName ? tradeName(s.categoryName, lang) : s.categoryName,
+                      [s.city, s.province ? regionName(s.province, lang) : s.province].filter(Boolean).join(", "),
+                    ]
                       .filter(Boolean)
                       .join(" · ")}
                   </p>
@@ -86,7 +101,7 @@ export default async function CaseStudiesIndexPage({ params }: { params: Promise
                     {s.challenge}
                   </p>
                   <span className="mt-auto pt-4 text-sm font-medium text-teal-ink">
-                    By {s.orgName} →
+                    {fmt(t.by, { org: s.orgName })}
                   </span>
                 </div>
               </Link>
@@ -96,12 +111,12 @@ export default async function CaseStudiesIndexPage({ params }: { params: Promise
       </Container>
 
       <CTASection
-        title="Done work like this?"
-        description={`Member trades publish case studies free — each one strengthens your profile and your visibility on ${SITE.name}'s trade and city pages.`}
+        title={t.cta.title}
+        description={fmt(t.cta.description, { brand: SITE.name })}
         primaryHref="/dashboard/projects"
-        primaryLabel="Add a project"
+        primaryLabel={t.cta.primary}
         secondaryHref="/for-trades"
-        secondaryLabel="How membership works"
+        secondaryLabel={t.cta.secondary}
       />
     </>
   );

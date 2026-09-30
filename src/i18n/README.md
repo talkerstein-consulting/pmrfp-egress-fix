@@ -51,3 +51,19 @@ rather than putting HTML in strings.
 - Money in French: `249 $/an`, `29 $/mois`, `75 $` (number, space, `$`). Keep "CAD" where English has it.
 - Legal text (disclaimers, terms) is translated faithfully, never shortened.
 - Keep Tailwind classes, layout and behaviour identical. Only strings move.
+
+## Spanish (`es`)
+Add `const es: typeof en = { ... }` next to `fr` in each namespace file and export `{ en, fr, es }`.
+Until a namespace has `es`, Spanish falls back to English. `/es` stays closed (redirects to English) until
+`"es"` is added to `ENABLED_LOCALES`, so partial Spanish never ships.
+
+Spanish is neutral Latin-American Spanish for U.S. (and Canadian) readers, `usted`, plain and natural:
+RFP → solicitud de propuestas (RFP) · tender / public tender → licitación / licitación pública · bid (noun) → oferta · to bid → presentar una oferta ·
+quote → cotización · contractor / trade company → contratista · tradespeople → trabajadores de oficios · trade (category) → oficio ·
+property manager → administrador de propiedades · condo board → junta de condominio · realtor → agente inmobiliario ·
+closing date → fecha de cierre ("Closes Oct 26" → "Cierra el 26 oct") · awarded → adjudicado · contract winner → adjudicatario ·
+HVAC → HVAC (climatización) · snow removal → remoción de nieve · janitorial → limpieza y conserjería · roofing → techado ·
+directory → directorio · sign in → iniciar sesión · sign up / join → registrarse · Featured → Destacado · SEO Listing → Ficha SEO ·
+workers' comp → seguro de compensación laboral (WSIB/WCB in Canada) · general contractor → contratista general.
+Money in Spanish: `$249 al año`, `$29 al mes`, `$75` (dollar sign first, as in U.S. Spanish); keep "CAD"/"USD" where English has them.
+Legal pages get the line « Esta traducción se ofrece a título informativo. En caso de discrepancia, prevalece la versión en inglés. »

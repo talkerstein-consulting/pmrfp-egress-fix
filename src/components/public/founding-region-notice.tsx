@@ -13,6 +13,10 @@ import Link from "@/i18n/link";
 import { joinRegionalWaitlistAction, type WaitlistActionState } from "@/lib/waitlist/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useLang, useT } from "@/i18n/provider";
+import { fmt } from "@/i18n/format";
+import { regionName as regionLabel } from "@/i18n/terms";
+import type { ClientMessages } from "@/i18n/dictionaries";
 
 export type WaitlistReason =
   | "founding_region_rfp"
@@ -26,32 +30,19 @@ interface NoticeCopy {
   body: string;
 }
 
-function copyFor(regionName: string, reason: WaitlistReason): NoticeCopy {
+type FoundingCopy = ClientMessages["directoryClient"]["founding"];
+
+function copyFor(regionName: string, reason: WaitlistReason, t: FoundingCopy): NoticeCopy {
+  const v = { region: regionName };
   switch (reason) {
     case "region_request":
-      return {
-        eyebrow: "Founding region",
-        title: `We don't cover ${regionName} yet`,
-        body: `Add yourself and we'll prioritize building trade coverage in ${regionName} — you'll be the first to know when it opens.`,
-      };
+      return { eyebrow: t.eyebrow, title: fmt(t.requestTitle, v), body: fmt(t.requestBody, v) };
     case "no_supply_directory":
-      return {
-        eyebrow: "Founding region",
-        title: `We're building our trade network in ${regionName}`,
-        body: `${regionName} is a founding region — we're recruiting commercial trades here now. Join the list and we'll alert you the moment there's coverage.`,
-      };
+      return { eyebrow: t.eyebrow, title: fmt(t.directoryTitle, v), body: fmt(t.directoryBody, v) };
     case "founding_region_rfp":
-      return {
-        eyebrow: "Founding region",
-        title: `${regionName} is just getting started`,
-        body: `Your RFP is live, but we're still recruiting trades in ${regionName}. We'll notify you the moment matching trades join — and your listing is ready for them.`,
-      };
+      return { eyebrow: t.eyebrow, title: fmt(t.rfpTitle, v), body: fmt(t.rfpBody, v) };
     default:
-      return {
-        eyebrow: "Early access",
-        title: `Be first in ${regionName}`,
-        body: `Join the list and we'll email you as PMRFP activity grows in ${regionName}.`,
-      };
+      return { eyebrow: t.earlyEyebrow, title: fmt(t.earlyTitle, v), body: fmt(t.earlyBody, v) };
   }
 }
 
@@ -79,7 +70,11 @@ export function FoundingRegionNotice({
   showReferralCta = true,
   className,
 }: FoundingRegionNoticeProps) {
-  const c = copyFor(regionName, reason);
+  const t = useT("directoryClient").founding;
+  const lang = useLang();
+  // Region names arrive in English from the database; unknown names pass through.
+  const region = regionLabel(regionName, lang);
+  const c = copyFor(region, reason, t);
   return (
     <div
       className={`rounded-2xl border border-teal-300 bg-teal-100/30 p-6 sm:p-8 ${className ?? ""}`}
@@ -103,14 +98,14 @@ export function FoundingRegionNotice({
 
       {showReferralCta && (
         <p className="mt-4 text-sm text-foreground/75">
-          Know a great commercial trade in {regionName}?{" "}
+          {fmt(t.referBefore, { region })}{" "}
           <Link
             href="/refer-a-trade"
             className="font-medium text-teal-ink underline underline-offset-2"
           >
-            Refer them to Trade Pro and earn up to $75
+            {t.referLink}
           </Link>{" "}
-          when they subscribe — it&apos;s how founding regions get built.
+          {t.referAfter}
         </p>
       )}
     </div>
@@ -127,6 +122,14 @@ export interface RegionalWaitlistFormProps {
   buttonLabel?: string;
 }
 
+/** The server action answers in English; other languages show their own copy. */
+const SERVER_ERRORS: Record<string, "rateLimit" | "invalidEmail" | "failed"> = {
+  "Too many submissions. Please wait a minute and try again.": "rateLimit",
+  "Enter a valid email": "invalidEmail",
+  "Please enter a valid email.": "invalidEmail",
+  "Something went wrong saving your spot. Please try again.": "failed",
+};
+
 export function RegionalWaitlistForm({
   regionSlug,
   role,
@@ -134,8 +137,10 @@ export function RegionalWaitlistForm({
   requestedRegionText,
   province,
   country,
-  buttonLabel = "Join the list",
+  buttonLabel,
 }: RegionalWaitlistFormProps) {
+  const t = useT("directoryClient").waitlist;
+  const lang = useLang();
   const [state, action, pending] = useActionState(
     joinRegionalWaitlistAction,
     {} as WaitlistActionState,
@@ -144,10 +149,13 @@ export function RegionalWaitlistForm({
   if (state.success) {
     return (
       <p className="rounded-md bg-teal-100/60 px-3 py-2 text-sm font-medium text-teal-ink">
-        {state.success}
+        {lang === "en" ? state.success : t.success}
       </p>
     );
   }
+
+  const errKey = state.error ? SERVER_ERRORS[state.error] : undefined;
+  const error = lang !== "en" && errKey ? t.errors[errKey] : state.error;
 
   return (
     <form action={action} className="space-y-2">
@@ -174,16 +182,16 @@ export function RegionalWaitlistForm({
           name="email"
           type="email"
           required
-          aria-label="Email address"
-          placeholder="you@company.com"
+          aria-label={t.emailLabel}
+          placeholder={t.placeholder}
           className="sm:max-w-xs"
         />
         <Button type="submit" disabled={pending} className="w-full sm:w-auto">
-          {pending ? "Adding…" : buttonLabel}
+          {pending ? t.adding : buttonLabel ?? t.join}
         </Button>
       </div>
-      {state.error && (
-        <p role="alert" className="text-sm text-red-700">{state.error}</p>
+      {error && (
+        <p role="alert" className="text-sm text-red-700">{error}</p>
       )}
     </form>
   );

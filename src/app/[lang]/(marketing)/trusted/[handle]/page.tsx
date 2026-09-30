@@ -9,32 +9,39 @@ import { getPublicTrustedList } from "@/lib/trusted/data";
 import { telHref } from "@/lib/trusted/rules";
 import { QuoteRequest } from "@/components/trusted/quote-request";
 import { cn } from "@/lib/utils";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale, localizePath } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { fmt } from "@/i18n/format";
 
 // Owners' edits call revalidatePath; this is the fallback refresh.
 export const revalidate = 300;
 
-type Props = { params: Promise<{ handle: string }> };
+type Props = { params: Promise<{ handle: string; lang: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { handle } = await params;
+  const { handle, lang } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const t = getDictionary(l).partners.trusted.meta;
   const page = await getPublicTrustedList(handle);
-  if (!page) return { title: "Page not found" };
+  if (!page) return { title: t.notFound };
   const who = page.list.brokerage ? `${page.list.displayName}, ${page.list.brokerage}` : page.list.displayName;
-  const title = `${page.list.displayName}'s trusted trades`;
-  const description = page.list.headline ?? `The trades ${who} trusts with clients' homes and buildings.`;
+  const title = fmt(t.title, { name: page.list.displayName });
+  const description = page.list.headline ?? fmt(t.description, { who });
   return {
     title,
     description,
     // A personal page: share it, don't rank it. Links still pass to the trades' profiles.
     robots: { index: false, follow: true },
-    alternates: { canonical: `/trusted/${handle}` },
-    openGraph: { title, description, url: `/trusted/${handle}` },
+    alternates: alternatesFor(l, `/trusted/${handle}`),
+    openGraph: { title, description, url: localizePath(`/trusted/${handle}`, l) },
   };
 }
 
 export default async function TrustedPage({ params }: Props) {
   await setLangFrom(params);
+  const t = getT("partners").trusted;
   const { handle } = await params;
   const page = await getPublicTrustedList(handle);
   if (!page) notFound();
@@ -52,17 +59,17 @@ export default async function TrustedPage({ params }: Props) {
           style={{ background: "radial-gradient(circle, rgba(145,242,207,.14), transparent 62%)" }}
         />
         <Container className="relative py-14 md:py-20">
-          <p className="font-mono text-xs uppercase tracking-[0.16em] text-teal-300">Trusted trades</p>
+          <p className="font-mono text-xs uppercase tracking-[0.16em] text-teal-300">{t.eyebrow}</p>
           <h1 className="mt-3 text-balance text-4xl font-extrabold tracking-tight text-white md:text-5xl">{list.displayName}</h1>
           {list.brokerage && <p className="mt-2 text-lg text-indigo-100/80">{list.brokerage}</p>}
           <p className="mt-5 max-w-2xl text-lg leading-relaxed text-indigo-100/85">
-            {list.headline ?? `The trades ${first} trusts with clients' homes and buildings.`}
+            {list.headline ?? fmt(t.headline, { first })}
           </p>
           {(tel || mail) && (
             <div className="mt-8 flex flex-wrap gap-3">
               {tel && (
                 <a href={tel} className={cn(buttonVariants({ size: "lg", variant: "accent" }), "active:scale-[0.98]")}>
-                  <Phone className="size-4" /> Call {first}
+                  <Phone className="size-4" /> {fmt(t.call, { first })}
                 </a>
               )}
               {mail && (
@@ -73,7 +80,7 @@ export default async function TrustedPage({ params }: Props) {
                     "border-white/25 bg-transparent text-white hover:bg-white/10 hover:text-white active:scale-[0.98]",
                   )}
                 >
-                  <Mail className="size-4" /> Email {first}
+                  <Mail className="size-4" /> {fmt(t.email, { first })}
                 </a>
               )}
             </div>
@@ -84,7 +91,7 @@ export default async function TrustedPage({ params }: Props) {
       <section className="bg-background">
         <Container className="py-14 md:py-16">
           {trades.length === 0 ? (
-            <p className="text-muted-foreground">{first} hasn&apos;t added any trades yet.</p>
+            <p className="text-muted-foreground">{fmt(t.empty, { first })}</p>
           ) : (
             <ul className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {trades.map((t) => (
@@ -109,8 +116,7 @@ export default async function TrustedPage({ params }: Props) {
             </ul>
           )}
           <p className="mt-10 max-w-3xl text-xs leading-relaxed text-muted-foreground">
-            {list.displayName} chose these companies. Each one is listed on PMRFP, where property managers and realtors
-            find trades. Always confirm licensing, insurance and pricing for your own project.
+            {fmt(t.disclaimer, { name: list.displayName })}
           </p>
         </Container>
       </section>
@@ -118,21 +124,21 @@ export default async function TrustedPage({ params }: Props) {
       <section className="border-t border-border bg-secondary/40">
         <Container className="grid gap-6 py-10 md:grid-cols-2">
           <div>
-            <h2 className="font-semibold">Realtor? Make your own page.</h2>
+            <h2 className="font-semibold">{t.realtor.title}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Save the trades you trust, add a note on each, and send clients one link. Free for up to 5 trades.
+              {t.realtor.body}
             </p>
             <Link href="/sign-up?role=real_estate_agent" className={buttonVariants({ className: "mt-4" })}>
-              Create your trusted-trades page
+              {t.realtor.cta}
             </Link>
           </div>
           <div>
-            <h2 className="font-semibold">Run a trade company?</h2>
+            <h2 className="font-semibold">{t.trade.title}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Get listed free so realtors and property managers can add you to their pages.
+              {t.trade.body}
             </p>
             <Link href="/sign-up?role=trade" className={buttonVariants({ variant: "outline", className: "mt-4" })}>
-              List your company
+              {t.trade.cta}
             </Link>
           </div>
         </Container>

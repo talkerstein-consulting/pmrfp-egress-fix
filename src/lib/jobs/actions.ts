@@ -7,7 +7,9 @@ import { getSession, type SessionContext } from "@/lib/access/access";
 import { createServiceClient } from "@/lib/supabase/service";
 import { isServiceConfigured } from "@/lib/supabase/config";
 import { upsertGhlContact } from "@/lib/ghl/client";
-import { FREE_JOB_LIMIT, JOB_DAYS, canPostJob, jobSchema, jobSlug } from "./rules";
+import { DEFAULT_LOCALE, isEnabledLocale, localizePath, type Locale } from "@/i18n/config";
+import { getDictionary } from "@/i18n/dictionaries";
+import { JOB_DAYS, JOB_MESSAGES, canPostJob, jobSchema, jobSlug, localMessage } from "./rules";
 
 export interface JobFormState {
   error?: string;
@@ -15,16 +17,30 @@ export interface JobFormState {
 
 type Employer = { session: SessionContext; orgId: string } | { error: string };
 
+/**
+ * The language of the form or button that called (a hidden "lang" input, or
+ * an argument, from useLang()). Missing or unknown: English, exactly as before.
+ */
+function langOf(v: unknown): Locale {
+  return isEnabledLocale(v) ? v : DEFAULT_LOCALE;
+}
+
+/** The messages returned to the form, in its language (English is JOB_MESSAGES). */
+function messages(lang: Locale) {
+  return getDictionary(lang).jobsClient.errors.jobs;
+}
+
 /** A signed-in member of an approved company (any kind: trade, supplier, PM, GC). */
-async function employer(): Promise<Employer> {
+async function employer(lang: Locale): Promise<Employer> {
+  const m = messages(lang);
   const session = await getSession();
-  if (!session) return { error: "Sign in to post a job." };
+  if (!session) return { error: m.signInToPost };
   const org = session.organization;
-  if (!org) return { error: "Finish setting up your company profile first." };
+  if (!org) return { error: m.finishProfile };
   if (org.profile_status !== "approved" || org.status !== "active") {
-    return { error: "Your company profile needs to be approved before you can post jobs." };
+    return { error: m.needsApproval };
   }
-  if (!isServiceConfigured()) return { error: "This isn't available right now." };
+  if (!isServiceConfigured()) return { error: m.unavailable };
   return { session, orgId: org.id };
 }
 
@@ -33,7 +49,9 @@ function addDays(days: number): string {
 }
 
 export async function createJobAction(_prev: JobFormState, formData: FormData): Promise<JobFormState> {
-  const e = await employer();
+  const lang = langOf(formData.get("lang"));
+  const m = messages(lang);
+  const e = await employer(lang);
   if ("error" in e) return { error: e.error };
   const num = (k: string) => {
     const v = formData.get(k)?.toString().trim();
@@ -51,7 +69,7 @@ export async function createJobAction(_prev: JobFormState, formData: FormData): 
     description: formData.get("description") ?? "",
     requirements: formData.get("requirements")?.toString() || undefined,
   });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please check the form." };
+  if (!parsed.success) return { error: localMessage(parsed.error.issues[0]?.message, lang, JOB_MESSAGES, m, m.checkForm) };
   const d = parsed.data;
 
   const admin = createServiceClient();
@@ -67,12 +85,10 @@ export async function createJobAction(_prev: JobFormState, formData: FormData): 
     admin.from("regions").select("id").eq("slug", d.region).maybeSingle<{ id: string }>(),
   ]);
   if (!canPostJob(count ?? 0, e.session.hasTradeAccess)) {
-    return {
-      error: `Free accounts can have ${FREE_JOB_LIMIT} open jobs at a time. Close one, or upgrade to Trade Pro for unlimited job posts.`,
-    };
+    return { error: m.freeLimitPost };
   }
-  if (!cat) return { error: "Pick the trade." };
-  if (!reg) return { error: "Pick the region." };
+  if (!cat) return { error: m.pickTrade };
+  if (!reg) return { error: m.pickRegion };
 
   const slug = jobSlug(d.title, d.city);
   const { error } = await admin.from("job_posts").insert({
@@ -92,7 +108,7 @@ export async function createJobAction(_prev: JobFormState, formData: FormData): 
     expires_at: addDays(JOB_DAYS),
   });
   if (error) {
-    return { error: /job_posts/.test(error.message) ? "Job posting is switching on. Try again in a few minutes." : "Could not post the job. Please try again." };
+    return { error: /job_posts/.test(error.message) ? m.switchingOn : m.couldNotPost };
   }
   // CRM: employers hiring, by trade. Never blocks the post.
   const [firstName, ...rest] = (e.session.profile.full_name ?? "").trim().split(/\s+/);
@@ -107,13 +123,15 @@ export async function createJobAction(_prev: JobFormState, formData: FormData): 
   ]);
   revalidatePath("/jobs");
   revalidatePath("/jobs/manage");
-  redirect(`/jobs/manage?posted=${slug}`);
+  redirect(localizePath(`/jobs/manage?posted=${slug}`, lang));
 }
 
-/** Close a job (stop applications) or renew it for another 30 days. */
-export async function setJobStatusAction(jobId: string, action: "close" | "renew"): Promise<{ error?: string }> {
-  if (!z.uuid().safeParse(jobId).success) return { error: "Unknown job." };
-  const e = await employer();
+/** Close a job (stop applications) or renew it for another 30 days. `lang`: the caller's, for the messages. */
+export async function setJobStatusAction(jobId: string, action: "close" | "renew", lang?: string): Promise<{ error?: string }> {
+  const l = langOf(lang);
+  const m = messages(l);
+  if (!z.uuid().safeParse(jobId).success) return { error: m.unknownJob };
+  const e = await employer(l);
   if ("error" in e) return { error: e.error };
   const admin = createServiceClient();
   const { data: job } = await admin
@@ -121,7 +139,7 @@ export async function setJobStatusAction(jobId: string, action: "close" | "renew
     .select("slug,organization_id,status")
     .eq("id", jobId)
     .maybeSingle<{ slug: string; organization_id: string; status: string }>();
-  if (!job || job.organization_id !== e.orgId) return { error: "That job isn't yours." };
+  if (!job || job.organization_id !== e.orgId) return { error: m.notYours };
 
   if (action === "renew") {
     const today = new Date().toISOString().slice(0, 10);
@@ -133,14 +151,14 @@ export async function setJobStatusAction(jobId: string, action: "close" | "renew
       .gte("expires_at", today)
       .neq("id", jobId);
     if (!canPostJob(count ?? 0, e.session.hasTradeAccess)) {
-      return { error: `Free accounts can have ${FREE_JOB_LIMIT} open jobs at a time. Close one first, or upgrade to Trade Pro.` };
+      return { error: m.freeLimitRenew };
     }
   }
   const { error } = await admin
     .from("job_posts")
     .update(action === "close" ? { status: "closed" } : { status: "open", expires_at: addDays(JOB_DAYS) })
     .eq("id", jobId);
-  if (error) return { error: "Could not update the job." };
+  if (error) return { error: m.couldNotUpdate };
   revalidatePath("/jobs");
   revalidatePath(`/jobs/${job.slug}`);
   revalidatePath("/jobs/manage");

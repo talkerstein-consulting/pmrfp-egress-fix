@@ -1,12 +1,18 @@
 import type { Metadata } from "next";
 import { LogoMark } from "@/components/logo";
 import { TryAgainButton } from "./try-again";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale } from "@/i18n/config";
 
-export const metadata: Metadata = {
-  title: "You're offline",
-  robots: { index: false },
-};
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const t = getDictionary(hasLocale(lang) ? lang : "en").misc.offline;
+  return {
+    title: t.title,
+    robots: { index: false },
+  };
+}
 
 // The service worker (public/sw.js) caches this page's HTML and nothing else,
 // so it is styled inline: when there's no connection the site stylesheet may
@@ -62,21 +68,17 @@ const styles = {
 
 export default async function OfflinePage({ params }: { params: Promise<object> }) {
   await setLangFrom(params);
+  const t = getT("misc").offline;
   return (
     <main style={styles.screen}>
       <div style={styles.card}>
         <div style={styles.mark}>
           <LogoMark className="h-14 w-14" />
         </div>
-        <h1 style={styles.heading}>You&apos;re offline</h1>
-        <p style={styles.body}>
-          PMRFP needs a connection to load this page. Check your Wi-Fi or mobile data, then try
-          again.
-        </p>
-        <p style={styles.note}>
-          Nothing is lost. Your RFPs and saved work will be right here when you&apos;re back online.
-        </p>
-        <TryAgainButton style={styles.button} />
+        <h1 style={styles.heading}>{t.title}</h1>
+        <p style={styles.body}>{t.body}</p>
+        <p style={styles.note}>{t.note}</p>
+        <TryAgainButton style={styles.button} label={t.tryAgain} />
       </div>
     </main>
   );

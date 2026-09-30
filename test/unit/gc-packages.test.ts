@@ -8,6 +8,7 @@ import {
   isGcSchemaMissingError,
   isLinkableAward,
   parseAwardRef,
+  portalName,
   sourceTypeLabel,
 } from "@/lib/gc/packages";
 import { isIndexableRfp } from "@/lib/seo/rfp-indexing";
@@ -19,6 +20,10 @@ describe("GC sub-trade packages", () => {
     expect(sourceTypeLabel("property_manager_direct", "anything")).toBeNull();
     expect(sourceTypeLabel("admin_seeded", "anything")).toBeNull();
     expect(sourceTypeLabel(null, "anything")).toBeNull();
+    expect(sourceTypeLabel("gc_package", "roofing-package-x1", "es")).toBe("Paquete de subcontratación");
+    expect(sourceTypeLabel("public_source", "arena-roof-tor-12345", "es")).toBe("Licitación pública · Ciudad de Toronto");
+    expect(portalName("the City of Toronto bid portal", "es")).toBe("el portal de licitaciones de la Ciudad de Toronto");
+    expect(portalName("CanadaBuys", "es")).toBe("CanadaBuys");
     expect(isGcPackage({ sourceType: "gc_package" })).toBe(true);
     expect(isGcPackage({ sourceType: "public_source" })).toBe(false);
   });

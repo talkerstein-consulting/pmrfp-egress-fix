@@ -8,8 +8,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { endorseTalentAction, saveTalentProfileAction, type TalentFormState } from "@/lib/talent/actions";
-import { EMPLOYMENT_LABEL, EMPLOYMENT_TYPES, type EmploymentType } from "@/lib/jobs/rules";
-import { AVAILABILITY, AVAILABILITY_LABEL, COMMON_TICKETS, FREE_CONTACTS_PER_MONTH, type Availability } from "@/lib/talent/rules";
+import { EMPLOYMENT_TYPES, localMessage, type EmploymentType } from "@/lib/jobs/rules";
+import {
+  AVAILABILITY,
+  COMMON_TICKETS,
+  FREE_CONTACTS_PER_MONTH,
+  TALENT_MESSAGES,
+  ticketName,
+  type Availability,
+} from "@/lib/talent/rules";
+import { useLang, useT } from "@/i18n/provider";
+import { fmt, plural } from "@/i18n/format";
 
 type Option = { slug: string; name: string };
 
@@ -48,42 +57,46 @@ export interface TalentFormDefaults {
   contactVisible: boolean;
 }
 
-/** The owner's profile form. Creates the profile on first save. */
+/** The owner's profile form. Creates the profile on first save. Trade and region names arrive translated. */
 export function TalentEditForm({ defaults, trades, regions }: { defaults: TalentFormDefaults; trades: Option[]; regions: Option[] }) {
   const [state, action, pending] = useActionState<TalentFormState, FormData>(saveTalentProfileAction, {});
+  const lang = useLang();
+  const all = useT("jobsClient");
+  const t = all.talentForm;
   const common = new Set<string>(COMMON_TICKETS);
   const otherTickets = defaults.certifications.filter((c) => !common.has(c)).join(", ");
   const picked = new Set(defaults.certifications);
   return (
     <form action={action} className="grid gap-6 sm:grid-cols-2">
-      <Field label="Your name" htmlFor="displayName">
+      <input type="hidden" name="lang" value={lang} />
+      <Field label={t.name} htmlFor="displayName">
         <Input id="displayName" name="displayName" required minLength={2} maxLength={80} defaultValue={defaults.displayName} autoComplete="name" />
       </Field>
-      <Field label="Profile address" hint="pmrfp.com/talent/…" htmlFor="handle">
+      <Field label={t.handle} hint="pmrfp.com/talent/…" htmlFor="handle">
         <Input id="handle" name="handle" required minLength={3} maxLength={40} defaultValue={defaults.handle} placeholder="sam-tech" />
       </Field>
-      <Field label="Headline" hint="Optional" htmlFor="headline" className="sm:col-span-2">
-        <Input id="headline" name="headline" maxLength={140} defaultValue={defaults.headline} placeholder="Licensed 309A electrician, commercial service and tenant fit-outs" />
+      <Field label={t.headline} hint={all.optional} htmlFor="headline" className="sm:col-span-2">
+        <Input id="headline" name="headline" maxLength={140} defaultValue={defaults.headline} placeholder={t.headlinePlaceholder} />
       </Field>
-      <Field label="Main trade" htmlFor="primaryTrade">
+      <Field label={t.mainTrade} htmlFor="primaryTrade">
         <select id="primaryTrade" name="primaryTrade" required defaultValue={defaults.primaryTrade} className={SELECT}>
           <option value="" disabled>
-            Pick your trade
+            {t.pickTrade}
           </option>
-          {trades.map((t) => (
-            <option key={t.slug} value={t.slug}>
-              {t.name}
+          {trades.map((c) => (
+            <option key={c.slug} value={c.slug}>
+              {c.name}
             </option>
           ))}
         </select>
       </Field>
-      <Field label="Years in the trade" hint="Optional" htmlFor="yearsExperience">
+      <Field label={t.years} hint={all.optional} htmlFor="yearsExperience">
         <Input id="yearsExperience" name="yearsExperience" type="number" min={0} max={60} defaultValue={defaults.yearsExperience ?? ""} />
       </Field>
-      <Field label="Region" htmlFor="region">
+      <Field label={t.region} htmlFor="region">
         <select id="region" name="region" required defaultValue={defaults.region} className={SELECT}>
           <option value="" disabled>
-            Pick your region
+            {t.pickRegion}
           </option>
           {regions.map((r) => (
             <option key={r.slug} value={r.slug}>
@@ -92,21 +105,21 @@ export function TalentEditForm({ defaults, trades, regions }: { defaults: Talent
           ))}
         </select>
       </Field>
-      <Field label="City or area" hint="Optional" htmlFor="city">
-        <Input id="city" name="city" maxLength={80} defaultValue={defaults.city} placeholder="Vaughan" />
+      <Field label={t.city} hint={all.optional} htmlFor="city">
+        <Input id="city" name="city" maxLength={80} defaultValue={defaults.city} placeholder={t.cityPlaceholder} />
       </Field>
 
       <fieldset className="sm:col-span-2">
-        <legend className="mb-2 text-sm font-medium">Other trades you work in</legend>
+        <legend className="mb-2 text-sm font-medium">{t.otherTrades}</legend>
         <details className="rounded-md border border-border p-3">
           <summary className="cursor-pointer text-sm text-muted-foreground">
-            {defaults.otherTrades.length ? `${defaults.otherTrades.length} picked` : "Pick up to 8 (optional)"}
+            {defaults.otherTrades.length ? plural(defaults.otherTrades.length, t.picked) : t.pickUpTo}
           </summary>
           <div className="mt-3 grid max-h-64 gap-2 overflow-y-auto sm:grid-cols-2">
-            {trades.map((t) => (
-              <label key={t.slug} className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="otherTrades" value={t.slug} defaultChecked={defaults.otherTrades.includes(t.slug)} className={CHECK} />
-                {t.name}
+            {trades.map((c) => (
+              <label key={c.slug} className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="otherTrades" value={c.slug} defaultChecked={defaults.otherTrades.includes(c.slug)} className={CHECK} />
+                {c.name}
               </label>
             ))}
           </div>
@@ -114,72 +127,63 @@ export function TalentEditForm({ defaults, trades, regions }: { defaults: Talent
       </fieldset>
 
       <fieldset className="sm:col-span-2">
-        <legend className="mb-2 text-sm font-medium">Tickets and certifications</legend>
+        <legend className="mb-2 text-sm font-medium">{t.tickets}</legend>
         <div className="flex flex-wrap gap-2">
-          {COMMON_TICKETS.map((t) => (
-            <label key={t} className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-sm has-[:checked]:border-teal-500 has-[:checked]:bg-teal-50">
-              <input type="checkbox" name="ticketPick" value={t} defaultChecked={picked.has(t)} className={CHECK} />
-              {t}
+          {COMMON_TICKETS.map((k) => (
+            <label key={k} className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-sm has-[:checked]:border-teal-500 has-[:checked]:bg-teal-50">
+              <input type="checkbox" name="ticketPick" value={k} defaultChecked={picked.has(k)} className={CHECK} />
+              {ticketName(k, all.tickets)}
             </label>
           ))}
         </div>
-        <Input name="tickets" className="mt-3" maxLength={2000} defaultValue={otherTickets} placeholder="Others, separated by commas (e.g. 442A, Elevated Work Platform)" />
+        <Input name="tickets" className="mt-3" maxLength={2000} defaultValue={otherTickets} placeholder={t.ticketsPlaceholder} />
       </fieldset>
 
-      <Field label="Availability" htmlFor="availability">
+      <Field label={t.availability} htmlFor="availability">
         <select id="availability" name="availability" required defaultValue={defaults.availability} className={SELECT}>
           {AVAILABILITY.map((a) => (
             <option key={a} value={a}>
-              {AVAILABILITY_LABEL[a]}
+              {all.availability[a]}
             </option>
           ))}
         </select>
       </Field>
-      <Field label="Pay you're looking for" hint="Optional" htmlFor="payExpectation">
-        <Input id="payExpectation" name="payExpectation" maxLength={80} defaultValue={defaults.payExpectation} placeholder="$38 an hour" />
+      <Field label={t.pay} hint={all.optional} htmlFor="payExpectation">
+        <Input id="payExpectation" name="payExpectation" maxLength={80} defaultValue={defaults.payExpectation} placeholder={t.payPlaceholder} />
       </Field>
 
       <fieldset className="sm:col-span-2">
-        <legend className="mb-2 text-sm font-medium">Kind of work you want</legend>
+        <legend className="mb-2 text-sm font-medium">{t.kindOfWork}</legend>
         <div className="flex flex-wrap gap-x-5 gap-y-2">
-          {EMPLOYMENT_TYPES.map((t) => (
-            <label key={t} className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="employmentTypes" value={t} defaultChecked={defaults.employmentTypes.includes(t)} className={CHECK} />
-              {EMPLOYMENT_LABEL[t]}
+          {EMPLOYMENT_TYPES.map((e) => (
+            <label key={e} className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="employmentTypes" value={e} defaultChecked={defaults.employmentTypes.includes(e)} className={CHECK} />
+              {all.employment[e]}
             </label>
           ))}
         </div>
       </fieldset>
 
-      <Field label="About you" hint="Optional" htmlFor="bio" className="sm:col-span-2">
-        <Textarea
-          id="bio"
-          name="bio"
-          rows={5}
-          maxLength={3000}
-          defaultValue={defaults.bio}
-          placeholder="The work you've done, the sites you've been on, what you're good at."
-        />
+      <Field label={t.about} hint={all.optional} htmlFor="bio" className="sm:col-span-2">
+        <Textarea id="bio" name="bio" rows={5} maxLength={3000} defaultValue={defaults.bio} placeholder={t.aboutPlaceholder} />
       </Field>
 
       <div className="space-y-3 rounded-xl border border-border bg-secondary/40 p-4 sm:col-span-2">
         <label className="flex items-start gap-2.5 text-sm">
           <input type="checkbox" name="published" defaultChecked={defaults.published} className={`${CHECK} mt-0.5`} />
           <span>
-            <span className="font-medium">Show my profile publicly</span>
-            <span className="block text-muted-foreground">Turn this off to hide it from the talent directory and search.</span>
+            <span className="font-medium">{t.published}</span>
+            <span className="block text-muted-foreground">{t.publishedHint}</span>
           </span>
         </label>
         <label className="flex items-start gap-2.5 text-sm">
           <input type="checkbox" name="contactVisible" defaultChecked={defaults.contactVisible} className={`${CHECK} mt-0.5`} />
           <span>
-            <span className="font-medium">Show my email and phone to signed-in employers</span>
-            <span className="block text-muted-foreground">
-              Off by default. Employers can always message you through PMRFP without seeing your email.
-            </span>
+            <span className="font-medium">{t.contactVisible}</span>
+            <span className="block text-muted-foreground">{t.contactVisibleHint}</span>
           </span>
         </label>
-        <Field label="Phone" hint="Only shown if the box above is ticked" htmlFor="phone">
+        <Field label={t.phone} hint={t.phoneHint} htmlFor="phone">
           <Input id="phone" name="phone" type="tel" maxLength={30} defaultValue={defaults.phone} autoComplete="tel" />
         </Field>
       </div>
@@ -187,7 +191,7 @@ export function TalentEditForm({ defaults, trades, regions }: { defaults: Talent
       {state.error && <p className="text-sm text-destructive sm:col-span-2">{state.error}</p>}
       <div className="sm:col-span-2">
         <Button type="submit" size="lg" disabled={pending}>
-          {pending ? "Saving…" : "Save profile"}
+          {pending ? all.saving : t.submit}
         </Button>
       </div>
     </form>
@@ -202,6 +206,9 @@ export function ContactTalent({ handle, firstName, left }: { handle: string; fir
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
   const [error, setError] = useState<{ text: string; upgrade: boolean } | null>(null);
+  const lang = useLang();
+  const all = useT("jobsClient");
+  const t = all.contact;
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -216,30 +223,30 @@ export function ContactTalent({ handle, firstName, left }: { handle: string; fir
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError({ text: json.error ?? "Something went wrong. Please try again.", upgrade: Boolean(json.upgrade) });
+        // The route answers in English; show it in the page's language.
+        setError({
+          text: localMessage(json.error, lang, TALENT_MESSAGES, all.errors.talent, all.somethingWrong),
+          upgrade: Boolean(json.upgrade),
+        });
         setState("idle");
         return;
       }
       setState("sent");
     } catch {
-      setError({ text: "Something went wrong. Please try again.", upgrade: false });
+      setError({ text: all.somethingWrong, upgrade: false });
       setState("idle");
     }
   }
 
   if (state === "sent") {
-    return (
-      <p className="rounded-xl border border-teal-300 bg-teal-50/60 px-4 py-3 text-sm">
-        Sent. {firstName} gets your message by email and can reply to you directly.
-      </p>
-    );
+    return <p className="rounded-xl border border-teal-300 bg-teal-50/60 px-4 py-3 text-sm">{fmt(t.sent, { name: firstName })}</p>;
   }
   if (left === 0) {
     return (
       <div className="space-y-2 text-sm">
-        <p className="text-muted-foreground">You&apos;ve used this month&apos;s free contacts.</p>
+        <p className="text-muted-foreground">{t.usedUp}</p>
         <Link href="/pricing" className={buttonVariants({ className: "w-full" })}>
-          Upgrade to Trade Pro for unlimited
+          {t.upgrade}
         </Link>
       </div>
     );
@@ -248,41 +255,36 @@ export function ContactTalent({ handle, firstName, left }: { handle: string; fir
     return (
       <div className="space-y-2">
         <Button type="button" className="w-full" onClick={() => setOpen(true)}>
-          <Mail className="size-4" /> Contact {firstName}
+          <Mail className="size-4" /> {fmt(t.button, { name: firstName })}
         </Button>
-        {left != null && <p className="text-center text-xs text-muted-foreground">{left} of {FREE_CONTACTS_PER_MONTH} free contacts left this month</p>}
+        {left != null && (
+          <p className="text-center text-xs text-muted-foreground">{fmt(t.left, { left, total: FREE_CONTACTS_PER_MONTH })}</p>
+        )}
       </div>
     );
   }
   return (
     <form onSubmit={onSubmit} className="space-y-2.5">
-      <Textarea
-        name="message"
-        rows={5}
-        required
-        minLength={20}
-        maxLength={2000}
-        placeholder="The job, where it is, the pay, and how to reach you."
-      />
+      <Textarea name="message" rows={5} required minLength={20} maxLength={2000} placeholder={t.placeholder} />
       {error && (
         <p className="text-sm text-destructive">
           {error.text}{" "}
           {error.upgrade && (
             <Link href="/pricing" className="font-medium underline">
-              See Trade Pro
+              {t.seeTradePro}
             </Link>
           )}
         </p>
       )}
       <div className="flex gap-2">
         <Button type="submit" className="flex-1" disabled={state === "sending"}>
-          {state === "sending" ? "Sending…" : "Send message"}
+          {state === "sending" ? all.sending : t.submit}
         </Button>
         <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-          Cancel
+          {all.cancel}
         </Button>
       </div>
-      <p className="text-[11px] leading-relaxed text-muted-foreground">Sent by PMRFP. Replies come to your email.</p>
+      <p className="text-[11px] leading-relaxed text-muted-foreground">{t.note}</p>
     </form>
   );
 }
@@ -293,12 +295,15 @@ export function EndorseTalent({ handle, firstName }: { handle: string; firstName
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const lang = useLang();
+  const all = useT("jobsClient");
+  const t = all.endorse;
 
-  if (done) return <p className="text-sm text-muted-foreground">Thanks. Your endorsement is on {firstName}&apos;s profile.</p>;
+  if (done) return <p className="text-sm text-muted-foreground">{fmt(t.done, { name: firstName })}</p>;
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)} className="text-sm font-medium text-teal-700 hover:underline">
-        Worked with {firstName}? Endorse them
+        {fmt(t.open, { name: firstName })}
       </button>
     );
   }
@@ -310,20 +315,20 @@ export function EndorseTalent({ handle, firstName }: { handle: string; firstName
         const note = new FormData(e.currentTarget).get("note")?.toString() ?? "";
         setError(null);
         start(async () => {
-          const res = await endorseTalentAction({ handle, note });
+          const res = await endorseTalentAction({ handle, note, lang });
           if (res.error) setError(res.error);
           else setDone(true);
         });
       }}
     >
-      <Textarea name="note" rows={3} required minLength={10} maxLength={600} placeholder={`What was ${firstName} like to work with?`} />
+      <Textarea name="note" rows={3} required minLength={10} maxLength={600} placeholder={fmt(t.placeholder, { name: firstName })} />
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={pending}>
-          {pending ? "Saving…" : "Post endorsement"}
+          {pending ? all.saving : t.submit}
         </Button>
         <Button type="button" size="sm" variant="outline" onClick={() => setOpen(false)}>
-          Cancel
+          {all.cancel}
         </Button>
       </div>
     </form>

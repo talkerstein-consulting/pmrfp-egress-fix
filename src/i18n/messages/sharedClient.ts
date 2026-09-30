@@ -1,6 +1,192 @@
 /** Strings for this area. `fr` is typed against `en`, so every key must exist in both. */
-const en = {};
+const en = {
+  /**
+   * Card badges and countdowns built by lib helpers (sourceTypeLabel,
+   * closingLabel). Those helpers import this file directly, so it works on
+   * the server and in the browser. `issuer`/`portal` match the English text
+   * in lib/tenders/sources.ts; an unknown one falls back to English.
+   */
+  labels: {
+    closesToday: "Closes today",
+    closesTomorrow: "Closes tomorrow",
+    closesInDays: "Closes in {n} days",
+    gcPackage: "GC sub-trade package",
+    sourceKind: {
+      publicTender: "Public tender",
+      pastContract: "Past public contract",
+    },
+    issuer: {
+      canada: "Gov. of Canada",
+      quebec: "Quebec (SEAO)",
+      toronto: "City of Toronto",
+      novaScotia: "Nova Scotia",
+      sam: "U.S. federal (SAM.gov)",
+      nyc: "City of New York",
+      yukon: "Yukon",
+      florida: "State of Florida",
+      laCounty: "Los Angeles County",
+    },
+    portal: {
+      canadaBuys: "CanadaBuys",
+      seao: "SEAO",
+      toronto: "the City of Toronto bid portal",
+      novaScotia: "the Nova Scotia procurement portal",
+      sam: "SAM.gov",
+      nyc: "The City Record / PASSPort",
+      yukon: "Yukon's bids&tenders portal",
+      florida: "the Florida Vendor Bid System",
+      laCounty: "the LA County bid site",
+    },
+  },
+  /** Screen-reader label on dialog and sheet close buttons. */
+  close: "Close",
+  select: {
+    all: "All",
+    empty: "No matches",
+    search: "Search…",
+    clearSearch: "Clear search",
+  },
+  usdHint: {
+    year: "About US${usd} a year · billed in CAD, your card converts",
+    month: "About US${usd} a month · billed in CAD, your card converts",
+  },
+  bidHelp: {
+    title: "Need help bidding on this?",
+    body: "Never bid on a government tender? We'll get you registered on {portal}, walk through what this one asks for, and help you put the bid together. Start with a free 15-minute call — we'll tell you honestly whether it's worth bidding.",
+    done: "Got it — we'll email you within one business day to book the call.",
+    open: "Get bid help",
+    name: "Your name",
+    email: "Email",
+    phone: "Phone (optional)",
+    company: "Company (optional)",
+    message: "Anything we should know? (optional) — e.g. first government bid, already registered, need insurance docs",
+    sending: "Sending…",
+    submit: "Book my free call",
+    error: "Something went wrong. Please try again.",
+    disclaimer: "Bid support is provided by Talkerstein Consulting Group, an affiliate of PMRFP. No one can guarantee an award.",
+  },
+};
 
-const fr: typeof en = {};
+const fr: typeof en = {
+  labels: {
+    closesToday: "Clôture aujourd'hui",
+    closesTomorrow: "Clôture demain",
+    closesInDays: "Clôture dans {n} jours",
+    gcPackage: "Lot de sous-traitance",
+    sourceKind: {
+      publicTender: "Appel d'offres public",
+      pastContract: "Contrat public octroyé",
+    },
+    issuer: {
+      canada: "Gouv. du Canada",
+      quebec: "Québec (SEAO)",
+      toronto: "Ville de Toronto",
+      novaScotia: "Nouvelle-Écosse",
+      sam: "Gouv. fédéral américain (SAM.gov)",
+      nyc: "Ville de New York",
+      yukon: "Yukon",
+      florida: "État de la Floride",
+      laCounty: "Comté de Los Angeles",
+    },
+    portal: {
+      canadaBuys: "AchatsCanada",
+      seao: "le SEAO",
+      toronto: "le portail d'appels d'offres de la Ville de Toronto",
+      novaScotia: "le portail d'approvisionnement de la Nouvelle-Écosse",
+      sam: "SAM.gov",
+      nyc: "The City Record / PASSPort",
+      yukon: "le portail bids&tenders du Yukon",
+      florida: "le Florida Vendor Bid System",
+      laCounty: "le site d'appels d'offres du comté de Los Angeles",
+    },
+  },
+  close: "Fermer",
+  select: {
+    all: "Tous",
+    empty: "Aucun résultat",
+    search: "Rechercher…",
+    clearSearch: "Effacer la recherche",
+  },
+  usdHint: {
+    year: "Environ {usd} $ US par an · facturé en CAD, votre carte fait la conversion",
+    month: "Environ {usd} $ US par mois · facturé en CAD, votre carte fait la conversion",
+  },
+  bidHelp: {
+    title: "Besoin d'aide pour soumissionner?",
+    body: "Vous n'avez jamais soumissionné à un appel d'offres public? Nous vous inscrirons sur {portal}, passerons en revue ce que celui-ci exige et vous aiderons à monter votre soumission. Commencez par un appel gratuit de 15 minutes — nous vous dirons franchement si ça vaut la peine de soumissionner.",
+    done: "C'est noté — nous vous écrirons d'ici un jour ouvrable pour fixer l'appel.",
+    open: "Obtenir de l'aide pour soumissionner",
+    name: "Votre nom",
+    email: "Courriel",
+    phone: "Téléphone (facultatif)",
+    company: "Entreprise (facultatif)",
+    message: "Autre chose à savoir? (facultatif) — p. ex. première soumission publique, déjà inscrit, besoin de documents d'assurance",
+    sending: "Envoi…",
+    submit: "Réserver mon appel gratuit",
+    error: "Une erreur s'est produite. Veuillez réessayer.",
+    disclaimer: "Le soutien aux soumissions est offert par Talkerstein Consulting Group, une société affiliée à PMRFP. Personne ne peut garantir l'octroi d'un contrat.",
+  },
+};
 
-export default { en, fr };
+const es: typeof en = {
+  labels: {
+    closesToday: "Cierra hoy",
+    closesTomorrow: "Cierra mañana",
+    closesInDays: "Cierra en {n} días",
+    gcPackage: "Paquete de subcontratación",
+    sourceKind: {
+      publicTender: "Licitación pública",
+      pastContract: "Contrato público anterior",
+    },
+    issuer: {
+      canada: "Gob. de Canadá",
+      quebec: "Quebec (SEAO)",
+      toronto: "Ciudad de Toronto",
+      novaScotia: "Nueva Escocia",
+      sam: "Gob. federal de EE. UU. (SAM.gov)",
+      nyc: "Ciudad de Nueva York",
+      yukon: "Yukon",
+      florida: "Estado de Florida",
+      laCounty: "Condado de Los Ángeles",
+    },
+    portal: {
+      canadaBuys: "CanadaBuys",
+      seao: "el SEAO",
+      toronto: "el portal de licitaciones de la Ciudad de Toronto",
+      novaScotia: "el portal de compras públicas de Nueva Escocia",
+      sam: "SAM.gov",
+      nyc: "The City Record / PASSPort",
+      yukon: "el portal bids&tenders de Yukon",
+      florida: "el Florida Vendor Bid System",
+      laCounty: "el sitio de licitaciones del Condado de Los Ángeles",
+    },
+  },
+  close: "Cerrar",
+  select: {
+    all: "Todos",
+    empty: "Sin resultados",
+    search: "Buscar…",
+    clearSearch: "Borrar búsqueda",
+  },
+  usdHint: {
+    year: "Aprox. US${usd} al año · se factura en CAD, su tarjeta hace la conversión",
+    month: "Aprox. US${usd} al mes · se factura en CAD, su tarjeta hace la conversión",
+  },
+  bidHelp: {
+    title: "¿Necesita ayuda para presentar esta oferta?",
+    body: "¿Nunca ha presentado una oferta en una licitación pública? Lo registramos en {portal}, revisamos con usted lo que pide esta licitación y le ayudamos a preparar la oferta. Empiece con una llamada gratuita de 15 minutos — le diremos con franqueza si vale la pena ofertar.",
+    done: "Listo — le escribiremos dentro de un día hábil para agendar la llamada.",
+    open: "Obtener ayuda para ofertar",
+    name: "Su nombre",
+    email: "Correo electrónico",
+    phone: "Teléfono (opcional)",
+    company: "Empresa (opcional)",
+    message: "¿Algo que debamos saber? (opcional) — p. ej., primera oferta pública, ya está registrado, necesita documentos de seguro",
+    sending: "Enviando…",
+    submit: "Reservar mi llamada gratuita",
+    error: "Algo salió mal. Inténtelo de nuevo.",
+    disclaimer: "El apoyo para ofertas lo brinda Talkerstein Consulting Group, una empresa afiliada a PMRFP. Nadie puede garantizar una adjudicación.",
+  },
+};
+
+export default { en, fr, es };

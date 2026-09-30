@@ -1,5 +1,7 @@
 import Link from "@/i18n/link";
 import { DynamicIcon } from "@/components/public/dynamic-icon";
+import { getLang } from "@/i18n/server";
+import { tradeName } from "@/i18n/terms";
 
 export function CategoryGrid({
   categories,
@@ -8,6 +10,7 @@ export function CategoryGrid({
   categories: { slug: string; name: string; icon: string | null }[];
   limit?: number;
 }) {
+  const lang = getLang();
   const items = limit ? categories.slice(0, limit) : categories;
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -20,7 +23,7 @@ export function CategoryGrid({
           <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-secondary text-teal-600 group-hover:bg-teal-100">
             <DynamicIcon name={c.icon} className="size-5" />
           </span>
-          <span className="text-sm font-medium text-foreground">{c.name}</span>
+          <span className="text-sm font-medium text-foreground">{tradeName(c.name, lang)}</span>
         </Link>
       ))}
     </div>

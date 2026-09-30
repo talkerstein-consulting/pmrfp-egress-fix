@@ -51,12 +51,35 @@ async function send(
 const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,Helvetica,Arial,sans-serif";
 const LOGO = "https://pmrfp.com/brand/email-logo.png";
 
-function layout(title: string, bodyHtml: string, footnote?: string, opts?: { referralPs?: boolean }): string {
+/** Email chrome in French for the few emails a French visitor asks for directly. */
+const CHROME = {
+  en: {
+    ps: `<strong style="color:#0C7A5A">P.S.</strong> Know a trade or a project?
+            <a href="${BASE}/refer" style="color:#282B59;font-weight:600;text-decoration:underline">Refer them and earn up to $75</a>
+            when they list on PMRFP.`,
+    tagline: "Commercial property RFPs and public tenders in Canada and the U.S.",
+  },
+  fr: {
+    ps: `<strong style="color:#0C7A5A">P.-S.</strong> Vous connaissez un entrepreneur ou un projet?
+            <a href="${BASE}/fr/refer" style="color:#282B59;font-weight:600;text-decoration:underline">Recommandez-le et gagnez jusqu'à 75 $</a>
+            lorsqu'il s'inscrit sur PMRFP.`,
+    tagline: "Appels d'offres immobiliers commerciaux et marchés publics au Canada et aux États-Unis.",
+  },
+  es: {
+    ps: `<strong style="color:#0C7A5A">P. D.</strong> ¿Conoce a un contratista o un proyecto?
+            <a href="${BASE}/es/refer" style="color:#282B59;font-weight:600;text-decoration:underline">Recomiéndelo y gane hasta $75</a>
+            cuando se registre en PMRFP.`,
+    tagline: "Solicitudes de propuestas y licitaciones públicas para propiedades comerciales en Canadá y Estados Unidos.",
+  },
+} as const;
+
+function layout(title: string, bodyHtml: string, footnote?: string, opts?: { referralPs?: boolean; lang?: "en" | "fr" | "es" }): string {
+  const chrome = CHROME[opts?.lang ?? "en"];
   // The referral P.S. is for our members. Emails we send on a member's
   // behalf to THEIR clients (review requests) leave it off.
   const ps = opts?.referralPs ?? true;
   return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="${opts?.lang === "fr" ? "fr-CA" : opts?.lang === "es" ? "es-US" : "en"}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="x-apple-disable-message-reformatting"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">
 <title>${title}</title>
 <style>
@@ -82,9 +105,7 @@ function layout(title: string, bodyHtml: string, footnote?: string, opts?: { ref
       ${ps ? `<tr><td class="pad" style="padding:12px 40px 0 40px;font-family:${FONT};">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F6F7FB;border-radius:10px;">
           <tr><td style="padding:14px 16px;font-size:13px;line-height:20px;color:#475569;">
-            <strong style="color:#0C7A5A">P.S.</strong> Know a trade or a project?
-            <a href="${BASE}/refer" style="color:#282B59;font-weight:600;text-decoration:underline">Refer them and earn up to $75</a>
-            when they list on PMRFP.
+            ${chrome.ps}
           </td></tr>
         </table>
       </td></tr>` : ""}
@@ -93,7 +114,7 @@ function layout(title: string, bodyHtml: string, footnote?: string, opts?: { ref
     <table role="presentation" class="card" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
       <tr><td class="pad" align="center" style="padding:20px 40px 8px 40px;font-family:${FONT};font-size:12px;line-height:18px;color:#94A3B8;">
         ${footnote ? `<p style="margin:0 0 10px">${footnote}</p>` : ""}
-        ${SITE.name} · Commercial property RFPs and public tenders in Canada and the U.S.<br>
+        ${SITE.name} · ${chrome.tagline}<br>
         <a href="${BASE}" style="color:#94A3B8;text-decoration:underline;">pmrfp.com</a> · <a href="mailto:${SITE.email}" style="color:#94A3B8;text-decoration:underline;">${SITE.email}</a>
       </td></tr>
     </table>
@@ -578,6 +599,45 @@ export async function sendTenderDigest(
 }
 
 /** "Email me this RFP" from the RFP Writer — the draft, plus a one-click path to post it. */
+const RFP_DRAFT = {
+  en: {
+    subject: "Your RFP: {title}",
+    scope: "Scope",
+    requirements: "Requirements",
+    submission: "Submission instructions",
+    evaluation: "How bids will be evaluated",
+    questions: "Questions for bidders",
+    cta: "Ready to get bids? Post it on PMRFP free — qualified trades in your region see it, and you stay anonymous until you choose to engage.",
+    button: "Post this RFP free",
+    path: "/rfp-writer?post=1",
+    footnote: "You're getting this because you asked the PMRFP RFP Writer to email you a copy. Review it before sending to bidders — it's a starting draft, not legal advice.",
+  },
+  fr: {
+    subject: "Votre appel d'offres : {title}",
+    scope: "Portée des travaux",
+    requirements: "Exigences",
+    submission: "Instructions de soumission",
+    evaluation: "Évaluation des soumissions",
+    questions: "Questions aux soumissionnaires",
+    cta: "Prêt à recevoir des soumissions? Publiez-le gratuitement sur PMRFP : les entrepreneurs qualifiés de votre région le voient, et vous restez anonyme jusqu'à ce que vous décidiez d'aller plus loin.",
+    button: "Publier cet appel d'offres gratuitement",
+    path: "/fr/rfp-writer?post=1",
+    footnote: "Vous recevez ce courriel parce que vous avez demandé au rédacteur d'appels d'offres de PMRFP de vous en envoyer une copie. Relisez-le avant de l'envoyer aux soumissionnaires : c'est une première version, pas un avis juridique.",
+  },
+  es: {
+    subject: "Su RFP: {title}",
+    scope: "Alcance del trabajo",
+    requirements: "Requisitos",
+    submission: "Instrucciones para presentar ofertas",
+    evaluation: "Cómo se evaluarán las ofertas",
+    questions: "Preguntas para los oferentes",
+    cta: "¿Listo para recibir ofertas? Publíquela gratis en PMRFP: los contratistas calificados de su región la ven, y usted se mantiene anónimo hasta que decida avanzar.",
+    button: "Publicar esta RFP gratis",
+    path: "/es/rfp-writer?post=1",
+    footnote: "Recibe este correo porque le pidió al Redactor de RFP de PMRFP que le enviara una copia. Revísela antes de enviarla a los oferentes: es un primer borrador, no asesoría legal.",
+  },
+} as const;
+
 export async function sendRfpDraftEmail(
   to: string,
   rfp: {
@@ -589,7 +649,9 @@ export async function sendRfpDraftEmail(
     evaluationCriteria: string[];
     questionsForBidders: string[];
   },
+  lang: "en" | "fr" | "es" = "en",
 ): Promise<void> {
+  const t = RFP_DRAFT[lang];
   const esc = (s: string) =>
     s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
   const para = (s: string) => `<p style="white-space:pre-wrap;margin:0 0 16px;line-height:1.5">${esc(s)}</p>`;
@@ -598,18 +660,19 @@ export async function sendRfpDraftEmail(
   const h = (s: string) => `<h2 style="font-size:15px;margin:20px 0 8px;color:#282B59">${s}</h2>`;
   await send(
     to,
-    `Your RFP: ${rfp.title}`,
+    t.subject.replace("{title}", rfp.title),
     layout(
       esc(rfp.title),
       `${para(rfp.summary)}
-       ${h("Scope")}${para(rfp.scope)}
-       ${h("Requirements")}${para(rfp.requirements)}
-       ${h("Submission instructions")}${para(rfp.submissionInstructions)}
-       ${h("How bids will be evaluated")}${list(rfp.evaluationCriteria)}
-       ${h("Questions for bidders")}${list(rfp.questionsForBidders)}
-       <p style="margin:24px 0 8px">Ready to get bids? Post it on PMRFP free — qualified trades in your region see it, and you stay anonymous until you choose to engage.</p>
-       ${btn(`${BASE}/rfp-writer?post=1`, "Post this RFP free")}`,
-      "You're getting this because you asked the PMRFP RFP Writer to email you a copy. Review it before sending to bidders — it's a starting draft, not legal advice.",
+       ${h(t.scope)}${para(rfp.scope)}
+       ${h(t.requirements)}${para(rfp.requirements)}
+       ${h(t.submission)}${para(rfp.submissionInstructions)}
+       ${h(t.evaluation)}${list(rfp.evaluationCriteria)}
+       ${h(t.questions)}${list(rfp.questionsForBidders)}
+       <p style="margin:24px 0 8px">${t.cta}</p>
+       ${btn(`${BASE}${t.path}`, t.button)}`,
+      t.footnote,
+      { lang },
     ),
   );
 }

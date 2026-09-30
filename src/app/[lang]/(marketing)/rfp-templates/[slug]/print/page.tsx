@@ -8,9 +8,13 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { RFP_TEMPLATES, getRfpTemplate } from "@/lib/seo/rfp-templates";
+import { localizeRfpTemplate } from "@/lib/seo/rfp-templates.fr";
 import { SITE } from "@/lib/site";
 import { PrintTrigger } from "./print-trigger";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale, localizePath } from "@/i18n/config";
+import { fmt } from "@/i18n/format";
 
 export const revalidate = 86400;
 
@@ -21,12 +25,15 @@ export async function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ lang: string; slug: string }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
-  const t = getRfpTemplate(slug);
+  const { lang, slug } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const c = getDictionary(l).content;
+  const base = getRfpTemplate(slug);
+  const t = base ? localizeRfpTemplate(base, l) : undefined;
   return {
-    title: t ? `${t.name} — Print View` : "Not found",
+    title: t ? fmt(c.print.metaTitle, { name: t.name }) : c.template.notFound,
     robots: { index: false, follow: false },
   };
 }
@@ -36,10 +43,14 @@ export default async function PrintableTemplate({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  await setLangFrom(params);
+  const lang = await setLangFrom(params);
+  const p = getT("content").print;
   const { slug } = await params;
-  const t = getRfpTemplate(slug);
-  if (!t) notFound();
+  const base = getRfpTemplate(slug);
+  if (!base) notFound();
+  const t = localizeRfpTemplate(base, lang);
+  const host = SITE.url.replace(/^https?:\/\//, "");
+  const templatePath = localizePath(`/rfp-templates/${t.slug}`, lang);
 
   return (
     <div className="mx-auto max-w-4xl bg-white px-8 py-10 text-[12pt] leading-relaxed text-black print:px-0 print:py-0">
@@ -55,62 +66,61 @@ export default async function PrintableTemplate({
 
       <div className="no-print mb-6 flex items-center justify-between rounded border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
         <span>
-          Press <kbd className="rounded border border-gray-300 bg-white px-1.5 py-0.5 font-mono text-xs">Ctrl/Cmd + P</kbd> and
-          choose &ldquo;Save as PDF&rdquo; if the print dialog didn&rsquo;t open automatically.
+          {p.pressBefore} <kbd className="rounded border border-gray-300 bg-white px-1.5 py-0.5 font-mono text-xs">{p.pressKeys}</kbd>{p.pressAfter}
         </span>
         <a
-          href={`/rfp-templates/${t.slug}`}
+          href={templatePath}
           className="ml-4 text-sm font-medium text-indigo-700 hover:underline"
         >
-          ← Back to template
+          {p.back}
         </a>
       </div>
 
       <header className="border-b-2 border-black pb-4">
         <p className="text-xs font-semibold uppercase tracking-widest text-gray-600">
-          RFP Template — {SITE.name}
+          {fmt(p.headerEyebrow, { brand: SITE.name })}
         </p>
         <h1 className="mt-2 text-2xl font-bold">{t.name}</h1>
         <p className="mt-1 text-sm text-gray-700">{t.pitch}</p>
       </header>
 
-      <Section title="When to use this template">
+      <Section title={p.whenToUse}>
         <p>{t.whenToUse}</p>
       </Section>
 
-      <Section title="Sample title">
+      <Section title={p.sampleTitle}>
         <p className="font-semibold">{t.titleSample}</p>
       </Section>
 
-      <Section title="Summary">
+      <Section title={p.summary}>
         <p>{t.summarySample}</p>
       </Section>
 
-      <Section title="Scope of work">
+      <Section title={p.scope}>
         <pre className="whitespace-pre-wrap font-sans text-[11pt] leading-relaxed">{t.scope}</pre>
       </Section>
 
-      <Section title="Standard requirements">
+      <Section title={p.requirements}>
         <pre className="whitespace-pre-wrap font-sans text-[11pt] leading-relaxed">
           {t.requirements}
         </pre>
       </Section>
 
-      <Section title="Suggested timeline">
+      <Section title={p.timeline}>
         <ol className="ml-5 list-decimal space-y-1.5">
-          {t.timeline.map((p) => (
-            <li key={p.label}>
-              <span className="font-semibold">{p.label}:</span> {p.detail}
+          {t.timeline.map((phase) => (
+            <li key={phase.label}>
+              <span className="font-semibold">{fmt(p.labelColon, { label: phase.label })}</span> {phase.detail}
             </li>
           ))}
         </ol>
       </Section>
 
-      <Section title="Site access & logistics">
+      <Section title={p.siteAccess}>
         <p>{t.siteAccess}</p>
       </Section>
 
-      <Section title="Questions every bidder should answer">
+      <Section title={p.questions}>
         <ul className="ml-5 list-disc space-y-1">
           {t.questions.map((q, i) => (
             <li key={i}>{q}</li>
@@ -118,24 +128,22 @@ export default async function PrintableTemplate({
         </ul>
       </Section>
 
-      <Section title="Evaluation criteria">
+      <Section title={p.evaluation}>
         <ol className="ml-5 list-decimal space-y-1">
-          {t.evaluationCriteria.map((c, i) => (
-            <li key={i}>{c}</li>
+          {t.evaluationCriteria.map((crit, i) => (
+            <li key={i}>{crit}</li>
           ))}
         </ol>
       </Section>
 
       <footer className="mt-10 border-t border-gray-300 pt-4 text-xs text-gray-600">
-        <p className="font-semibold">{SITE.name} — Free RFP template</p>
+        <p className="font-semibold">{fmt(p.footerTitle, { brand: SITE.name })}</p>
         <p className="mt-1">
-          This is a scoping template, not a contract. Have your lawyer review the final RFP and
-          procurement contract. For real, scope-specific pricing, post your RFP on{" "}
-          <span className="font-semibold">{SITE.url.replace(/^https?:\/\//, "")}</span> — Canadian
-          trades respond free.
+          {p.footerBefore}{" "}
+          <span className="font-semibold">{host}</span>{p.footerAfter}
         </p>
         <p className="mt-3 text-gray-500">
-          Printed from {SITE.url.replace(/^https?:\/\//, "")}/rfp-templates/{t.slug}
+          {fmt(p.printedFrom, { url: `${host}${templatePath}` })}
         </p>
       </footer>
     </div>

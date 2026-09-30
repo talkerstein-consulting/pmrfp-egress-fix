@@ -13,9 +13,13 @@ import {
   updateTrustedPageAction,
   type PageFormState,
 } from "@/lib/trusted/actions";
+import { useT } from "@/i18n/provider";
+import { fmt } from "@/i18n/format";
+import { useTrustedActionMessage } from "./action-messages";
 
 /** The public link with Copy and View buttons. */
 export function ShareLink({ url, path }: { url: string; path: string }) {
+  const t = useT("partnersClient").editor;
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
@@ -23,7 +27,7 @@ export function ShareLink({ url, path }: { url: string; path: string }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
-      toast.error("Couldn't copy. Select the link and copy it instead.");
+      toast.error(t.copyFailed);
     }
   };
   return (
@@ -31,10 +35,10 @@ export function ShareLink({ url, path }: { url: string; path: string }) {
       <code className="min-w-0 flex-1 truncate rounded-lg border border-border bg-background px-3 py-2.5 font-mono text-sm">{url}</code>
       <div className="flex gap-2">
         <Button type="button" onClick={copy} className="flex-1 sm:flex-none">
-          {copied ? <Check className="size-4" /> : <Copy className="size-4" />} {copied ? "Copied" : "Copy link"}
+          {copied ? <Check className="size-4" /> : <Copy className="size-4" />} {copied ? t.copied : t.copyLink}
         </Button>
         <Link href={path} target="_blank" className={buttonVariants({ variant: "outline", className: "flex-1 sm:flex-none" })}>
-          <ExternalLink className="size-4" /> View
+          <ExternalLink className="size-4" /> {t.view}
         </Link>
       </div>
     </div>
@@ -55,6 +59,8 @@ export function TrustedTradeRow({
   detail: string;
   note: string | null;
 }) {
+  const t = useT("partnersClient").editor;
+  const say = useTrustedActionMessage();
   const [value, setValue] = useState(note ?? "");
   const [saved, setSaved] = useState(note ?? "");
   const [removed, setRemoved] = useState(false);
@@ -65,17 +71,17 @@ export function TrustedTradeRow({
     if (value.trim() === saved.trim()) return;
     start(async () => {
       const res = await updateTrustedNoteAction(organizationId, value);
-      if (res.error) toast.error(res.error);
+      if (res.error) toast.error(say(res.error));
       else {
         setSaved(value);
-        toast.success("Note saved.");
+        toast.success(t.noteSaved);
       }
     });
   };
   const remove = () =>
     start(async () => {
       const res = await toggleTrustedTradeAction(organizationId);
-      if (res.error) toast.error(res.error);
+      if (res.error) toast.error(say(res.error));
       else setRemoved(true);
     });
 
@@ -88,7 +94,7 @@ export function TrustedTradeRow({
           </Link>
           <p className="mt-0.5 truncate text-sm text-muted-foreground">{detail}</p>
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={remove} disabled={pending} aria-label={`Remove ${name}`}>
+        <Button type="button" variant="outline" size="sm" onClick={remove} disabled={pending} aria-label={fmt(t.remove, { name })}>
           <Trash2 className="size-4" />
         </Button>
       </div>
@@ -96,7 +102,7 @@ export function TrustedTradeRow({
         className="mt-3"
         value={value}
         maxLength={280}
-        placeholder="Why you trust them, e.g. “Did the roof on my last three listings”"
+        placeholder={t.notePlaceholder}
         onChange={(e) => setValue(e.target.value)}
         onBlur={saveNote}
       />
@@ -120,42 +126,44 @@ export function TrustedPageForm({
   };
   pro: boolean;
 }) {
+  const t = useT("partnersClient").editor;
+  const say = useTrustedActionMessage();
   const [state, action, pending] = useActionState<PageFormState, FormData>(updateTrustedPageAction, {});
   return (
     <form action={action} className="grid gap-4 sm:grid-cols-2">
-      <Field label="Your link" hint="pmrfp.com/trusted/…" className="sm:col-span-2">
+      <Field label={t.link} hint={t.linkHint} className="sm:col-span-2">
         <Input name="handle" defaultValue={defaults.handle} required minLength={3} maxLength={40} />
       </Field>
-      <Field label="Your name">
+      <Field label={t.yourName}>
         <Input name="displayName" defaultValue={defaults.displayName} required maxLength={80} />
       </Field>
-      <Field label="Brokerage or company">
+      <Field label={t.brokerage}>
         <Input name="brokerage" defaultValue={defaults.brokerage} maxLength={80} />
       </Field>
-      <Field label="Headline" className="sm:col-span-2">
+      <Field label={t.headline} className="sm:col-span-2">
         <Input
           name="headline"
           defaultValue={defaults.headline}
           maxLength={160}
-          placeholder="The trades I trust with my clients' homes in Toronto"
+          placeholder={t.headlinePlaceholder}
         />
       </Field>
-      <Field label="Phone on your page" hint={pro ? undefined : "Realtor Pro"}>
+      <Field label={t.phone} hint={pro ? undefined : t.proHint}>
         <Input name="contactPhone" defaultValue={defaults.contactPhone} maxLength={30} disabled={!pro} />
       </Field>
-      <Field label="Email on your page" hint={pro ? undefined : "Realtor Pro"}>
+      <Field label={t.email} hint={pro ? undefined : t.proHint}>
         <Input name="contactEmail" type="email" defaultValue={defaults.contactEmail} maxLength={120} disabled={!pro} />
       </Field>
       <label className="flex items-center gap-2 text-sm sm:col-span-2">
         <input type="checkbox" name="published" defaultChecked={defaults.published} className="size-4 accent-[var(--color-indigo)]" />
-        Page is public (anyone with the link can see it)
+        {t.public}
       </label>
       <div className="flex items-center gap-3 sm:col-span-2">
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : "Save page"}
+          {pending ? t.saving : t.save}
         </Button>
-        {state.error && <p className="text-sm text-destructive">{state.error}</p>}
-        {state.success && <p className="text-sm text-teal-700">{state.success}</p>}
+        {state.error && <p className="text-sm text-destructive">{say(state.error)}</p>}
+        {state.success && <p className="text-sm text-teal-700">{say(state.success)}</p>}
       </div>
     </form>
   );

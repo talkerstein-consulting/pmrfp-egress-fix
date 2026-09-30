@@ -3,6 +3,8 @@ import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { getSession } from "@/lib/access/access";
 import { wizardInputSchema } from "@/lib/rfp-writer/schema";
 import { composeRfp, pickTemplate } from "@/lib/rfp-writer/compose";
+import { composeRfpFr } from "@/lib/rfp-writer/compose-fr";
+import { composeRfpEs } from "@/lib/rfp-writer/compose-es";
 import { aiAvailable, tailorRfp } from "@/lib/rfp-writer/ai";
 
 // AI tailoring can take up to a minute; the template path is instant.
@@ -32,7 +34,8 @@ export async function POST(request: Request) {
   }
   const input = parsed.data;
 
-  const base = composeRfp(input);
+  // The RFP is written in the page language: French on /fr, Spanish on /es, English otherwise.
+  const base = input.lang === "fr" ? composeRfpFr(input) : input.lang === "es" ? composeRfpEs(input) : composeRfp(input);
   const session = await getSession();
   const canUseAi = Boolean(session && AI_ROLES.has(session.profile.primary_role));
   const tailored = canUseAi ? await tailorRfp(input, base, pickTemplate(input)) : null;

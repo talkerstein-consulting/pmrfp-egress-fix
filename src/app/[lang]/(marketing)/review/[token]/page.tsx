@@ -5,15 +5,22 @@ import { Container } from "@/components/container";
 import { ReviewForm } from "@/components/projects/review-form";
 import { lookupInvite } from "@/lib/reviews/invite";
 import { SITE } from "@/lib/site";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale } from "@/i18n/config";
+import { fmt } from "@/i18n/format";
 
 // Per-link state (open / used) must never be served from a cache.
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Leave a review",
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const t = getDictionary(hasLocale(lang) ? lang : "en").misc.review;
+  return {
+    title: t.metaTitle,
+    robots: { index: false, follow: false },
+  };
+}
 
 /**
  * /review/[token] — the one-time link a trade's client gets by email. No
@@ -22,42 +29,44 @@ export const metadata: Metadata = {
  */
 export default async function ReviewPage({ params }: { params: Promise<{ token: string }> }) {
   await setLangFrom(params);
+  const t = getT("misc").review;
   const { token } = await params;
   const invite = await lookupInvite(token);
 
   if (invite.state !== "open") {
+    const [mistakeBefore, mistakeAfter] = t.mistake.split("{email}");
     return (
       <Container size="narrow" className="py-16">
         <div className="mx-auto max-w-lg rounded-xl border border-border bg-card p-8 text-center">
           <h1 className="text-xl font-semibold tracking-tight">
-            {invite.state === "used" ? "This review link has been used" : "This review link isn't working"}
+            {invite.state === "used" ? t.usedTitle : t.brokenTitle}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {invite.state === "used"
-              ? "Each link works once, and a review has already been sent with this one. Thanks for taking the time."
-              : "It may have been used already, or copied only in part. Try the button in the email again."}
+            {invite.state === "used" ? t.usedBody : t.brokenBody}
           </p>
           <p className="mt-4 text-sm text-muted-foreground">
-            Think that&apos;s a mistake? Email{" "}
-            <a href={`mailto:${SITE.email}`} className="font-medium text-teal-ink hover:underline">{SITE.email}</a>.
+            {mistakeBefore}
+            <a href={`mailto:${SITE.email}`} className="font-medium text-teal-ink hover:underline">{SITE.email}</a>
+            {mistakeAfter}
           </p>
           <Link href="/" className="mt-6 inline-block text-sm font-medium text-teal-ink hover:underline">
-            Go to {SITE.name}
+            {t.goHome}
           </Link>
         </div>
       </Container>
     );
   }
 
+  const [byBefore, byAfter] = t.by.split("{trade}");
   return (
     <Container size="narrow" className="py-10 sm:py-14">
       <div className="mx-auto max-w-xl">
-        <p className="eyebrow text-teal-600">Review request</p>
+        <p className="eyebrow text-teal-600">{t.eyebrow}</p>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
-          How did {invite.tradeName} do?
+          {fmt(t.title, { trade: invite.tradeName })}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          {invite.tradeName} asked for your honest review of this job. It takes about two minutes.
+          {fmt(t.intro, { trade: invite.tradeName })}
         </p>
 
         <div className="mt-6 overflow-hidden rounded-xl border border-border bg-card">
@@ -69,7 +78,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ token: 
           <div className="p-4">
             <p className="font-semibold leading-snug">{invite.projectTitle}</p>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              by{" "}
+              {byBefore}
               {invite.tradeSlug ? (
                 <Link href={`/directory/${invite.tradeSlug}`} className="text-teal-ink hover:underline" target="_blank">
                   {invite.tradeName}
@@ -77,6 +86,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ token: 
               ) : (
                 invite.tradeName
               )}
+              {byAfter}
             </p>
           </div>
         </div>

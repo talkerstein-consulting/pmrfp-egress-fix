@@ -1,4 +1,5 @@
 import Link from "@/i18n/link";
+import { getT } from "@/i18n/server";
 
 export function StatCard({
   label,
@@ -42,10 +43,10 @@ export function PageHeader({
 }
 
 export function DemoBanner() {
+  const t = getT("dash").demo;
   return (
     <div className="mb-6 rounded-lg border border-dashed border-teal-300 bg-teal-50/60 p-3 text-sm text-muted-foreground">
-      <strong className="text-foreground">Demo preview.</strong> Connect a Supabase project to see
-      live data and enable saving, posting, and moderation.
+      <strong className="text-foreground">{t.title}</strong> {t.body}
     </div>
   );
 }

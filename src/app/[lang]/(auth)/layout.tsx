@@ -1,14 +1,15 @@
 import Link from "@/i18n/link";
 import { Logo } from "@/components/logo";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
 
 export default async function AuthLayout({ children, params }: { children: React.ReactNode } & { params: Promise<object> }) {
   await setLangFrom(params);
+  const t = getT("common").nav;
   return (
     <div className="flex min-h-screen flex-col bg-secondary/40">
       <header className="border-b border-border bg-background">
         <div className="mx-auto flex h-16 max-w-6xl items-center px-5">
-          <Link href="/" aria-label="PMRFP home">
+          <Link href="/" aria-label={t.home}>
             <Logo />
           </Link>
         </div>

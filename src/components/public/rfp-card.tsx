@@ -7,35 +7,42 @@ import { isPastContract, parseAward } from "@/lib/data/fomo";
 import { isGcPackage, sourceTypeLabel } from "@/lib/gc/packages";
 import { DeadlineStamp } from "@/components/public/deadline-stamp";
 import { AwardCard } from "@/components/public/award-card";
+import { getLang, getT } from "@/i18n/server";
+import { formatDate } from "@/i18n/format";
+import { propertyTypeName, regionName, tradeName } from "@/i18n/terms";
+import type { Locale } from "@/i18n/config";
+import type { Messages } from "@/i18n/dictionaries";
 
-function formatDate(d: string) {
-  // timeZone: "UTC" pins server + client to the same day, so no hydration mismatch.
-  return new Date(d).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-}
+type CardT = Messages["shared"]["card"];
 
 /** "Public tender · City of Toronto" → "City of Toronto"; PM RFPs → "Property manager". */
-function buyerLine(rfp: RfpListItem): string {
-  const badge = sourceTypeLabel(rfp.sourceType, rfp.slug);
-  if (!badge) return "Property manager";
+function buyerLine(rfp: RfpListItem, t: CardT, lang: Locale): string {
+  const badge = sourceTypeLabel(rfp.sourceType, rfp.slug, lang);
+  if (!badge) return t.propertyManager;
   const [, issuer] = badge.split(" · ");
   return issuer ?? badge;
 }
 
-function kindLabel(rfp: RfpListItem, past: boolean, gc: boolean): string {
-  if (past) return "Award notice";
-  if (gc) return "GC sub-trade package";
-  if (rfp.sourceType === "public_source") return "Public tender";
-  return "Private RFP";
+function kindLabel(rfp: RfpListItem, past: boolean, gc: boolean, t: CardT): string {
+  const labels = getT("sharedClient").labels;
+  if (past) return t.awardNotice;
+  if (gc) return labels.gcPackage;
+  if (rfp.sourceType === "public_source") return labels.sourceKind.publicTender;
+  return t.privateRfp;
 }
 
 export function RfpCard({ rfp, locked }: { rfp: RfpListItem; locked: boolean }) {
+  const t = getT("shared").card;
+  const lang = getLang();
   const photo = rfp.photoUrls[0];
   const past = isPastContract(rfp);
   const closed = rfp.status !== "open";
   const award = past ? parseAward(rfp.summary) : null;
   const gc = isGcPackage(rfp);
-  const place = [rfp.city, rfp.province].filter(Boolean).join(", ") || rfp.regionName;
-  const trades = rfp.categories.slice(0, 2).join(" / ");
+  const place =
+    [rfp.city, rfp.province && regionName(rfp.province, lang)].filter(Boolean).join(", ") ||
+    (rfp.regionName && regionName(rfp.regionName, lang));
+  const trades = rfp.categories.slice(0, 2).map((c) => tradeName(c, lang)).join(" / ");
   // Award notices get their own card: the value and the winner lead.
   if (past) return <AwardCard rfp={rfp} />;
 
@@ -49,24 +56,24 @@ export function RfpCard({ rfp, locked }: { rfp: RfpListItem; locked: boolean }) 
     >
       <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-2.5">
         <span className="truncate font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-          {kindLabel(rfp, past, gc)}
+          {kindLabel(rfp, past, gc, t)}
           {rfp.reference && <span className="text-foreground/60"> · {rfp.reference}</span>}
         </span>
         {past ? (
-          <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-teal-ink">Awarded</span>
+          <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-teal-ink">{t.awarded}</span>
         ) : closed ? (
           <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-            {rfp.status === "awarded" ? "Filled" : "Closed"}
+            {rfp.status === "awarded" ? t.filled : t.closed}
           </span>
         ) : locked ? (
-          <Lock className="size-3.5 shrink-0 text-muted-foreground" aria-label="Details for members" />
+          <Lock className="size-3.5 shrink-0 text-muted-foreground" aria-label={t.membersOnly} />
         ) : null}
       </div>
 
       <div className="flex flex-1 flex-col px-5 pb-5 pt-4">
         <div className="flex items-start gap-4">
           <div className="min-w-0 flex-1">
-            <div className="truncate text-xs font-medium text-muted-foreground">{buyerLine(rfp)}</div>
+            <div className="truncate text-xs font-medium text-muted-foreground">{buyerLine(rfp, t, lang)}</div>
             <h3 className="mt-1 line-clamp-3 break-words font-heading text-[15px] font-semibold leading-snug text-foreground group-hover:text-indigo">
               {rfp.title}
             </h3>
@@ -85,7 +92,7 @@ export function RfpCard({ rfp, locked }: { rfp: RfpListItem; locked: boolean }) 
 
         {award?.winner ? (
           <div className="mt-4 border-l-2 border-teal-400 pl-3">
-            <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Won by</div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{t.wonBy}</div>
             <div className="truncate text-sm font-semibold text-foreground">{award.winner}</div>
             {award.value && <div className="text-sm tabular-nums text-foreground/80">{award.value}</div>}
           </div>
@@ -99,18 +106,19 @@ export function RfpCard({ rfp, locked }: { rfp: RfpListItem; locked: boolean }) 
             {place && (
               <div className="flex items-center gap-1 truncate">
                 <MapPin className="size-3 shrink-0" /> {place}
-                {rfp.propertyTypeName && <span className="truncate"> · {rfp.propertyTypeName}</span>}
+                {rfp.propertyTypeName && <span className="truncate"> · {propertyTypeName(rfp.propertyTypeName, lang)}</span>}
               </div>
             )}
-            {rfp.isDemo && <div className="font-mono text-[10px] uppercase tracking-[0.12em]">Sample listing</div>}
+            {rfp.isDemo && <div className="font-mono text-[10px] uppercase tracking-[0.12em]">{t.sample}</div>}
           </div>
           {closed ? (
             <span className="shrink-0 text-right leading-tight">
               <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                {past ? "Awarded" : "Closed"}
+                {past ? t.awarded : t.closed}
               </span>
               <span className="block text-sm font-semibold tabular-nums text-foreground/70">
-                {rfp.deadline ? formatDate(rfp.deadline) : "n/a"}
+                {/* timeZone: "UTC" (inside formatDate) pins server + client to the same day. */}
+                {rfp.deadline ? formatDate(rfp.deadline, lang) : t.na}
               </span>
             </span>
           ) : (

@@ -5,12 +5,18 @@ import { requireRole, isDemoMode } from "@/lib/access/access";
 import { listReferenceSheet } from "@/lib/projects/server";
 import { PrintButton } from "@/components/projects/print-button";
 import { SITE } from "@/lib/site";
-import { setLangFrom } from "@/i18n/server";
+import { getLang, getT, setLangFrom } from "@/i18n/server";
+import { fmt, formatDate } from "@/i18n/format";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale, localizePath } from "@/i18n/config";
 
-export const metadata: Metadata = { title: "Reference sheet · PMRFP", robots: { index: false, follow: false } };
-
-const fmtMonth = (d: string | null) =>
-  d ? new Date(d).toLocaleDateString("en-CA", { month: "long", year: "numeric" }) : "";
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  return {
+    title: getDictionary(hasLocale(lang) ? lang : "en").dash.meta.referenceSheet,
+    robots: { index: false, follow: false },
+  };
+}
 
 /**
  * One printable page to attach to a bid: the company's published projects
@@ -19,9 +25,12 @@ const fmtMonth = (d: string | null) =>
  */
 export default async function ReferenceSheetPage({ params }: { params: Promise<object> }) {
   await setLangFrom(params);
+  const lang = getLang();
+  const t = getT("dash").sheet;
+  const fmtMonth = (d: string | null) => (d ? formatDate(d, lang, { month: "long", year: "numeric" }) : "");
   const session = await requireRole(["trade", "supplier"]);
   const org = session.organization;
-  if (!org) redirect("/onboarding");
+  if (!org) redirect(localizePath("/onboarding", lang));
   const entries = isDemoMode() ? [] : await listReferenceSheet(org.id);
   const base = (process.env.NEXT_PUBLIC_SITE_URL || SITE.url).replace(/\/$/, "");
   const contact = [org.phone, org.email, org.website].filter(Boolean).join(" · ");
@@ -31,19 +40,17 @@ export default async function ReferenceSheetPage({ params }: { params: Promise<o
       <style>{`@page { margin: 0.6in; } @media print { body { background: white; } a { color: inherit; text-decoration: none; } }`}</style>
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-secondary/40 p-4 text-sm print:hidden">
-        <span className="text-muted-foreground">
-          Attach this to a bid or send it with a quote. Client contacts appear only where the client said yes.
-        </span>
+        <span className="text-muted-foreground">{t.intro}</span>
         <div className="flex items-center gap-3">
           <Link href="/dashboard/projects" className="font-medium text-teal-ink hover:underline">
-            Back
+            {t.back}
           </Link>
           <PrintButton />
         </div>
       </div>
 
       <header className="border-b-2 border-black pb-4">
-        <p className="text-xs font-semibold uppercase tracking-widest text-gray-600">Project references</p>
+        <p className="text-xs font-semibold uppercase tracking-widest text-gray-600">{t.eyebrow}</p>
         <h1 className="mt-1 text-2xl font-bold">{org.name}</h1>
         <p className="mt-1 text-sm text-gray-700">
           {[org.city, org.province].filter(Boolean).join(", ")}
@@ -51,16 +58,16 @@ export default async function ReferenceSheetPage({ params }: { params: Promise<o
         </p>
         {org.profile_status === "approved" && (
           <p className="mt-1 text-sm text-gray-700">
-            Profile and photos: {base.replace(/^https?:\/\//, "")}/directory/{org.slug}
+            {fmt(t.profileLine, { url: `${base.replace(/^https?:\/\//, "")}/directory/${org.slug}` })}
           </p>
         )}
       </header>
 
       {entries.length === 0 ? (
         <p className="mt-6 text-sm text-gray-700">
-          No published projects yet.{" "}
+          {t.empty}{" "}
           <Link href="/dashboard/projects/new" className="font-medium underline print:hidden">
-            Add one
+            {t.addOne}
           </Link>
         </p>
       ) : (
@@ -86,7 +93,7 @@ export default async function ReferenceSheetPage({ params }: { params: Promise<o
                       <span className="text-amber-600">{"★".repeat(r.rating)}</span> &ldquo;{r.quote}&rdquo;
                     </p>
                     <p className="mt-1 text-xs text-gray-700">
-                      Reference: <strong>{r.name}</strong>
+                      {t.reference} <strong>{r.name}</strong>
                       {r.company ? `, ${r.company}` : ""}
                       {r.email ? ` · ${r.email}` : ""}
                     </p>
@@ -99,8 +106,7 @@ export default async function ReferenceSheetPage({ params }: { params: Promise<o
       )}
 
       <p className="mt-6 border-t border-gray-200 pt-3 text-xs text-gray-500">
-        Projects and reviews published on {SITE.name}. Reviews are sent by clients through a one-time link and
-        checked before they go live.
+        {fmt(t.footer, { site: SITE.name })}
       </p>
     </div>
   );

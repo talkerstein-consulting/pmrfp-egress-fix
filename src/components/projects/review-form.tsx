@@ -4,8 +4,8 @@ import { startTransition, useActionState, useState } from "react";
 import { CheckCircle2, Loader2, Star } from "lucide-react";
 import { submitReviewAction, type ReviewFormState } from "@/lib/reviews/actions";
 import { cn } from "@/lib/utils";
-
-const RATING_WORD = ["", "Poor", "Fair", "Good", "Very good", "Excellent"];
+import { useT } from "@/i18n/provider";
+import { fmt } from "@/i18n/format";
 
 /**
  * The client's review form. Submitted by hand (not the form action prop) so
@@ -20,6 +20,8 @@ export function ReviewForm({
   defaultName: string;
   tradeName: string;
 }) {
+  const t = useT("dashClient").review;
+  const RATING_WORD = t.ratings;
   const [state, action, pending] = useActionState(submitReviewAction.bind(null, token), {} as ReviewFormState);
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
@@ -28,18 +30,15 @@ export function ReviewForm({
     return (
       <div role="status" className="rounded-xl border border-teal-300 bg-teal-50 p-6 text-center">
         <CheckCircle2 className="mx-auto size-8 text-teal-600" />
-        <h2 className="mt-3 text-lg font-semibold">Thanks, that&apos;s sent.</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          We check every review before it goes up on {tradeName}&apos;s profile. You don&apos;t need to do
-          anything else.
-        </p>
+        <h2 className="mt-3 text-lg font-semibold">{t.thanks}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{fmt(t.thanksBody, { trade: tradeName })}</p>
       </div>
     );
   }
   if (state.expired) {
     return (
       <div role="status" className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
-        This link has already been used. If you didn&apos;t leave a review, email us at info@pmrfp.com.
+        {t.used}
       </div>
     );
   }
@@ -61,7 +60,7 @@ export function ReviewForm({
       <input type="text" name="website" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden />
 
       <fieldset>
-        <legend className="text-sm font-medium">How would you rate the work?</legend>
+        <legend className="text-sm font-medium">{t.rate}</legend>
         <div className="mt-2 flex items-center gap-1" onMouseLeave={() => setHover(0)}>
           {[1, 2, 3, 4, 5].map((n) => (
             <label key={n} className="cursor-pointer p-0.5" onMouseEnter={() => setHover(n)}>
@@ -81,7 +80,7 @@ export function ReviewForm({
                   n <= shown ? "fill-amber-400 text-amber-400" : "text-slate-300",
                 )}
               />
-              <span className="sr-only">{n} out of 5, {RATING_WORD[n]}</span>
+              <span className="sr-only">{fmt(t.outOf, { n, word: RATING_WORD[n] })}</span>
             </label>
           ))}
           <span className="ml-2 text-sm text-muted-foreground" aria-hidden>
@@ -91,7 +90,7 @@ export function ReviewForm({
       </fieldset>
 
       <div>
-        <label htmlFor="body" className="block text-sm font-medium">What was it like working with them?</label>
+        <label htmlFor="body" className="block text-sm font-medium">{t.body}</label>
         <textarea
           id="body"
           name="body"
@@ -99,18 +98,18 @@ export function ReviewForm({
           rows={5}
           maxLength={3000}
           className={field}
-          placeholder="Were they on time and on budget? How did they handle problems? Would you hire them again?"
+          placeholder={t.bodyPlaceholder}
         />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label htmlFor="name" className="block text-sm font-medium">Your name</label>
+          <label htmlFor="name" className="block text-sm font-medium">{t.name}</label>
           <input id="name" name="name" required maxLength={100} defaultValue={defaultName} className={field} autoComplete="name" />
         </div>
         <div>
           <label htmlFor="company" className="block text-sm font-medium">
-            Your company <span className="font-normal text-muted-foreground">(optional)</span>
+            {t.company} <span className="font-normal text-muted-foreground">{t.optional}</span>
           </label>
           <input id="company" name="company" maxLength={120} className={field} autoComplete="organization" />
         </div>
@@ -120,19 +119,15 @@ export function ReviewForm({
         <label className="flex items-start gap-2.5">
           <input type="checkbox" name="showBuilding" className="mt-0.5 size-5 accent-teal-700" />
           <span>
-            OK to show our company name with the review
-            <span className="block text-xs text-muted-foreground">
-              Leave it unticked and we only show your first name and last initial.
-            </span>
+            {t.showCompany}
+            <span className="block text-xs text-muted-foreground">{t.showCompanyHint}</span>
           </span>
         </label>
         <label className="flex items-start gap-2.5">
           <input type="checkbox" name="referenceOk" className="mt-0.5 size-5 accent-teal-700" />
           <span>
-            OK for {tradeName} to list me as a reference
-            <span className="block text-xs text-muted-foreground">
-              They may share your name, company and email with people thinking of hiring them.
-            </span>
+            {fmt(t.reference, { trade: tradeName })}
+            <span className="block text-xs text-muted-foreground">{t.referenceHint}</span>
           </span>
         </label>
       </div>
@@ -145,11 +140,9 @@ export function ReviewForm({
         className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary px-6 text-base font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 sm:w-auto"
       >
         {pending && <Loader2 className="size-4 animate-spin" />}
-        Send review
+        {t.send}
       </button>
-      <p className="text-xs text-muted-foreground">
-        Good or bad, every review is checked by the PMRFP team before it goes live. Your email stays private.
-      </p>
+      <p className="text-xs text-muted-foreground">{t.footer}</p>
     </form>
   );
 }

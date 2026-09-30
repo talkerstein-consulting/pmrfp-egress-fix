@@ -1,6 +1,8 @@
 import Link from "@/i18n/link";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { Container } from "@/components/container";
+import { getT } from "@/i18n/server";
+import { fmt } from "@/i18n/format";
 
 /**
  * Founding 100 promo banner (trades). Deliberately restrained and premium —
@@ -20,6 +22,7 @@ const FUTURE_PRICE = 399;
 
 export function FoundingBanner() {
   if (!FOUNDING_PROMO_ENABLED) return null;
+  const t = getT("shared").founding;
   return (
     <section className="border-y border-border bg-indigo text-white">
       <Container className="flex flex-col items-start gap-5 py-10 sm:flex-row sm:items-center sm:justify-between sm:py-12">
@@ -29,13 +32,13 @@ export function FoundingBanner() {
           </span>
           <div>
             <p className="font-mono text-[11px] uppercase tracking-widest text-teal-300">
-              Founding 100 · Ontario trades
+              {t.eyebrow}
             </p>
             <p className="mt-1 text-xl font-semibold text-white sm:text-2xl">
-              Lock in ${FOUNDING_PRICE}/year — for as long as you&apos;re a member.
+              {fmt(t.headline, { price: FOUNDING_PRICE })}
             </p>
             <p className="mt-1 text-sm text-indigo-100/75">
-              The first 100 trades to join keep this rate for life. It rises to ${FUTURE_PRICE} after.
+              {fmt(t.sub, { future: FUTURE_PRICE })}
             </p>
           </div>
         </div>
@@ -43,7 +46,7 @@ export function FoundingBanner() {
           href="/sign-up"
           className="inline-flex shrink-0 items-center gap-2 rounded-full bg-teal-300 px-5 py-2.5 text-sm font-semibold text-indigo transition-colors hover:bg-teal-300/90"
         >
-          Claim your rate <ArrowRight className="size-4" />
+          {t.cta} <ArrowRight className="size-4" />
         </Link>
       </Container>
     </section>

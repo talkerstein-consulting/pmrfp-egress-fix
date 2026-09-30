@@ -7,20 +7,30 @@ import { CTASection } from "@/components/public/section";
 import { listVendors } from "@/lib/data/directory";
 import { getCategories, getPropertyTypes, getRegions } from "@/lib/data/taxonomy";
 import { SITE } from "@/lib/site";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { fmt, plural } from "@/i18n/format";
 
-export const metadata: Metadata = {
-  title: "Supplier Directory — Building Product & Material Suppliers in Canada",
-  description:
-    "Browse building product, material, and equipment suppliers serving Canadian commercial trades, builders, and property managers. Filter by category and region.",
-  alternates: { canonical: "/suppliers" },
-};
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const t = getDictionary(l).directory.suppliers;
+  return {
+    title: t.title,
+    description: t.description,
+    alternates: alternatesFor(l, "/suppliers"),
+  };
+}
 
 export default async function SuppliersPage({
   searchParams, params }: {
   searchParams: Promise<Record<string, string | undefined>>;
 } & { params: Promise<object> }) {
   await setLangFrom(params);
+  const td = getT("directory");
+  const t = td.suppliers;
   const sp = await searchParams;
   const [suppliers, categories, regions, propertyTypes] = await Promise.all([
     listVendors({
@@ -41,13 +51,12 @@ export default async function SuppliersPage({
     <>
       <section className="border-b border-border bg-secondary/30">
         <Container className="py-12">
-          <Eyebrow>Supplier directory</Eyebrow>
+          <Eyebrow>{t.eyebrow}</Eyebrow>
           <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-            Building product & material suppliers
+            {t.h1}
           </h1>
           <p className="mt-3 max-w-2xl text-muted-foreground">
-            Distributors and suppliers serving Canadian commercial trades, builders, and property
-            managers — by category and region.
+            {t.body}
           </p>
         </Container>
       </section>
@@ -59,18 +68,18 @@ export default async function SuppliersPage({
           propertyTypes={propertyTypes}
           showVerified
           sortOptions={[
-            { value: "featured", label: "Featured first" },
-            { value: "alpha", label: "A–Z" },
+            { value: "featured", label: td.sort.featured },
+            { value: "alpha", label: td.sort.alpha },
           ]}
         />
         <p className="mt-6 text-sm text-muted-foreground">
-          {suppliers.length} {suppliers.length === 1 ? "supplier" : "suppliers"}
+          {plural(suppliers.length, t.count)}
         </p>
         {suppliers.length === 0 ? (
           <div className="mt-4">
             <EmptyState
-              title="No suppliers match your filters"
-              description="Try clearing a filter, or check back soon as more suppliers join."
+              title={t.emptyTitle}
+              description={t.emptyBody}
             />
           </div>
         ) : (
@@ -83,12 +92,12 @@ export default async function SuppliersPage({
       </Container>
 
       <CTASection
-        title="Are you a supplier or distributor?"
-        description={`Get listed where Canadian trades, builders, and property managers source products — ${SITE.name} Pro.`}
+        title={t.ctaTitle}
+        description={fmt(t.ctaBody, { site: SITE.name })}
         primaryHref="/sign-up"
-        primaryLabel="List your company"
+        primaryLabel={t.ctaPrimary}
         secondaryHref="/for/suppliers"
-        secondaryLabel="How it works for suppliers"
+        secondaryLabel={t.ctaSecondary}
       />
     </>
   );

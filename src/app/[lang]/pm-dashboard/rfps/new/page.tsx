@@ -6,18 +6,28 @@ import { PageHeader } from "@/components/dashboard/stat-card";
 import { RfpPostForm, type RfpPostDefaults } from "@/components/forms/rfp-post-form";
 import { GcPackageForm, type GcPackageDefaults } from "@/components/forms/gc-package-form";
 import { getRfpTemplate } from "@/lib/seo/rfp-templates";
+import { localizeRfpTemplate } from "@/lib/seo/rfp-templates.fr";
+import { getLang } from "@/i18n/server";
 import { getLinkableAward, regionSlugById } from "@/lib/gc/data";
 import { parseAwardRef } from "@/lib/gc/packages";
 import { SITE } from "@/lib/site";
-import { setLangFrom } from "@/i18n/server";
+import type { Metadata } from "next";
+import { getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale } from "@/i18n/config";
+import { fmt } from "@/i18n/format";
 
-export const metadata = { title: "Post an RFP" };
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  return { title: getDictionary(hasLocale(lang) ? lang : "en").pm.newRfp.metaTitle };
+}
 
 export default async function NewRfpPage({
   searchParams, params }: {
   searchParams: Promise<{ template?: string; draft?: string; kind?: string; award?: string }>;
 } & { params: Promise<object> }) {
   await setLangFrom(params);
+  const t = getT("pm").newRfp;
   const session = await requireRole(["property_manager", "real_estate_agent"]);
   const [{ template: templateSlug, draft, kind, award: awardParam }, categories, regions, propertyTypes, geo] = await Promise.all([
     searchParams,
@@ -45,7 +55,7 @@ export default async function NewRfpPage({
         ? {
             projectName: award.title,
             relatedContract: `${SITE.url}/rfps/${award.slug}`,
-            relatedContractLabel: `${award.title}${award.winner ? ` — won by ${award.winner}` : ""}${award.value ? ` (${award.value})` : ""}`,
+            relatedContractLabel: `${award.title}${award.winner ? fmt(t.gcWonBy, { winner: award.winner }) : ""}${award.value ? ` (${award.value})` : ""}`,
             ...(award.province ? { province: award.province } : {}),
             ...(awardRegion && regions.some((r) => r.slug === awardRegion) ? { regionSlug: awardRegion } : {}),
           }
@@ -54,8 +64,8 @@ export default async function NewRfpPage({
     return (
       <div>
         <PageHeader
-          title="Post a sub-trade package"
-          description="One package per trade. Local trades in that trade and region get it in their daily email. Free for contractors. We review every package before it goes live."
+          title={t.gcTitle}
+          description={t.gcDescription}
         />
         <GcPackageForm
           categories={categories}
@@ -67,7 +77,9 @@ export default async function NewRfpPage({
     );
   }
 
-  const template = templateSlug ? getRfpTemplate(templateSlug) : undefined;
+  // The draft opens in the page's language (the stored trade slug stays English).
+  const rawTemplate = templateSlug ? getRfpTemplate(templateSlug) : undefined;
+  const template = rawTemplate ? localizeRfpTemplate(rawTemplate, getLang()) : undefined;
   const defaults: RfpPostDefaults | undefined = template
     ? {
         title: template.titleSample,
@@ -76,7 +88,7 @@ export default async function NewRfpPage({
         requirements: template.requirements,
         categories: [template.tradeSlug],
         templateSlug: template.slug,
-        templateName: template.name.replace(/ RFP Template$/, ""),
+        templateName: template.shortName,
         ...geoDefaults,
       }
     : geoDefaults;
@@ -84,12 +96,8 @@ export default async function NewRfpPage({
   return (
     <div>
       <PageHeader
-        title="Post an RFP"
-        description={
-          template
-            ? `Pre-filled from the "${defaults?.templateName}" template. Edit any field before submitting.`
-            : "Describe your project so qualified trades can express interest. We review every listing before it goes live."
-        }
+        title={t.title}
+        description={template ? fmt(t.descriptionTemplate, { name: defaults?.templateName ?? "" }) : t.description}
       />
       <RfpPostForm
         categories={categories}

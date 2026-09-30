@@ -4,8 +4,11 @@ import { Container } from "@/components/container";
 import { Markdown } from "@/components/public/markdown";
 import { CTASection } from "@/components/public/section";
 import { JsonLd, breadcrumbSchema, faqSchema } from "@/lib/seo/jsonld";
-import { SITE } from "@/lib/site";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
+import { LOCALE_TAG, hasLocale, localizePath, type Locale } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { QUALITY_RFP_GUIDE_FR, type StaticGuide } from "../guides.fr";
+import { QUALITY_RFP_GUIDE_ES } from "../guides.es";
 
 const SLUG = "how-to-post-a-quality-rfp";
 const TITLE = "How to Post an RFP That Gets Real Bids: 7 Steps";
@@ -204,32 +207,59 @@ No — unless your bylaws or owner's policy say so. Tell bidders in the RFP how 
 
 Yes. On PMRFP you can keep your contact details hidden until you approve a trade's interest, or have interest routed through PMRFP. Your building and budget details stay yours until you choose to engage.`;
 
-export const metadata: Metadata = {
+/** English page text; the French and Spanish versions live in ../guides.fr.ts and ../guides.es.ts. */
+const EN: StaticGuide & { steps: string[] } = {
   title: TITLE,
-  description: META_DESC,
-  alternates: { canonical: `/resources/${SLUG}` },
+  metaDescription: META_DESC,
+  eyebrow: "Guide · Property managers",
+  lead: "What to do before, during and after you post — and what to write in each field so good trades bid, and bid on the same job.",
+  steps: STEPS,
+  faqs: FAQS,
+  article: ARTICLE,
+  cta: {
+    title: "Post your RFP — free",
+    description:
+      "Start from a template or a blank form. We review every listing before it goes live, and you stay anonymous until you choose to engage.",
+    primaryLabel: "Post an RFP — free",
+    secondaryLabel: "Browse RFP templates",
+  },
 };
 
+const guideFor = (lang: Locale) => (lang === "fr" ? QUALITY_RFP_GUIDE_FR : lang === "es" ? QUALITY_RFP_GUIDE_ES : EN);
+
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const g = guideFor(l);
+  return {
+    title: g.title,
+    description: g.metaDescription,
+    alternates: alternatesFor(l, `/resources/${SLUG}`),
+  };
+}
+
 export default async function QualityRfpGuidePage({ params }: { params: Promise<object> }) {
-  await setLangFrom(params);
+  const lang = await setLangFrom(params);
+  const c = getT("content");
+  const g = guideFor(lang);
   return (
     <>
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", path: "/" },
-          { name: "Resources", path: "/resources" },
-          { name: TITLE, path: `/resources/${SLUG}` },
+          { name: c.crumbs.home, path: localizePath("/", lang) },
+          { name: c.crumbs.resources, path: localizePath("/resources", lang) },
+          { name: g.title, path: localizePath(`/resources/${SLUG}`, lang) },
         ])}
       />
-      <JsonLd data={faqSchema(FAQS)} />
+      <JsonLd data={faqSchema(g.faqs)} />
       <JsonLd
         data={{
           "@context": "https://schema.org",
           "@type": "HowTo",
-          name: TITLE,
-          description: META_DESC,
-          inLanguage: "en-CA",
-          step: STEPS.map((name, i) => ({
+          name: g.title,
+          description: g.metaDescription,
+          inLanguage: LOCALE_TAG[lang],
+          step: g.steps.map((name, i) => ({
             "@type": "HowToStep",
             position: i + 1,
             name,
@@ -239,16 +269,15 @@ export default async function QualityRfpGuidePage({ params }: { params: Promise<
 
       <Container size="narrow" className="py-14">
         <Link href="/resources" className="text-sm text-muted-foreground hover:text-foreground">
-          ← All resources
+          {c.resource.back}
         </Link>
-        <p className="mt-6 font-mono text-xs uppercase tracking-widest text-teal-ink">Guide · Property managers</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{TITLE}</h1>
+        <p className="mt-6 font-mono text-xs uppercase tracking-widest text-teal-ink">{g.eyebrow}</p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">{g.title}</h1>
         <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-          What to do before, during and after you post — and what to write in each field so good
-          trades bid, and bid on the same job.
+          {g.lead}
         </p>
         <ol className="mt-8 space-y-1.5 rounded-lg border border-border bg-card p-5 text-sm">
-          {STEPS.map((s, i) => (
+          {g.steps.map((s, i) => (
             <li key={s} className="flex gap-3">
               <span className="font-mono text-teal-ink">{i + 1}</span>
               <span>{s}</span>
@@ -256,17 +285,17 @@ export default async function QualityRfpGuidePage({ params }: { params: Promise<
           ))}
         </ol>
         <article className="mt-8">
-          <Markdown content={ARTICLE} />
+          <Markdown content={g.article} />
         </article>
       </Container>
 
       <CTASection
-        title="Post your RFP — free"
-        description="Start from a template or a blank form. We review every listing before it goes live, and you stay anonymous until you choose to engage."
+        title={g.cta.title}
+        description={g.cta.description}
         primaryHref="/sign-up?role=property_manager"
-        primaryLabel="Post an RFP — free"
+        primaryLabel={g.cta.primaryLabel}
         secondaryHref="/rfp-templates"
-        secondaryLabel="Browse RFP templates"
+        secondaryLabel={g.cta.secondaryLabel}
       />
     </>
   );

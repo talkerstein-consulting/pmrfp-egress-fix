@@ -1,42 +1,34 @@
 import type { Metadata } from "next";
 import Link from "@/i18n/link";
 import { Container, Eyebrow } from "@/components/container";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale } from "@/i18n/config";
+import { fmt } from "@/i18n/format";
 
-export const metadata: Metadata = {
-  title: "RFP listing updated",
-  robots: { index: false },
-};
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const t = getDictionary(hasLocale(lang) ? lang : "en").misc.kept;
+  return {
+    title: t.metaTitle,
+    robots: { index: false },
+  };
+}
 
-const MESSAGES: Record<string, { title: string; body: string }> = {
-  ok: {
-    title: "Your listing is live again",
-    body: "Thanks — your RFP is back on the public board, and we've extended its deadline. When this one passes, we'll check in with you again.",
-  },
-  notlive: {
-    title: "This RFP is already closed",
-    body: "This listing has been awarded, closed, or archived, so there's nothing to keep live. You can post a fresh RFP any time from your dashboard.",
-  },
-  invalid: {
-    title: "That link isn't valid",
-    body: "This keep-it-live link doesn't match a current listing. Head to your dashboard to manage your RFPs.",
-  },
-  error: {
-    title: "Something went wrong",
-    body: "We couldn't update your listing just now. Please try again, or manage it from your dashboard.",
-  },
-};
+type Status = "ok" | "notlive" | "invalid" | "error";
+const STATUSES: readonly string[] = ["ok", "notlive", "invalid", "error"] satisfies Status[];
 
 export default async function RfpKeptPage({
   searchParams, params }: {
   searchParams: Promise<Record<string, string | undefined>>;
 } & { params: Promise<object> }) {
   await setLangFrom(params);
+  const t = getT("misc").kept;
   const sp = await searchParams;
   const status = sp.status ?? "ok";
   const days = sp.days ?? "30";
-  const m = MESSAGES[status] ?? MESSAGES.ok;
-  const body = status === "ok" ? m.body.replace("extended its deadline", `extended its deadline by ${days} days`) : m.body;
+  const m = t[STATUSES.includes(status) ? (status as Status) : "ok"];
+  const body = status === "ok" ? fmt(t.ok.bodyDays, { days }) : m.body;
 
   return (
     <section className="border-b border-border">
@@ -49,7 +41,7 @@ export default async function RfpKeptPage({
             href="/pm-dashboard/rfps"
             className="inline-flex items-center rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground"
           >
-            Go to my RFPs
+            {t.cta}
           </Link>
         </div>
       </Container>

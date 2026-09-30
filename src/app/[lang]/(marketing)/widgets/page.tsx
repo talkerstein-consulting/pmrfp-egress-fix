@@ -12,14 +12,19 @@ import { WIDGET_KINDS, type WidgetKind } from "@/lib/embed/widgets";
 import { getMyTrustedList } from "@/lib/trusted/data";
 import { TRUSTED_ROLES } from "@/lib/trusted/rules";
 import { SITE } from "@/lib/site";
-import { setLangFrom } from "@/i18n/server";
+import { getLang, getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { fmt } from "@/i18n/format";
+import { regionName, tradeName } from "@/i18n/terms";
 
-export const metadata: Metadata = {
-  title: "Free Website Widgets for Trades, Property Managers & Realtors",
-  description:
-    "Put live PMRFP content on your own website: a tender feed for your trade and region, your open bids, your jobs, your company card or your trusted trades. Copy, paste, done. Free.",
-  alternates: { canonical: "/widgets" },
-};
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const t = getDictionary(l).partners.widgets.meta;
+  return { title: t.title, description: t.description, alternates: alternatesFor(l, "/widgets") };
+}
 
 const POSTERS = new Set(["property_manager", "owner", "builder"]);
 const LISTED = new Set(["trade_company", "supplier"]);
@@ -29,6 +34,8 @@ export default async function WidgetsPage({
   searchParams: Promise<{ w?: string; company?: string }>;
 } & { params: Promise<object> }) {
   await setLangFrom(params);
+  const lang = getLang();
+  const t = getT("partners").widgets;
   const [session, sp, categories, regions] = await Promise.all([getSession(), searchParams, getCategories(), getRegions()]);
   const org = session?.organization ?? null;
   const role = session?.profile.primary_role ?? null;
@@ -70,19 +77,18 @@ export default async function WidgetsPage({
     <>
       <section className="border-b border-border bg-card">
         <Container className="py-14">
-          <Eyebrow>Free website widgets</Eyebrow>
+          <Eyebrow>{t.eyebrow}</Eyebrow>
           <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-5xl">
-            Put {SITE.name} on your own website
+            {fmt(t.title, { site: SITE.name })}
           </h1>
           <p className="mt-4 max-w-2xl text-lg leading-relaxed text-muted-foreground">
-            Live tenders, your open bids, your jobs, your company card or your trusted trades, updated automatically.
-            Pick one, copy two lines of code, paste. Works on WordPress, Wix, Squarespace, Webflow and hand-built sites.
+            {t.body}
           </p>
           <ul className="mt-6 grid max-w-3xl gap-3 text-sm sm:grid-cols-2">
-            <Point icon={<RefreshCw className="size-4" />} text="Always current. Nothing to update by hand." />
-            <Point icon={<Gauge className="size-4" />} text="Loads after your page, so it never slows your site." />
-            <Point icon={<ShieldCheck className="size-4" />} text="Read-only. No cookies, no tracking of your visitors." />
-            <Point icon={<Code2 className="size-4" />} text="Resizes itself to fit. Light and dark styles." />
+            <Point icon={<RefreshCw className="size-4" />} text={t.points[0]} />
+            <Point icon={<Gauge className="size-4" />} text={t.points[1]} />
+            <Point icon={<ShieldCheck className="size-4" />} text={t.points[2]} />
+            <Point icon={<Code2 className="size-4" />} text={t.points[3]} />
           </ul>
         </Container>
       </section>
@@ -91,25 +97,27 @@ export default async function WidgetsPage({
         <WidgetBuilder
           base={base}
           initialKind={initialKind}
-          categories={categories.map((c) => ({ slug: c.slug, name: c.name }))}
-          regions={regions.map((r) => ({ slug: r.slug, name: r.province ? `${r.name}, ${r.province}` : r.name }))}
+          categories={categories.map((c) => ({ slug: c.slug, name: tradeName(c.name, lang) }))}
+          regions={regions.map((r) => {
+            const name = regionName(r.name, lang);
+            return { slug: r.slug, name: r.province ? `${name}, ${regionName(r.province, lang)}` : name };
+          })}
           access={access}
         />
 
         <section className="mt-16">
-          <h2 className="text-2xl font-semibold tracking-tight">Where to paste it</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">{t.whereTitle}</h2>
           <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Where title="WordPress" desc="Edit the page, add a Custom HTML block where you want the widget, paste the code, update." />
-            <Where title="Wix" desc="Add → Embed Code → Embed HTML, choose Code, paste. Drag the box to size it." />
-            <Where title="Squarespace" desc="Edit the page, add a Code block, paste the code, save." />
-            <Where title="Webflow & others" desc="Add an Embed (or HTML) element and paste. Any site that accepts HTML works." />
+            {t.where.map((w) => (
+              <Where key={w.title} title={w.title} desc={w.desc} />
+            ))}
           </div>
           <p className="mt-4 text-sm text-muted-foreground">
-            Someone else runs your website? Send them this page. Want the simple version?{" "}
+            {t.footBefore}{" "}
             <Link href="/badge" className="font-medium text-teal-700 hover:underline">
-              Get the {SITE.name} badge
+              {fmt(t.footLink, { site: SITE.name })}
             </Link>
-            .
+            {t.footAfter}
           </p>
         </section>
       </Container>

@@ -6,22 +6,26 @@
  * Visual story: typography only. No icons, no animations, no gradients.
  */
 import type { PlatformStats } from "@/lib/data/stats";
+import { getLang, getT } from "@/i18n/server";
+import { formatNumber } from "@/i18n/format";
 
 export function StatsStrip({ stats, className = "" }: { stats: PlatformStats; className?: string }) {
   // Hide the strip entirely if we have nothing real to show — pretending zero is
   // a "stat" hurts more than helps.
   if (stats.rfpsPostedLast30Days === 0 && stats.tradesListed === 0) return null;
+  const t = getT("sales").stats;
+  const lang = getLang();
 
   return (
     <div className={`flex flex-wrap items-baseline gap-x-8 gap-y-3 ${className}`.trim()}>
-      <Stat value={stats.rfpsPostedLast30Days} label="RFPs posted · last 30 days" />
+      <Stat value={formatNumber(stats.rfpsPostedLast30Days, lang)} label={t.rfps} />
       {/* A small directory count undersells a board this busy; show it once it's big. */}
       {stats.tradesListed >= 100 ? (
-        <Stat value={stats.tradesListed} label="trade companies listed" />
+        <Stat value={formatNumber(stats.tradesListed, lang)} label={t.trades} />
       ) : (
-        <Stat value="Daily" label="new tenders every morning" />
+        <Stat value={t.daily} label={t.dailyLabel} />
       )}
-      <Stat value="Canada + U.S." label="commercial & residential" />
+      <Stat value={t.markets} label={t.marketsLabel} />
     </div>
   );
 }

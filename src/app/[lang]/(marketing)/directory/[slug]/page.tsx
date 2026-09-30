@@ -14,10 +14,15 @@ import { JsonLd, breadcrumbSchema, localBusinessSchema } from "@/lib/seo/jsonld"
 import { getVendor, listVendors, retiredVendorRedirect } from "@/lib/data/directory";
 import { listOrgProjects, listPublishedReviews } from "@/lib/data/projects";
 import { reviewStats } from "@/lib/projects/reviews";
-import { ProjectGrid, ReviewList, Stars } from "@/components/projects/public";
+import { ProjectGrid, ReviewList, Stars, oneDecimal } from "@/components/projects/public";
 import { cn } from "@/lib/utils";
 import { SITE } from "@/lib/site";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale, localizePath } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { fmt, plural } from "@/i18n/format";
+import { propertyTypeName, regionName, tradeName } from "@/i18n/terms";
 
 export const revalidate = 3600;
 
@@ -32,19 +37,29 @@ export async function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ lang: string; slug: string }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
+  const { lang, slug } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const t = getDictionary(l).directory.profile;
   const v = await getVendor(slug);
-  if (!v) return { title: "Vendor not found" };
-  const title = `${v.name} — ${[v.city, v.province].filter(Boolean).join(", ")}`;
+  if (!v) return { title: t.notFound };
+  const place = [v.city, v.province].filter((x): x is string => Boolean(x)).map((x) => regionName(x, l));
+  const title = `${v.name} — ${place.join(", ")}`;
   const description =
-    v.shortDescription ?? `${v.name} on the ${SITE.name} commercial property vendor directory.`;
-  const url = `${SITE.url.replace(/\/$/, "")}/directory/${v.slug}`;
+    v.shortDescription ?? fmt(t.fallbackDescription, { name: v.name, site: SITE.name });
+  const path = `/directory/${v.slug}`;
+  const base = SITE.url.replace(/\/$/, "");
+  const url = `${base}${localizePath(path, l)}`;
+  // Absolute on SITE.url (as before), with hreflang for each language.
+  const alt = alternatesFor(l, path);
+  const languages = Object.fromEntries(
+    Object.entries(alt.languages ?? {}).map(([k, href]) => [k, `${base}${href}`]),
+  );
   return {
     title,
     description,
-    alternates: { canonical: url },
+    alternates: { canonical: url, languages },
     // The colocated opengraph-image.tsx supplies the og:image / twitter:image.
     openGraph: { type: "profile", title, description, url },
     twitter: { card: "summary_large_image", title, description },
@@ -56,14 +71,16 @@ export default async function VendorProfilePage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  await setLangFrom(params);
+  const lang = await setLangFrom(params);
+  const t = getT("directory");
+  const tp = t.profile;
   const { slug } = await params;
   const v = await getVendor(slug);
   if (!v) {
     // Retired listing (demo / suspended): permanent redirect to the closest
     // real page so the URL's search value isn't thrown away. Unknown → 404.
     const to = await retiredVendorRedirect(slug);
-    if (to) permanentRedirect(to);
+    if (to) permanentRedirect(localizePath(to, lang));
     notFound();
   }
 
@@ -77,10 +94,13 @@ export default async function VendorProfilePage({
     getRecommendedBy(v.id),
   ]);
   const rating = reviewStats(reviews);
-  const place = [v.city, v.province].filter(Boolean).join(", ");
+  const place = [v.city, v.province]
+    .filter((x): x is string => Boolean(x))
+    .map((x) => regionName(x, lang))
+    .join(", ");
   // Cover: their own work first, otherwise a photo of their main trade.
   const cover = v.portfolioPhotos[0]
-    ? { src: v.portfolioPhotos[0], alt: `Work by ${v.name}` }
+    ? { src: v.portfolioPhotos[0], alt: fmt(tp.coverAlt, { name: v.name }) }
     : tradePhotoForName(v.categories[0]);
 
   return (
@@ -98,14 +118,14 @@ export default async function VendorProfilePage({
         })}
       />
       <JsonLd data={breadcrumbSchema([
-        { name: "Home", path: "/" },
-        { name: "Directory", path: "/directory" },
-        { name: v.name, path: `/directory/${v.slug}` },
+        { name: tp.home, path: localizePath("/", lang) },
+        { name: tp.directory, path: localizePath("/directory", lang) },
+        { name: v.name, path: localizePath(`/directory/${v.slug}`, lang) },
       ])} />
-      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Link href="/directory" className="hover:text-foreground">Directory</Link>
+      <nav aria-label={tp.breadcrumb} className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Link href="/directory" className="hover:text-foreground">{tp.directory}</Link>
         <span aria-hidden>/</span>
-        {v.categories[0] && <span className="truncate">{v.categories[0]}</span>}
+        {v.categories[0] && <span className="truncate">{tradeName(v.categories[0], lang)}</span>}
       </nav>
 
       <header className="mt-6 overflow-hidden rounded-lg border border-border bg-card">
@@ -145,19 +165,19 @@ export default async function VendorProfilePage({
             {(v.verified || v.platinum || v.featured) && <div className="flex flex-wrap items-center gap-2 sm:pb-1">
               {v.verified && (
                 <span
-                  title="Reviewed by the PMRFP team before this company was marked verified. Always confirm current licensing and insurance directly for your project."
+                  title={t.badges.verifiedTooltip}
                   className="inline-flex items-center gap-1.5 rounded-md border border-teal-400/60 bg-teal-100/40 px-2.5 py-1 text-xs font-medium text-teal-ink"
                 >
-                  <BadgeCheck className="size-3.5" aria-hidden /> Verified by PMRFP
+                  <BadgeCheck className="size-3.5" aria-hidden /> {t.badges.verifiedBy}
                 </span>
               )}
               {v.platinum ? (
                 <span className="rounded-md bg-indigo px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-teal-300">
-                  Platinum
+                  {t.badges.platinum}
                 </span>
               ) : v.featured ? (
                 <span className="rounded-md border border-border px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-teal-ink">
-                  Featured
+                  {t.badges.featured}
                 </span>
               ) : null}
             </div>}
@@ -176,18 +196,18 @@ export default async function VendorProfilePage({
               // require first-party reviews for aggregateRating.
               <span className="inline-flex items-center gap-1 font-medium text-foreground">
                 <span aria-hidden className="text-warn">★</span>
-                {v.googleRating.toFixed(1)}
+                {oneDecimal(v.googleRating, lang)}
                 <span className="font-normal text-muted-foreground">
-                  · {v.googleReviewCount} Google reviews
+                  {fmt(tp.googleReviews, { n: v.googleReviewCount })}
                 </span>
               </span>
             )}
             {rating.count > 0 && (
               <a href="#reviews-h" className="inline-flex items-center gap-1 font-medium text-foreground hover:underline">
                 <Stars rating={rating.average} />
-                {rating.average.toFixed(1)}
+                {oneDecimal(rating.average, lang)}
                 <span className="font-normal text-muted-foreground">
-                  · {rating.count} client {rating.count === 1 ? "review" : "reviews"}
+                  {plural(rating.count, tp.clientReviews)}
                 </span>
               </a>
             )}
@@ -196,7 +216,7 @@ export default async function VendorProfilePage({
           {v.categories.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-1.5">
               {v.categories.map((c) => (
-                <Badge key={c} variant="secondary">{c}</Badge>
+                <Badge key={c} variant="secondary">{tradeName(c, lang)}</Badge>
               ))}
             </div>
           )}
@@ -204,7 +224,7 @@ export default async function VendorProfilePage({
           {/* Realtors and PMs who put this company on their trusted-trades page. */}
           {recommenders.length > 0 && (
             <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border pt-4 text-sm">
-              <span className="font-medium text-foreground">Recommended by</span>
+              <span className="font-medium text-foreground">{tp.recommendedBy}</span>
               {recommenders.slice(0, 3).map((r, i) => (
                 <span key={r.handle}>
                   <Link href={`/trusted/${r.handle}`} className="font-medium text-teal-ink hover:underline">
@@ -214,7 +234,7 @@ export default async function VendorProfilePage({
                   {i < Math.min(recommenders.length, 3) - 1 && <span className="text-muted-foreground">,</span>}
                 </span>
               ))}
-              {recommenders.length > 3 && <span className="text-muted-foreground">and {recommenders.length - 3} more</span>}
+              {recommenders.length > 3 && <span className="text-muted-foreground">{plural(recommenders.length - 3, tp.andMore)}</span>}
             </p>
           )}
         </div>
@@ -226,10 +246,10 @@ export default async function VendorProfilePage({
               reads as a broken/abandoned profile. */}
           {(() => {
             const facts: { icon: React.ReactNode; label: string; value: string }[] = [];
-            if (v.yearsInBusiness) facts.push({ icon: <Clock className="size-3.5" />, label: "In business", value: `${v.yearsInBusiness} years` });
-            if (v.employeeCountRange) facts.push({ icon: <Building2 className="size-3.5" />, label: "Team size", value: v.employeeCountRange });
-            if (v.insuranceStatus) facts.push({ icon: <ShieldCheck className="size-3.5" />, label: "Insurance", value: v.insuranceStatus });
-            if (v.wsibStatus) facts.push({ icon: <ShieldCheck className="size-3.5" />, label: "WSIB", value: v.wsibStatus });
+            if (v.yearsInBusiness) facts.push({ icon: <Clock className="size-3.5" />, label: tp.facts.inBusiness, value: plural(v.yearsInBusiness, tp.facts.years) });
+            if (v.employeeCountRange) facts.push({ icon: <Building2 className="size-3.5" />, label: tp.facts.teamSize, value: v.employeeCountRange });
+            if (v.insuranceStatus) facts.push({ icon: <ShieldCheck className="size-3.5" />, label: tp.facts.insurance, value: v.insuranceStatus });
+            if (v.wsibStatus) facts.push({ icon: <ShieldCheck className="size-3.5" />, label: tp.facts.wsib, value: v.wsibStatus });
             if (facts.length === 0) return null;
             return (
               <dl className="grid grid-cols-2 overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-4">
@@ -242,7 +262,7 @@ export default async function VendorProfilePage({
 
           {v.fullDescription && (
             <section className="mt-8">
-              <h2 className="font-heading text-lg font-semibold tracking-tight text-indigo">About {v.name}</h2>
+              <h2 className="font-heading text-lg font-semibold tracking-tight text-indigo">{fmt(tp.about, { name: v.name })}</h2>
               <p className="mt-3 max-w-prose whitespace-pre-line leading-relaxed text-foreground/90">{v.fullDescription}</p>
             </section>
           )}
@@ -251,20 +271,20 @@ export default async function VendorProfilePage({
             <section className="mt-8 grid gap-6 border-t border-border pt-6 sm:grid-cols-2">
               {v.regions.length > 0 && (
                 <div>
-                  <h2 className="eyebrow text-muted-foreground">Service area</h2>
+                  <h2 className="eyebrow text-muted-foreground">{tp.serviceArea}</h2>
                   <ul className="mt-3 space-y-1.5 text-sm text-foreground">
                     {v.regions.map((r) => (
-                      <li key={r} className="flex items-center gap-2"><MapPin className="size-3.5 text-muted-foreground" /> {r}</li>
+                      <li key={r} className="flex items-center gap-2"><MapPin className="size-3.5 text-muted-foreground" /> {regionName(r, lang)}</li>
                     ))}
                   </ul>
                 </div>
               )}
               {v.propertyTypes.length > 0 && (
                 <div>
-                  <h2 className="eyebrow text-muted-foreground">Property types served</h2>
+                  <h2 className="eyebrow text-muted-foreground">{tp.propertyTypes}</h2>
                   <ul className="mt-3 space-y-1.5 text-sm text-foreground">
                     {v.propertyTypes.map((p) => (
-                      <li key={p} className="flex items-center gap-2"><Building2 className="size-3.5 text-muted-foreground" /> {p}</li>
+                      <li key={p} className="flex items-center gap-2"><Building2 className="size-3.5 text-muted-foreground" /> {propertyTypeName(p, lang)}</li>
                     ))}
                   </ul>
                 </div>
@@ -278,9 +298,9 @@ export default async function VendorProfilePage({
 
           {v.portfolioPhotos.length > 0 && (
             <div className="mt-10">
-              <h2 className="eyebrow text-muted-foreground">Portfolio</h2>
+              <h2 className="eyebrow text-muted-foreground">{tp.portfolio}</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Past work from {v.name}.
+                {fmt(tp.portfolioSub, { name: v.name })}
               </p>
               <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {v.portfolioPhotos.map((url, i) => (
@@ -293,7 +313,7 @@ export default async function VendorProfilePage({
                   >
                     <Image
                       src={url}
-                      alt={`${v.name} portfolio photo ${i + 1}`}
+                      alt={fmt(tp.portfolioAlt, { name: v.name, n: i + 1 })}
                       fill
                       sizes="(min-width: 1024px) 280px, 50vw"
                       className="object-cover transition-transform hover:scale-[1.02]"
@@ -307,9 +327,9 @@ export default async function VendorProfilePage({
 
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
           <div className="rounded-lg border border-border bg-card p-5">
-            <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Request a quote</div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{tp.quoteEyebrow}</div>
             <p className="mt-2 text-sm text-foreground">
-              Post your project and invite {v.name} to bid. Free for property managers.
+              {fmt(tp.quoteBody, { name: v.name })}
             </p>
             {/* Route through sign-up (PM role preselected) so cold visitors get
                 registration, not a password wall; `next` carries them back to
@@ -319,7 +339,7 @@ export default async function VendorProfilePage({
               href={`/sign-up?role=property_manager&next=${encodeURIComponent(`/pm-dashboard/rfps/new?invite=${v.slug}`)}`}
               className={buttonVariants({ className: "mt-4 w-full" })}
             >
-              Invite to bid
+              {tp.invite}
             </Link>
             <div className="mt-2">
               <SaveTradeButton organizationId={v.id} slug={v.slug} name={v.name} />
@@ -328,11 +348,11 @@ export default async function VendorProfilePage({
           <div className="rounded-lg border border-border bg-card p-5">
             {showContact ? (
               <>
-                <h2 className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Contact</h2>
+                <h2 className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{tp.contact}</h2>
                 <div className="mt-3 divide-y divide-border text-sm">
                   {v.website && (
                     <a href={v.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 py-2.5 text-foreground hover:text-teal-ink">
-                      <Globe className="size-4 text-muted-foreground" /> Website
+                      <Globe className="size-4 text-muted-foreground" /> {tp.website}
                     </a>
                   )}
                   {v.email && (
@@ -349,10 +369,9 @@ export default async function VendorProfilePage({
               </>
             ) : (
               <>
-                <h2 className="font-heading text-base font-semibold text-indigo">Request an introduction</h2>
+                <h2 className="font-heading text-base font-semibold text-indigo">{tp.introTitle}</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  This company receives introductions through {SITE.name}. Send a request and we&apos;ll
-                  pass it along.
+                  {fmt(tp.introBody, { site: SITE.name })}
                 </p>
                 <div className="mt-4">
                   <RequestIntroForm vendorSlug={v.slug} vendorName={v.name} />
@@ -361,7 +380,8 @@ export default async function VendorProfilePage({
             )}
           </div>
           <Link href="/sign-up" className="block text-center text-sm text-muted-foreground hover:text-foreground">
-            Are you {v.name}? <span className="font-medium text-teal-ink underline-offset-2 hover:underline">Claim this profile</span>
+            {fmt(tp.areYou, { name: v.name })}{" "}
+            <span className="font-medium text-teal-ink underline-offset-2 hover:underline">{tp.claim}</span>
           </Link>
         </aside>
       </div>

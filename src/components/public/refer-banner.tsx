@@ -3,6 +3,8 @@ import { ArrowRight, Banknote } from "lucide-react";
 import { Container } from "@/components/container";
 import { REFERRAL } from "@/lib/site";
 import { cn } from "@/lib/utils";
+import { getLang, getT } from "@/i18n/server";
+import { fmt } from "@/i18n/format";
 
 /**
  * Refer-a-project banner. Restrained, typographic, two visual variants:
@@ -22,6 +24,7 @@ export function ReferBanner({
   variant?: "subtle" | "prominent";
   className?: string;
 }) {
+  const t = getT("shared").refer;
   if (variant === "prominent") {
     return (
       <section className={cn("border-y border-border bg-indigo text-white", className)}>
@@ -32,13 +35,13 @@ export function ReferBanner({
             </span>
             <div>
               <p className="font-mono text-[11px] uppercase tracking-widest text-teal-300">
-                Referral program · two lanes
+                {t.eyebrow}
               </p>
               <p className="mt-1 text-xl font-semibold text-white sm:text-2xl">
-                Refer a trade → earn up to ${REFERRAL.tradeFee} cash. Refer a project → get public credit.
+                {fmt(t.headline, { fee: REFERRAL.tradeFee })}
               </p>
               <p className="mt-1 text-sm text-indigo-100/75">
-                Both trigger when they list on PMRFP. No award-waiting.
+                {t.sub}
               </p>
             </div>
           </div>
@@ -46,7 +49,7 @@ export function ReferBanner({
             href="/refer"
             className="inline-flex items-center gap-2 rounded-full bg-teal-300 px-5 py-2.5 text-sm font-semibold text-indigo transition-colors hover:bg-teal-300/90"
           >
-            See both lanes <ArrowRight className="size-4" />
+            {t.cta} <ArrowRight className="size-4" />
           </Link>
         </Container>
       </section>
@@ -68,13 +71,13 @@ export function ReferBanner({
         </span>
         <div>
           <p className="font-mono text-[11px] uppercase tracking-widest text-teal-ink">
-            Referral program · up to ${REFERRAL.maxFee}
+            {fmt(t.subtleEyebrow, { fee: REFERRAL.maxFee })}
           </p>
-          <p className="mt-0.5 text-sm font-semibold text-foreground">{REFERRAL.oneLiner}</p>
+          <p className="mt-0.5 text-sm font-semibold text-foreground">{getLang() === "en" ? REFERRAL.oneLiner : fmt(t.oneLiner, { fee: REFERRAL.maxFee })}</p>
         </div>
       </div>
       <span className="inline-flex items-center gap-1.5 text-sm font-medium text-teal-ink">
-        See lanes
+        {t.subtleCta}
         <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
       </span>
     </Link>

@@ -20,6 +20,8 @@ import { ImagePlus, X, Loader2, AlertTriangle } from "lucide-react";
 import { createClient as createBrowserClient } from "@/lib/supabase/browser";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { useT } from "@/i18n/provider";
+import { fmt } from "@/i18n/format";
 
 const MAX_PHOTOS = 8;
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB per photo
@@ -34,13 +36,14 @@ interface UploadedPhoto {
 
 export function RfpPhotoUploader({
   organizationId,
-  label = "Property photos (optional)",
-  helpText = "Show trades what the building / area looks like. JPEG, PNG, or WebP. Max 8 photos, 5 MB each.",
+  label,
+  helpText,
 }: {
   organizationId: string | null;
   label?: string;
   helpText?: string;
 }) {
+  const t = useT("pmClient").photos;
   const [photos, setPhotos] = useState<UploadedPhoto[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -54,22 +57,22 @@ export function RfpPhotoUploader({
   function handleFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
     if (!organizationId) {
-      setError("Complete your organization profile before uploading photos.");
+      setError(t.needProfile);
       return;
     }
     const remaining = MAX_PHOTOS - photos.length;
     const files = Array.from(fileList).slice(0, remaining);
     if (files.length === 0) {
-      setError(`Max ${MAX_PHOTOS} photos. Remove one to upload more.`);
+      setError(fmt(t.max, { max: MAX_PHOTOS }));
       return;
     }
     for (const f of files) {
       if (!ACCEPTED_TYPES.includes(f.type)) {
-        setError(`"${f.name}" — only JPEG, PNG, WebP, or HEIC images are allowed.`);
+        setError(fmt(t.badType, { name: f.name }));
         return;
       }
       if (f.size > MAX_SIZE_BYTES) {
-        setError(`"${f.name}" is over 5 MB. Compress and try again.`);
+        setError(fmt(t.tooBig, { name: f.name }));
         return;
       }
     }
@@ -88,7 +91,7 @@ export function RfpPhotoUploader({
           cacheControl: "31536000",
         });
         if (upErr) {
-          setError(`Upload failed for "${f.name}": ${upErr.message}`);
+          setError(fmt(t.uploadFailed, { name: f.name, message: upErr.message }));
           break;
         }
         const { data: pub } = supabase.storage.from("rfp-photos").getPublicUrl(path);
@@ -115,8 +118,8 @@ export function RfpPhotoUploader({
 
   return (
     <div>
-      <Label className="mb-1.5 block">{label}</Label>
-      <p className="mb-3 text-xs text-muted-foreground">{helpText}</p>
+      <Label className="mb-1.5 block">{label ?? t.label}</Label>
+      <p className="mb-3 text-xs text-muted-foreground">{helpText ?? t.help}</p>
 
       {/* Hidden inputs — picked up by the server action via formData.getAll("photoUrls"). */}
       {photos.map((p) => (
@@ -152,7 +155,7 @@ export function RfpPhotoUploader({
             <button
               type="button"
               onClick={() => removePhoto(i)}
-              aria-label="Remove photo"
+              aria-label={t.remove}
               className="absolute right-1.5 top-1.5 rounded-full bg-black/70 p-1 text-white opacity-0 transition-opacity hover:bg-black/85 focus:opacity-100 group-hover:opacity-100"
             >
               <X className="size-3.5" />
@@ -174,12 +177,12 @@ export function RfpPhotoUploader({
             {isPending ? (
               <>
                 <Loader2 className="size-5 animate-spin" />
-                Uploading…
+                {t.uploading}
               </>
             ) : (
               <>
                 <ImagePlus className="size-6" />
-                {photos.length === 0 ? "Add photos" : "Add more"}
+                {photos.length === 0 ? t.add : t.addMore}
               </>
             )}
           </button>
@@ -187,12 +190,12 @@ export function RfpPhotoUploader({
       </div>
 
       <p className="mt-2 text-xs text-muted-foreground">
-        {photos.length}/{MAX_PHOTOS} uploaded · Tip: 2-4 wide shots beats 8 close-ups
+        {fmt(t.count, { n: photos.length, max: MAX_PHOTOS })}
       </p>
 
       {!organizationId && (
         <p className="mt-2 text-xs text-amber-700">
-          Photo upload requires a complete company profile.
+          {t.profileRequired}
         </p>
       )}
     </div>

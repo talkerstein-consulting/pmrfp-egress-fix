@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { useLang, useT } from "@/i18n/provider";
 
 const initial: ActionState = {};
 
@@ -27,27 +28,35 @@ function Alert({ state }: { state: ActionState }) {
   return null;
 }
 
+/** Tells the server action which language to answer in and redirect to. */
+function LangField() {
+  const lang = useLang();
+  return <input type="hidden" name="lang" value={lang} />;
+}
+
 export function SignInForm({ next }: { next?: string | null }) {
+  const t = useT("auth").forms;
   const [state, action, pending] = useActionState(signInAction, initial);
   return (
     <form action={action} className="space-y-4">
       <Alert state={state} />
+      <LangField />
       {next && <input type="hidden" name="next" value={next} />}
       <div className="space-y-1.5">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="email">{t.email}</Label>
         <Input id="email" name="email" type="email" required autoComplete="email" />
       </div>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">{t.password}</Label>
           <Link href="/forgot-password" className="text-xs text-teal-700 hover:underline">
-            Forgot?
+            {t.forgot}
           </Link>
         </div>
         <Input id="password" name="password" type="password" required autoComplete="current-password" />
       </div>
       <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Signing in…" : "Sign in"}
+        {pending ? t.signingIn : t.signIn}
       </Button>
     </form>
   );
@@ -55,15 +64,15 @@ export function SignInForm({ next }: { next?: string | null }) {
 
 // Prestige-tone role picker. Industry-native labels — these are how
 // people in each role describe themselves to peers, not how a SaaS sells
-// them. Order: most common to least.
+// them. Order: most common to least. Labels and hints live in messages/auth.
 const ROLES = [
-  { value: "trade", label: "Trade or service company", icon: HardHat, hint: "Get listed in the directory and access live RFP opportunities" },
-  { value: "supplier", label: "Supplier or distributor", icon: Package, hint: "Reach the trades, builders, and property managers who buy what you sell" },
-  { value: "property_manager", label: "Property manager, owner, or builder", icon: Building2, hint: "Post RFPs for your properties; browse and shortlist trades" },
-  { value: "general_contractor", label: "General contractor — hiring subs", icon: Hammer, hint: "Post sub-trade packages free and get quotes from local trades" },
-  { value: "real_estate_agent", label: "Real estate professional", icon: Home, hint: "Post pre-listing repairs, turnovers, or portfolio work for your clients" },
-  { value: "talent", label: "Tradesperson looking for work", icon: UserRound, hint: "Make a free profile so companies hiring in your trade can find you" },
-  { value: "visitor", label: "Browsing the directory", icon: Search, hint: "Look around — you can join later" },
+  { value: "trade", icon: HardHat },
+  { value: "supplier", icon: Package },
+  { value: "property_manager", icon: Building2 },
+  { value: "general_contractor", icon: Hammer },
+  { value: "real_estate_agent", icon: Home },
+  { value: "talent", icon: UserRound },
+  { value: "visitor", icon: Search },
 ] as const;
 
 export function SignUpForm({
@@ -82,6 +91,7 @@ export function SignUpForm({
   /** Show "Continue with Google" (only when it's switched on in Supabase). */
   google?: boolean;
 }) {
+  const t = useT("auth").forms;
   const [state, action, pending] = useActionState(signUpAction, initial);
   const [role, setRole] = useState<string>(initialRole ?? "trade");
   // A GC is a buyer (same posting rights as a property manager) whose
@@ -90,13 +100,14 @@ export function SignUpForm({
   return (
     <form action={action} className="space-y-4">
       <Alert state={state} />
+      <LangField />
       <input type="hidden" name="role" value={isGc ? "property_manager" : role} />
       {isGc && <input type="hidden" name="orgKind" value="builder" />}
       {isGc && award && <input type="hidden" name="award" value={award} />}
       {next && <input type="hidden" name="next" value={next} />}
       {!lockRole && (
       <div className="space-y-2">
-        <Label>I am…</Label>
+        <Label>{t.iAm}</Label>
         <div className="grid gap-2">
           {ROLES.map((r) => (
             <button
@@ -110,8 +121,8 @@ export function SignUpForm({
             >
               <r.icon className={cn("size-5", role === r.value ? "text-teal-600" : "text-muted-foreground")} />
               <span>
-                <span className="block text-sm font-medium">{r.label}</span>
-                <span className="block text-xs text-muted-foreground">{r.hint}</span>
+                <span className="block text-sm font-medium">{t.roles[r.value].label}</span>
+                <span className="block text-xs text-muted-foreground">{t.roles[r.value].hint}</span>
               </span>
             </button>
           ))}
@@ -123,56 +134,60 @@ export function SignUpForm({
         <ContinueWithGoogle next={onboardingPath({ role: parseRoleChoice(role), award, next })} />
       )}
       <div className="space-y-1.5">
-        <Label htmlFor="fullName">Your name</Label>
+        <Label htmlFor="fullName">{t.fullName}</Label>
         <Input id="fullName" name="fullName" required autoComplete="name" />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="email">{t.email}</Label>
         <Input id="email" name="email" type="email" required autoComplete="email" />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="password">Password</Label>
+        <Label htmlFor="password">{t.password}</Label>
         <Input id="password" name="password" type="password" required minLength={8} autoComplete="new-password" />
       </div>
       <input type="text" name="company_website" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden />
       <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Creating account…" : "Create account"}
+        {pending ? t.creating : t.createAccount}
       </Button>
     </form>
   );
 }
 
 export function ForgotPasswordForm() {
+  const t = useT("auth").forms;
   const [state, action, pending] = useActionState(forgotPasswordAction, initial);
   return (
     <form action={action} className="space-y-4">
       <Alert state={state} />
+      <LangField />
       <div className="space-y-1.5">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="email">{t.email}</Label>
         <Input id="email" name="email" type="email" required autoComplete="email" />
       </div>
       <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Sending…" : "Send reset link"}
+        {pending ? t.sending : t.sendReset}
       </Button>
     </form>
   );
 }
 
 export function ResetPasswordForm() {
+  const t = useT("auth").forms;
   const [state, action, pending] = useActionState(resetPasswordAction, initial);
   return (
     <form action={action} className="space-y-4">
       <Alert state={state} />
+      <LangField />
       <div className="space-y-1.5">
-        <Label htmlFor="password">New password</Label>
+        <Label htmlFor="password">{t.newPassword}</Label>
         <Input id="password" name="password" type="password" required minLength={8} autoComplete="new-password" />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="confirm">Confirm password</Label>
+        <Label htmlFor="confirm">{t.confirmPassword}</Label>
         <Input id="confirm" name="confirm" type="password" required minLength={8} autoComplete="new-password" />
       </div>
       <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Updating…" : "Update password"}
+        {pending ? t.updating : t.updatePassword}
       </Button>
     </form>
   );

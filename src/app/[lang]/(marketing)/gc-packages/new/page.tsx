@@ -4,12 +4,21 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/access/access";
 import { gcFormPath, parseAwardRef } from "@/lib/gc/packages";
 import { SITE } from "@/lib/site";
-import { setLangFrom } from "@/i18n/server";
+import { getLang, getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale, localizePath } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { fmt } from "@/i18n/format";
 
-export const metadata: Metadata = {
-  title: "Post a sub-trade package",
-  robots: { index: false, follow: true },
-};
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  return {
+    title: getDictionary(l).partners.gcStart.metaTitle,
+    robots: { index: false, follow: true },
+    alternates: alternatesFor(l, "/gc-packages/new"),
+  };
+}
 
 /**
  * One link for every "post your sub-trade packages" button (award pages,
@@ -21,29 +30,30 @@ export default async function StartGcPackagePage({
   searchParams: Promise<{ award?: string }>;
 } & { params: Promise<object> }) {
   await setLangFrom(params);
+  const lang = getLang();
+  const t = getT("partners").gcStart;
   const award = parseAwardRef((await searchParams).award);
   const form = gcFormPath(award);
   const session = await getSession();
 
-  if (!session) redirect(`/sign-up?role=general_contractor${award ? `&award=${encodeURIComponent(award)}` : ""}`);
+  if (!session) redirect(localizePath(`/sign-up?role=general_contractor${award ? `&award=${encodeURIComponent(award)}` : ""}`, lang));
   if (!session.profile.onboarding_completed) {
-    redirect(`/onboarding?kind=gc&next=${encodeURIComponent(form)}`);
+    redirect(localizePath(`/onboarding?kind=gc&next=${encodeURIComponent(form)}`, lang));
   }
-  if (session.profile.primary_role === "property_manager") redirect(form);
+  if (session.profile.primary_role === "property_manager") redirect(localizePath(form, lang));
 
   // Signed in as a trade, supplier or visitor: packages are posted from a
   // contractor account, which can't also hold a paid trade listing.
   return (
     <div className="mx-auto max-w-xl px-5 py-16">
-      <h1 className="text-2xl font-semibold tracking-tight">Sub-trade packages are posted from a contractor account</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">{t.title}</h1>
       <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-        You&apos;re signed in with a {session.profile.primary_role === "trade" ? "trade" : "non-contractor"} account. To post
-        packages for a job you&apos;re running, create a separate general contractor account with another email, or
-        email us at <a href={`mailto:${SITE.email}`} className="font-medium text-teal-700 underline">{SITE.email}</a> and
-        we&apos;ll post it for you.
+        {fmt(t.body, { kind: session.profile.primary_role === "trade" ? t.kindTrade : t.kindOther })}
+        <a href={`mailto:${SITE.email}`} className="font-medium text-teal-700 underline">{SITE.email}</a>
+        {t.after}
       </p>
       <Link href="/" className="mt-6 inline-block text-sm font-medium text-teal-700 hover:underline">
-        ← Back to {SITE.name}
+        {fmt(t.back, { site: SITE.name })}
       </Link>
     </div>
   );

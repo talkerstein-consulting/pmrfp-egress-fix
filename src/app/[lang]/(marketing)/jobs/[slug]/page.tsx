@@ -8,44 +8,64 @@ import { Badge } from "@/components/ui/badge";
 import { JobApplyForm } from "@/components/jobs/job-forms";
 import { JsonLd } from "@/lib/seo/jsonld";
 import { getJob } from "@/lib/jobs/data";
-import { EMPLOYMENT_LABEL, jobPostingJsonLd, payLabel } from "@/lib/jobs/rules";
-import { setLangFrom } from "@/i18n/server";
+import { jobPostingJsonLd, payLabelIn } from "@/lib/jobs/rules";
+import { getLang, getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale, type Locale } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { fmt, formatDate } from "@/i18n/format";
+import { regionName, tradeName } from "@/i18n/terms";
 
 const BASE = (process.env.NEXT_PUBLIC_SITE_URL || "https://pmrfp.com").replace(/\/$/, "");
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = { params: Promise<{ lang: string; slug: string }> };
 
 function isOpen(job: { status: string; expiresAt: string }): boolean {
   return job.status === "open" && job.expiresAt >= new Date().toISOString().slice(0, 10);
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params;
+  const { lang, slug } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const dict = getDictionary(l);
+  const t = dict.jobs.detail.meta;
   const job = await getJob(slug);
-  if (!job) return { title: "Job not found" };
-  const where = [job.city, job.province].filter(Boolean).join(", ");
+  if (!job) return { title: t.notFound };
+  const where = [job.city, job.province && regionName(job.province, l)].filter(Boolean).join(", ");
+  const vars = {
+    type: dict.jobsClient.employment[job.employmentType],
+    company: job.company.name,
+    where,
+    excerpt: job.description.slice(0, 120),
+  };
   return {
     title: `${job.title} — ${job.company.name}, ${where}`,
-    description: `${EMPLOYMENT_LABEL[job.employmentType]} ${job.trade ? `${job.trade.toLowerCase()} ` : ""}job with ${job.company.name} in ${where}. ${job.description.slice(0, 120)}`,
-    alternates: { canonical: `/jobs/${job.slug}` },
+    description: job.trade
+      ? fmt(t.descriptionTrade, { ...vars, trade: l === "en" ? job.trade.toLowerCase() : tradeName(job.trade, l) })
+      : fmt(t.description, vars),
+    alternates: alternatesFor(l, `/jobs/${job.slug}`),
     // Closed jobs stay reachable for old links but drop out of search.
     ...(isOpen(job) ? {} : { robots: { index: false, follow: true } }),
   };
 }
 
-function fmt(d: string) {
-  return new Date(`${d.slice(0, 10)}T12:00:00Z`).toLocaleDateString("en-CA", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+function day(d: string, lang: Locale) {
+  return formatDate(`${d.slice(0, 10)}T12:00:00Z`, lang, { month: "long", day: "numeric", year: "numeric" });
 }
 
 export default async function JobPage({ params }: Props) {
   await setLangFrom(params);
+  const lang = getLang();
+  const t = getT("jobs");
+  const labels = getT("jobsClient");
   const { slug } = await params;
   const job = await getJob(slug);
   if (!job) notFound();
   const open = isOpen(job);
-  const pay = payLabel(job.payMin, job.payMax, job.payUnit);
-  const where = [job.city, job.province].filter(Boolean).join(", ");
+  const pay = payLabelIn(lang, labels.pay, job.payMin, job.payMax, job.payUnit);
+  const where = [job.city, job.province && regionName(job.province, lang)].filter(Boolean).join(", ");
   const listed = job.company.type === "trade_company" || job.company.type === "supplier";
+  const type = labels.employment[job.employmentType];
 
   return (
     <Container className="py-10">
@@ -74,15 +94,15 @@ export default async function JobPage({ params }: Props) {
         />
       )}
       <Link href="/jobs" className="text-sm text-muted-foreground hover:text-foreground">
-        ← All jobs
+        {t.detail.allJobs}
       </Link>
 
       <div className="mt-6 grid gap-10 lg:grid-cols-[1fr_360px]">
         <div className="min-w-0">
           <div className="flex flex-wrap gap-1.5">
-            {job.trade && <Badge variant="secondary">{job.trade}</Badge>}
-            <Badge variant="outline">{EMPLOYMENT_LABEL[job.employmentType]}</Badge>
-            {job.pro && <Badge className="bg-indigo text-teal-300">Pro employer</Badge>}
+            {job.trade && <Badge variant="secondary">{tradeName(job.trade, lang)}</Badge>}
+            <Badge variant="outline">{type}</Badge>
+            {job.pro && <Badge className="bg-indigo text-teal-300">{t.detail.proEmployer}</Badge>}
           </div>
           <h1 className="mt-3 text-3xl font-semibold tracking-tight">{job.title}</h1>
           <p className="mt-2 text-lg text-muted-foreground">{job.company.name}</p>
@@ -91,7 +111,7 @@ export default async function JobPage({ params }: Props) {
               <MapPin className="size-4" /> {where}
             </span>
             <span className="flex items-center gap-1.5">
-              <Briefcase className="size-4" /> {EMPLOYMENT_LABEL[job.employmentType]}
+              <Briefcase className="size-4" /> {type}
             </span>
             {pay && (
               <span className="flex items-center gap-1.5 font-medium text-foreground">
@@ -99,49 +119,48 @@ export default async function JobPage({ params }: Props) {
               </span>
             )}
             <span className="flex items-center gap-1.5">
-              <CalendarClock className="size-4" /> Posted {fmt(job.createdAt)}
+              <CalendarClock className="size-4" /> {fmt(t.detail.posted, { date: day(job.createdAt, lang) })}
             </span>
           </div>
 
           {!open && (
             <p className="mt-6 rounded-xl border border-border bg-secondary/50 p-4 text-sm">
-              <strong>This job is no longer taking applications.</strong>{" "}
+              <strong>{t.detail.closed}</strong>{" "}
               <Link href={job.tradeSlug ? `/jobs?trade=${job.tradeSlug}` : "/jobs"} className="font-medium text-teal-700 hover:underline">
-                See open {job.trade ? job.trade.toLowerCase() : ""} jobs
+                {job.trade ? fmt(t.detail.seeOpenTrade, { trade: job.trade.toLowerCase() }) : t.detail.seeOpenAll}
               </Link>
             </p>
           )}
 
           <section className="mt-8">
-            <h2 className="text-lg font-semibold tracking-tight">About the job</h2>
+            <h2 className="text-lg font-semibold tracking-tight">{t.detail.about}</h2>
             <p className="mt-3 whitespace-pre-line leading-relaxed text-foreground/90">{job.description}</p>
           </section>
           {job.requirements && (
             <section className="mt-8">
-              <h2 className="text-lg font-semibold tracking-tight">Requirements</h2>
+              <h2 className="text-lg font-semibold tracking-tight">{t.detail.requirements}</h2>
               <p className="mt-3 whitespace-pre-line leading-relaxed text-foreground/90">{job.requirements}</p>
             </section>
           )}
           <p className="mt-10 text-xs leading-relaxed text-muted-foreground">
-            Posted by {job.company.name} on PMRFP. PMRFP doesn&apos;t employ or vet applicants and isn&apos;t party to any
-            hiring decision.
+            {fmt(t.detail.disclaimer, { company: job.company.name })}
           </p>
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
           {open && (
             <div className="rounded-xl border border-border bg-card p-5">
-              <h2 className="font-semibold">Apply to {job.company.name}</h2>
-              <p className="mb-4 mt-1 text-sm text-muted-foreground">Takes a minute. They reply to you directly.</p>
+              <h2 className="font-semibold">{fmt(t.detail.applyTo, { company: job.company.name })}</h2>
+              <p className="mb-4 mt-1 text-sm text-muted-foreground">{t.detail.applyNote}</p>
               <JobApplyForm slug={job.slug} company={job.company.name} />
             </div>
           )}
           <p className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
-            Looking for work?{" "}
+            {t.common.lookingForWork}{" "}
             <Link href="/talent/edit" className="font-medium text-teal-700 hover:underline">
-              Make a free profile
+              {t.detail.profileLink}
             </Link>{" "}
-            so companies hiring in your trade can find you.
+            {t.detail.profileAfter}
           </p>
           <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-4">
             <span className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-white text-sm font-bold text-indigo">
@@ -155,10 +174,10 @@ export default async function JobPage({ params }: Props) {
               <p className="truncate font-semibold">{job.company.name}</p>
               {listed ? (
                 <Link href={`/directory/${job.company.slug}`} className="text-sm font-medium text-teal-700 hover:underline">
-                  See their profile and past work
+                  {t.detail.seeCompany}
                 </Link>
               ) : (
-                <p className="text-sm text-muted-foreground">Hiring on PMRFP</p>
+                <p className="text-sm text-muted-foreground">{t.detail.hiringOnPmrfp}</p>
               )}
             </div>
           </div>

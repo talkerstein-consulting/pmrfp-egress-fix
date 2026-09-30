@@ -7,33 +7,30 @@ import { Check } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PRICING } from "@/lib/site";
-
-const FEATURES = [
-  "Listed on your trade + city pages",
-  "Unlimited project photo gallery",
-  "Case studies featured on your profile",
-  "Google rating displayed on your profile",
-  "Priority over free listings",
-];
+import { useLang, useT } from "@/i18n/provider";
+import { fmt, formatNumber } from "@/i18n/format";
 
 export function SeoListingCard({ monthlyEnabled = true }: { monthlyEnabled?: boolean }) {
+  const t = useT("salesClient");
+  const lang = useLang();
   const [interval, setInterval] = useState<"annual" | "monthly">("annual");
   const isAnnual = interval === "annual" || !monthlyEnabled;
 
   const annualEffective = PRICING.seoMonthly * 12;
   const savings = annualEffective - PRICING.seoAnnual;
+  const num = (n: number) => formatNumber(n, lang);
 
   return (
     <div className="flex h-full flex-col rounded-xl border border-border bg-card p-8">
-      <h2 className="text-lg font-semibold text-foreground">SEO Listing</h2>
+      <h2 className="text-lg font-semibold text-foreground">{t.seo.name}</h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        Get found where property managers actually search — no RFP access.
+        {t.seo.blurb}
       </p>
 
       {monthlyEnabled && (
         <div
           role="tablist"
-          aria-label="Billing interval"
+          aria-label={t.interval.label}
           className="mt-5 inline-flex self-start rounded-full border border-border bg-background p-1"
         >
           <button
@@ -45,7 +42,7 @@ export function SeoListingCard({ monthlyEnabled = true }: { monthlyEnabled?: boo
               isAnnual ? "bg-indigo text-white" : "text-muted-foreground hover:text-foreground",
             )}
           >
-            Annual · save ${savings}
+            {fmt(t.interval.annual, { n: num(savings) })}
           </button>
           <button
             role="tab"
@@ -56,27 +53,29 @@ export function SeoListingCard({ monthlyEnabled = true }: { monthlyEnabled?: boo
               !isAnnual ? "bg-indigo text-white" : "text-muted-foreground hover:text-foreground",
             )}
           >
-            Monthly
+            {t.interval.monthly}
           </button>
         </div>
       )}
 
       <div className="mt-5 flex items-baseline gap-1">
         <span className="text-4xl font-semibold text-foreground">
-          ${isAnnual ? PRICING.seoAnnual : PRICING.seoMonthly}
+          {fmt(t.price, { n: num(isAnnual ? PRICING.seoAnnual : PRICING.seoMonthly) })}
         </span>
         <span className="text-sm text-muted-foreground">
-          {PRICING.currency}/{isAnnual ? "year" : "month"}
+          {fmt(isAnnual ? t.perYear : t.perMonth, { currency: PRICING.currency })}
         </span>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
         {isAnnual
-          ? `~$${(PRICING.seoAnnual / 12).toFixed(2)}/mo billed annually`
-          : `$${annualEffective}/yr if held all year — switch to annual any time to save $${savings}`}
+          ? fmt(t.billedAnnually, {
+              n: formatNumber(PRICING.seoAnnual / 12, lang, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+            })
+          : fmt(t.monthlyNote, { total: num(annualEffective), savings: num(savings) })}
       </p>
 
       <ul className="mt-6 flex-1 space-y-3">
-        {FEATURES.map((f) => (
+        {t.seo.features.map((f) => (
           <li key={f} className="flex items-start gap-2 text-sm text-foreground">
             <Check className="mt-0.5 size-4 shrink-0 text-teal-600" />
             {f}
@@ -87,7 +86,7 @@ export function SeoListingCard({ monthlyEnabled = true }: { monthlyEnabled?: boo
         href={signUpHrefForPlan("seo", isAnnual ? "annual" : "monthly")}
         className={cn(buttonVariants({ size: "lg", variant: "outline" }), "mt-8 w-full")}
       >
-        Get an SEO Listing
+        {t.seo.cta}
       </Link>
     </div>
   );

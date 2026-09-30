@@ -24,21 +24,21 @@ import { publishProjectAction } from "@/lib/projects/actions";
 import {
   anyPrivacyFlag,
   NO_PRIVACY_FLAGS,
-  PRIVACY_WARNING,
   type PrivacyFlags,
   type ProjectDraft,
 } from "@/lib/projects/draft";
 import { PHOTO_KINDS, type PhotoKind, type ProjectPhoto } from "@/lib/projects/photos";
 import { cn } from "@/lib/utils";
+import { useLang, useT } from "@/i18n/provider";
+import { localizePath } from "@/i18n/config";
+import { fmt } from "@/i18n/format";
+import { propertyTypeName, regionName, tradeName } from "@/i18n/terms";
+import type { ClientMessages } from "@/i18n/dictionaries";
+
+type Strings = ClientMessages["dashClient"]["capture"];
 
 const CLIENT_MAX_EDGE = 2000;
 const CLIENT_QUALITY = 0.85;
-
-const SLOT_COPY: Record<PhotoKind, { label: string; hint: string }> = {
-  before: { label: "Before", hint: "The problem, as you found it" },
-  during: { label: "During", hint: "The work in progress" },
-  after: { label: "After", hint: "The finished job" },
-};
 
 interface LocalPhoto {
   id: string;
@@ -100,7 +100,11 @@ async function shrink(file: File): Promise<Blob> {
   }
 }
 
-function upload(blob: Blob, onProgress: (p: number) => void): Promise<NonNullable<LocalPhoto["result"]>> {
+function upload(
+  blob: Blob,
+  onProgress: (p: number) => void,
+  t: Pick<Strings, "tooBig" | "uploadFailed" | "offline">,
+): Promise<NonNullable<LocalPhoto["result"]>> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/projects/photos");
@@ -120,12 +124,12 @@ function upload(blob: Blob, onProgress: (p: number) => void): Promise<NonNullabl
         reject(
           new Error(
             body.error ??
-              (xhr.status === 413 ? "That photo is too big. Try a smaller one." : "Upload failed. Tap to retry."),
+              (xhr.status === 413 ? t.tooBig : t.uploadFailed),
           ),
         );
       }
     };
-    xhr.onerror = () => reject(new Error("No connection. Tap to retry."));
+    xhr.onerror = () => reject(new Error(t.offline));
     const fd = new FormData();
     fd.append("file", blob, "photo.jpg");
     xhr.send(fd);
@@ -150,6 +154,8 @@ export function ProjectCapture({
   propertyTypes: Option[];
   regions: RegionOption[];
 }) {
+  const t = useT("dashClient").capture;
+  const lang = useLang();
   const [photos, setPhotos] = useState<LocalPhoto[]>([]);
   const blobs = useRef(new Map<string, Blob>());
 
@@ -195,11 +201,11 @@ export function ProjectCapture({
     if (!blob) return;
     patch(id, { status: "uploading", progress: 0, error: undefined });
     try {
-      const result = await upload(blob, (progress) => patch(id, { progress }));
+      const result = await upload(blob, (progress) => patch(id, { progress }), t);
       patch(id, { status: "done", progress: 1, result });
       blobs.current.delete(id);
     } catch (err) {
-      patch(id, { status: "error", error: err instanceof Error ? err.message : "Upload failed. Tap to retry." });
+      patch(id, { status: "error", error: err instanceof Error ? err.message : t.uploadFailed });
     }
   }
 
@@ -211,8 +217,8 @@ export function ProjectCapture({
     setPhotoMsg(
       files.length > room
         ? paid
-          ? `Up to ${photoLimit} photos per project. We added the first ${room}.`
-          : `The free plan allows ${photoLimit} photos per project. We added the first ${room}.`
+          ? fmt(t.limitPaid, { limit: photoLimit, room })
+          : fmt(t.limitFree, { limit: photoLimit, room })
         : null,
     );
     const fresh: LocalPhoto[] = accepted.map((f) => ({
@@ -255,7 +261,7 @@ export function ProjectCapture({
       });
       const body = (await res.json().catch(() => ({}))) as { draft?: ProjectDraft; error?: string };
       if (!res.ok || !body.draft) {
-        setDraftMsg({ tone: "error", text: body.error ?? "Couldn't write it right now. Write it yourself below." });
+        setDraftMsg({ tone: "error", text: body.error ?? t.draftFailed });
         return;
       }
       const d = body.draft;
@@ -268,10 +274,10 @@ export function ProjectCapture({
       if (d.propertyTypeSlug) setPropertyTypeSlug(d.propertyTypeSlug);
       setPrivacy(d.privacy);
       setPhotosChecked(false);
-      setDraftMsg({ tone: "ok", text: "Done. Read it over and fix anything that's off." });
+      setDraftMsg({ tone: "ok", text: t.draftDone });
       writeUpRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch {
-      setDraftMsg({ tone: "error", text: "Couldn't write it right now. Write it yourself below." });
+      setDraftMsg({ tone: "error", text: t.draftFailed });
     } finally {
       setDrafting(false);
     }
@@ -279,8 +285,8 @@ export function ProjectCapture({
 
   function publish() {
     setPublishError(null);
-    if (uploading) return setPublishError("Wait for the photos to finish uploading.");
-    if (done.length === 0) return setPublishError("Add at least one photo.");
+    if (uploading) return setPublishError(t.waitUploads);
+    if (done.length === 0) return setPublishError(t.needPhoto);
     const ordered = PHOTO_KINDS.flatMap((k) => done.filter((p) => p.kind === k));
     const payload: ProjectPhoto[] = ordered.map((p) => ({ ...p.result!, kind: p.kind }));
     startPublish(async () => {
@@ -305,7 +311,7 @@ export function ProjectCapture({
 
   const flagged = anyPrivacyFlag(privacy);
   const canDraft = !drafting && !uploading && (done.length > 0 || notes.trim().length > 0);
-  const regionGroups = groupByCountry(regions);
+  const regionGroups = groupByCountry(regions, t.otherCountry);
 
   const field =
     "mt-1 w-full rounded-lg border border-border bg-background px-3 py-2.5 text-base sm:text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20";
@@ -315,14 +321,15 @@ export function ProjectCapture({
     <div className="max-w-3xl pb-4">
       {/* ── 1. Photos ── */}
       <section aria-labelledby="photos-h">
-        <StepHeading id="photos-h" n={1} title="Photos">
-          {paid ? "Before, during and after. The after shot becomes the cover." : `Free plan: up to ${photoLimit} photos.`}
+        <StepHeading id="photos-h" n={1} title={t.photos}>
+          {paid ? t.photosPaid : fmt(t.photosFree, { limit: photoLimit })}
         </StepHeading>
         <div className="grid gap-3 sm:grid-cols-3">
           {PHOTO_KINDS.map((kind) => (
             <PhotoSlot
               key={kind}
               kind={kind}
+              t={t}
               photos={photos.filter((p) => p.kind === kind)}
               full={remaining <= 0}
               onFiles={(files) => addFiles(kind, files)}
@@ -334,17 +341,17 @@ export function ProjectCapture({
         {photoMsg && <p className="mt-2 text-sm text-amber-800">{photoMsg}</p>}
         {remaining <= 0 && !paid && (
           <p className="mt-2 text-sm text-muted-foreground">
-            That&apos;s the free-plan limit.{" "}
-            <a href="/pricing" className="font-medium text-teal-ink hover:underline">Trade Pro</a> adds up to 24
-            photos per project, more projects, and client reviews.
+            {t.freeLimit}{" "}
+            <a href={localizePath("/pricing", lang)} className="font-medium text-teal-ink hover:underline">Trade Pro</a>{" "}
+            {t.freeLimitAfter}
           </p>
         )}
       </section>
 
       {/* ── 2. Notes + AI ── */}
       <section aria-labelledby="notes-h" className="mt-8">
-        <StepHeading id="notes-h" n={2} title="What did you do?">
-          A line or two is plenty. Size, building type, city, anything tricky.
+        <StepHeading id="notes-h" n={2} title={t.notesTitle}>
+          {t.notesHint}
         </StepHeading>
         <textarea
           id="notes"
@@ -353,7 +360,7 @@ export function ProjectCapture({
           rows={3}
           maxLength={3000}
           className={field}
-          placeholder="Replaced the flat roof on a 24,000 sq ft warehouse in Mississauga. Found rotten deck at two drains and fixed it. Done in 9 days with tenants open."
+          placeholder={t.notesPlaceholder}
         />
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button
@@ -363,10 +370,10 @@ export function ProjectCapture({
             className="inline-flex h-11 items-center gap-2 rounded-full bg-indigo px-5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             {drafting ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4 text-teal-300" />}
-            {drafting ? "Reading your photos…" : "Write it for me"}
+            {drafting ? t.reading : t.writeForMe}
           </button>
           <span className="text-xs text-muted-foreground">
-            {uploading ? "Waiting for photos to finish…" : "Uses your photos and notes. You can edit everything."}
+            {uploading ? t.waiting : t.usesNotes}
           </span>
         </div>
         {draftMsg && (
@@ -385,80 +392,80 @@ export function ProjectCapture({
 
       {/* ── 3. Write-up ── */}
       <section aria-labelledby="writeup-h" className="mt-8 scroll-mt-6" ref={writeUpRef}>
-        <StepHeading id="writeup-h" n={3} title="The write-up">
-          This is what property managers read. Plain and specific beats polished.
+        <StepHeading id="writeup-h" n={3} title={t.writeUp}>
+          {t.writeUpHint}
         </StepHeading>
         <div className="space-y-4">
           <div>
-            <label htmlFor="title" className={label}>Title</label>
+            <label htmlFor="title" className={label}>{t.title}</label>
             <input
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={140}
               className={field}
-              placeholder="Flat roof replacement, 24,000 sq ft warehouse, Mississauga"
+              placeholder={t.titlePlaceholder}
             />
           </div>
           <div>
             <label htmlFor="summary" className={label}>
-              Summary <span className="font-normal text-muted-foreground">(optional)</span>
+              {t.summary} <span className="font-normal text-muted-foreground">{t.optional}</span>
             </label>
             <textarea id="summary" value={summary} onChange={(e) => setSummary(e.target.value)} rows={2} maxLength={400} className={field} />
           </div>
           <div>
-            <label htmlFor="challenge" className={label}>The challenge</label>
+            <label htmlFor="challenge" className={label}>{t.challenge}</label>
             <textarea id="challenge" value={challenge} onChange={(e) => setChallenge(e.target.value)} rows={4} maxLength={3000} className={field}
-              placeholder="What was wrong, and what made it hard?" />
+              placeholder={t.challengePlaceholder} />
           </div>
           <div>
-            <label htmlFor="approach" className={label}>What you did</label>
+            <label htmlFor="approach" className={label}>{t.approach}</label>
             <textarea id="approach" value={approach} onChange={(e) => setApproach(e.target.value)} rows={4} maxLength={3000} className={field}
-              placeholder="How you tackled it, and why." />
+              placeholder={t.approachPlaceholder} />
           </div>
           <div>
-            <label htmlFor="outcome" className={label}>The result</label>
+            <label htmlFor="outcome" className={label}>{t.outcome}</label>
             <textarea id="outcome" value={outcome} onChange={(e) => setOutcome(e.target.value)} rows={4} maxLength={3000} className={field}
-              placeholder="What got delivered, how long it took, what changed for the building." />
+              placeholder={t.outcomePlaceholder} />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="category" className={label}>Trade</label>
+              <label htmlFor="category" className={label}>{t.trade}</label>
               <select id="category" value={categorySlug} onChange={(e) => setCategorySlug(e.target.value)} className={field}>
-                <option value="">Select…</option>
+                <option value="">{t.select}</option>
                 {categories.map((c) => (
-                  <option key={c.slug} value={c.slug}>{c.name}</option>
+                  <option key={c.slug} value={c.slug}>{tradeName(c.name, lang)}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label htmlFor="propertyType" className={label}>Property type</label>
+              <label htmlFor="propertyType" className={label}>{t.propertyType}</label>
               <select id="propertyType" value={propertyTypeSlug} onChange={(e) => setPropertyTypeSlug(e.target.value)} className={field}>
-                <option value="">Select…</option>
+                <option value="">{t.select}</option>
                 {propertyTypes.map((p) => (
-                  <option key={p.slug} value={p.slug}>{p.name}</option>
+                  <option key={p.slug} value={p.slug}>{propertyTypeName(p.name, lang)}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label htmlFor="city" className={label}>City</label>
-              <input id="city" value={city} onChange={(e) => setCity(e.target.value)} maxLength={80} className={field} placeholder="Mississauga" autoComplete="address-level2" />
+              <label htmlFor="city" className={label}>{t.city}</label>
+              <input id="city" value={city} onChange={(e) => setCity(e.target.value)} maxLength={80} className={field} placeholder={t.cityPlaceholder} autoComplete="address-level2" />
             </div>
             <div>
-              <label htmlFor="region" className={label}>Region</label>
+              <label htmlFor="region" className={label}>{t.region}</label>
               <select id="region" value={regionSlug} onChange={(e) => setRegionSlug(e.target.value)} className={field}>
-                <option value="">Select…</option>
+                <option value="">{t.select}</option>
                 {regionGroups.map((g) =>
                   regionGroups.length > 1 ? (
-                    <optgroup key={g.country} label={g.country}>
+                    <optgroup key={g.country} label={regionName(g.country, lang)}>
                       {g.regions.map((r) => (
-                        <option key={r.slug} value={r.slug}>{r.name}</option>
+                        <option key={r.slug} value={r.slug}>{regionName(r.name, lang)}</option>
                       ))}
                     </optgroup>
                   ) : (
                     g.regions.map((r) => (
-                      <option key={r.slug} value={r.slug}>{r.name}</option>
+                      <option key={r.slug} value={r.slug}>{regionName(r.name, lang)}</option>
                     ))
                   ),
                 )}
@@ -473,13 +480,13 @@ export function ProjectCapture({
         {flagged && (
           <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
             <p className="flex items-center gap-2 font-semibold">
-              <AlertTriangle className="size-4" /> Check before you publish
+              <AlertTriangle className="size-4" /> {t.checkTitle}
             </p>
             <ul className="mt-2 list-disc space-y-1 pl-5">
-              {(Object.keys(PRIVACY_WARNING) as (keyof PrivacyFlags)[])
+              {(Object.keys(t.privacy) as (keyof PrivacyFlags)[])
                 .filter((k) => privacy[k])
                 .map((k) => (
-                  <li key={k}>{PRIVACY_WARNING[k]}</li>
+                  <li key={k}>{t.privacy[k]}</li>
                 ))}
             </ul>
             <label className="mt-3 flex items-start gap-2.5 font-medium">
@@ -489,7 +496,7 @@ export function ProjectCapture({
                 onChange={(e) => setPhotosChecked(e.target.checked)}
                 className="mt-0.5 size-5 accent-teal-700"
               />
-              I&apos;ve checked the photos and the text.
+              {t.checked}
             </label>
           </div>
         )}
@@ -501,10 +508,8 @@ export function ProjectCapture({
             className="mt-0.5 size-5 accent-teal-700"
           />
           <span>
-            The client is OK with us sharing this project.
-            <span className="block text-xs text-muted-foreground">
-              Don&apos;t name the client or show the address unless they said yes.
-            </span>
+            {t.clientOk}
+            <span className="block text-xs text-muted-foreground">{t.clientOkHint}</span>
           </span>
         </label>
       </section>
@@ -524,12 +529,10 @@ export function ProjectCapture({
             className="inline-flex h-12 w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-primary px-6 text-base font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40 sm:w-auto"
           >
             {publishing && <Loader2 className="size-4 animate-spin" />}
-            {autoPublish ? "Publish project" : "Send for review"}
+            {autoPublish ? t.publish : t.sendReview}
           </button>
           <span className="text-center text-xs text-muted-foreground sm:text-left">
-            {autoPublish
-              ? "Goes live on your profile right away."
-              : "We check it before it goes live, usually within a day."}
+            {autoPublish ? t.publishHint : t.reviewHint}
           </span>
         </div>
       </div>
@@ -537,10 +540,10 @@ export function ProjectCapture({
   );
 }
 
-function groupByCountry(regions: RegionOption[]): { country: string; regions: RegionOption[] }[] {
+function groupByCountry(regions: RegionOption[], other: string): { country: string; regions: RegionOption[] }[] {
   const map = new Map<string, RegionOption[]>();
   for (const r of regions) {
-    const key = r.country || "Other";
+    const key = r.country || other;
     map.set(key, [...(map.get(key) ?? []), r]);
   }
   return [...map.entries()].map(([country, list]) => ({ country, regions: list }));
@@ -560,6 +563,7 @@ function StepHeading({ id, n, title, children }: { id: string; n: number; title:
 
 function PhotoSlot({
   kind,
+  t,
   photos,
   full,
   onFiles,
@@ -567,6 +571,7 @@ function PhotoSlot({
   onRetry,
 }: {
   kind: PhotoKind;
+  t: Strings;
   photos: LocalPhoto[];
   full: boolean;
   onFiles: (files: FileList | null) => void;
@@ -575,7 +580,7 @@ function PhotoSlot({
 }) {
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
-  const copy = SLOT_COPY[kind];
+  const copy = t.slots[kind];
 
   const pick = (ref: React.RefObject<HTMLInputElement | null>) => {
     if (!full) ref.current?.click();
@@ -600,7 +605,7 @@ function PhotoSlot({
       {photos.length > 0 && (
         <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-2">
           {photos.map((p) => (
-            <Thumb key={p.id} photo={p} onRemove={() => onRemove(p.id)} onRetry={() => onRetry(p.id)} />
+            <Thumb key={p.id} photo={p} t={t} onRemove={() => onRemove(p.id)} onRetry={() => onRetry(p.id)} />
           ))}
         </div>
       )}
@@ -616,7 +621,7 @@ function PhotoSlot({
         )}
       >
         <Camera className="size-5" />
-        {photos.length === 0 ? `Take ${copy.label.toLowerCase()} photo` : "Add another"}
+        {photos.length === 0 ? copy.take : t.addAnother}
       </button>
       <button
         type="button"
@@ -624,13 +629,13 @@ function PhotoSlot({
         disabled={full}
         className="mt-2 flex w-full items-center justify-center gap-1.5 text-xs font-medium text-teal-ink hover:underline disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <ImagePlus className="size-3.5" /> Choose from library
+        <ImagePlus className="size-3.5" /> {t.library}
       </button>
     </div>
   );
 }
 
-function Thumb({ photo, onRemove, onRetry }: { photo: LocalPhoto; onRemove: () => void; onRetry: () => void }) {
+function Thumb({ photo, t, onRemove, onRetry }: { photo: LocalPhoto; t: Strings; onRemove: () => void; onRetry: () => void }) {
   const pct = Math.round(photo.progress * 100);
   return (
     <div className="relative aspect-square overflow-hidden rounded-lg bg-secondary">
@@ -638,7 +643,7 @@ function Thumb({ photo, onRemove, onRetry }: { photo: LocalPhoto; onRemove: () =
       <img src={photo.preview} alt="" className={cn("size-full object-cover", photo.status !== "done" && "opacity-60")} />
 
       {photo.status === "uploading" && (
-        <div className="absolute inset-0 flex items-center justify-center" aria-label={`Uploading, ${pct}%`}>
+        <div className="absolute inset-0 flex items-center justify-center" aria-label={fmt(t.uploadingPct, { pct })}>
           <svg viewBox="0 0 36 36" className="size-10 -rotate-90 drop-shadow">
             <circle cx="18" cy="18" r="15" fill="rgba(0,0,0,.45)" stroke="rgba(255,255,255,.35)" strokeWidth="3" />
             <circle
@@ -670,14 +675,14 @@ function Thumb({ photo, onRemove, onRetry }: { photo: LocalPhoto; onRemove: () =
           className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/55 p-1 text-center text-[11px] font-medium leading-tight text-white"
         >
           <RotateCw className="size-4" />
-          {photo.error ?? "Tap to retry"}
+          {photo.error ?? t.retry}
         </button>
       )}
 
       <button
         type="button"
         onClick={onRemove}
-        aria-label="Remove photo"
+        aria-label={t.remove}
         className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white hover:bg-black/85"
       >
         <X className="size-3.5" />

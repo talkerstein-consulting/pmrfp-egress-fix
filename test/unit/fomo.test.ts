@@ -24,4 +24,14 @@ describe("fomo helpers (real data only)", () => {
     expect(compactDollars(1_250_000)).toBe("$1.3M");
     expect(compactDollars(84_500)).toBe("$85K");
   });
+  it("formats headline totals and countdowns in French and Spanish", () => {
+    expect(compactDollars(1_250_000, "fr")).toBe("1,3 M$");
+    expect(compactDollars(1_437_000_000, "es")).toBe("$1,400 M");
+    expect(compactDollars(184_442_480, "es")).toBe("$184 M");
+    expect(compactDollars(1_250_000, "es")).toBe("$1.3 M");
+    expect(compactDollars(84_500, "es")).toBe("$85 mil");
+    expect(compactDollars(420, "es")).toBe("$420");
+    expect(closingLabel(0, "es")).toBe("Cierra hoy");
+    expect(closingLabel(3, "es")).toBe("Cierra en 3 días");
+  });
 });

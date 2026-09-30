@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/i18n/provider";
+import { fmt } from "@/i18n/format";
 
 export function RequestIntroForm({
   vendorSlug,
@@ -13,6 +15,7 @@ export function RequestIntroForm({
   vendorSlug: string;
   vendorName: string;
 }) {
+  const t = useT("directoryClient").intro;
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -29,6 +32,7 @@ export function RequestIntroForm({
           requestType: "directory_intro",
           name: fd.get("name"),
           email: fd.get("email"),
+          // Internal default for the ops inbox, not shown to the visitor.
           message: fd.get("message") || `Introduction request for ${vendorName}.`,
           targetOrganizationId: vendorSlug,
           company_website: fd.get("company_website") ?? "",
@@ -36,26 +40,26 @@ export function RequestIntroForm({
       });
       if (!res.ok) throw new Error();
       setDone(true);
-      toast.success("Request sent", { description: `We'll pass your request along to ${vendorName}.` });
+      toast.success(t.sentTitle, { description: fmt(t.sentBody, { name: vendorName }) });
     } catch {
-      toast.error("Something went wrong. Please try again.");
+      toast.error(t.error);
     } finally {
       setSubmitting(false);
     }
   }
 
   if (done) {
-    return <p className="text-sm text-success">Thanks — your introduction request has been sent.</p>;
+    return <p className="text-sm text-success">{t.done}</p>;
   }
 
   return (
     <form onSubmit={onSubmit} className="space-y-3">
-      <Input name="name" placeholder="Your name" required />
-      <Input name="email" type="email" placeholder="Your email" required />
-      <Textarea name="message" placeholder={`Tell ${vendorName} a bit about your project (optional)`} rows={3} />
+      <Input name="name" placeholder={t.name} required />
+      <Input name="email" type="email" placeholder={t.email} required />
+      <Textarea name="message" placeholder={fmt(t.message, { name: vendorName })} rows={3} />
       <input type="text" name="company_website" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden />
       <Button type="submit" className="w-full" disabled={submitting}>
-        {submitting ? "Sending…" : "Request introduction"}
+        {submitting ? t.sending : t.submit}
       </Button>
     </form>
   );

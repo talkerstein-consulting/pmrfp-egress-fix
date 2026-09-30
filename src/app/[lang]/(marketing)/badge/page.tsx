@@ -8,20 +8,27 @@ import { buttonVariants } from "@/components/ui/button";
 import { getSession } from "@/lib/access/access";
 import { getBadgeInfo } from "@/lib/badge/data";
 import { SITE } from "@/lib/site";
-import { setLangFrom } from "@/i18n/server";
+import { getLang, getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale, localizePath } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { fmt } from "@/i18n/format";
 
-export const metadata: Metadata = {
-  title: "Free Website Badge for Commercial Trades",
-  description:
-    "Add the free PMRFP badge to your website and email signature. Property managers who click it see your company profile — trades, regions, insurance — which links back to your site.",
-  alternates: { canonical: "/badge" },
-};
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const t = getDictionary(l).partners.badge.meta;
+  return { title: t.title, description: t.description, alternates: alternatesFor(l, "/badge") };
+}
 
 export default async function BadgePage({
   searchParams, params }: {
   searchParams: Promise<{ company?: string }>;
 } & { params: Promise<object> }) {
   await setLangFrom(params);
+  const lang = getLang();
+  const t = getT("partners").badge;
+  const site = { site: SITE.name };
   const [session, { company }] = await Promise.all([getSession(), searchParams]);
   const memberSlug = session?.organization?.slug ?? null;
   // ?company=<slug> — the link in the badge email, so a listed company can
@@ -40,51 +47,45 @@ export default async function BadgePage({
   const host = h.get("host") ?? "pmrfp.com";
   const proto = h.get("x-forwarded-proto") ?? "https";
   const base = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? `${proto}://${host}`;
-  const profileUrl = `${base}/directory/${slug}`;
+  // French and Spanish code link to the profile in that language; English is unchanged.
+  const profileUrl = `${base}${localizePath(`/directory/${slug}`, lang)}`;
 
   return (
     <Container size="narrow" className="py-14">
-      <Eyebrow>Free for listed companies</Eyebrow>
+      <Eyebrow>{t.eyebrow}</Eyebrow>
       <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-        Put your {SITE.name} badge on your website
+        {fmt(t.title, site)}
       </h1>
       <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-        Free for every listed company. Add it to your website footer, your quotes and your email
-        signature. A property manager who clicks it lands on your {SITE.name} profile — your
-        trades, regions, insurance and projects — and your profile links straight back to your
-        website.
+        {fmt(t.body, site)}
       </p>
       <ul className="mt-5 space-y-2 text-sm text-foreground/90">
-        <li className="flex gap-2"><BadgeCheck className="mt-0.5 size-4 shrink-0 text-teal-600" /> Shows buyers you&apos;re set up for commercial work before they call.</li>
-        <li className="flex gap-2"><BadgeCheck className="mt-0.5 size-4 shrink-0 text-teal-600" /> Updates itself — the badge always reflects your current {SITE.name} status.</li>
-        <li className="flex gap-2"><BadgeCheck className="mt-0.5 size-4 shrink-0 text-teal-600" /> Takes two minutes: copy the code below and paste it into your site.</li>
+        {t.bullets.map((b) => (
+          <li key={b} className="flex gap-2"><BadgeCheck className="mt-0.5 size-4 shrink-0 text-teal-600" /> {fmt(b, site)}</li>
+        ))}
       </ul>
 
       {companySlug && linked && (
         <div className="mt-6 rounded-lg border border-teal-300 bg-teal-50/60 p-4 text-sm">
-          This is the badge for <strong>{linked.name}</strong>. Copy the code below — it links to{" "}
+          {t.linked.before}<strong>{linked.name}</strong>{t.linked.mid}
           <Link href={`/directory/${companySlug}`} className="font-medium text-teal-700 hover:underline">
-            your {SITE.name} profile
+            {fmt(t.linked.profile, site)}
           </Link>
-          . Want to edit that profile?{" "}
+          {t.linked.edit}
           <Link href="/sign-up" className="font-medium text-teal-700 hover:underline">
-            Create your free account
+            {t.linked.create}
           </Link>
-          .
+          {t.linked.end}
         </div>
       )}
 
       {!memberSlug && !companySlug && (
         <div className="mt-6 rounded-lg border border-dashed border-teal-300 bg-teal-50/60 p-4 text-sm">
-          {session ? (
-            <>Complete your company profile to generate your own badge. </>
-          ) : (
-            <>You&apos;re viewing a sample badge. </>
-          )}
+          {session ? t.sample.incomplete : t.sample.viewing}
           <Link href="/sign-up" className="font-medium text-teal-700 hover:underline">
-            Join {SITE.name}
-          </Link>{" "}
-          to get yours.
+            {fmt(t.sample.join, site)}
+          </Link>
+          {t.sample.after}
         </div>
       )}
 
@@ -94,58 +95,58 @@ export default async function BadgePage({
 
       <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-card p-5">
         <div>
-          <h2 className="text-base font-semibold">Want more than a badge?</h2>
+          <h2 className="text-base font-semibold">{t.more.title}</h2>
           <p className="mt-1 max-w-md text-sm text-muted-foreground">
-            The company card widget shows your trades, service area and a Request a quote button, right on your site.
+            {t.more.body}
           </p>
         </div>
         <Link
           href={companySlug ? `/widgets?w=company&company=${companySlug}` : "/widgets?w=company"}
           className={buttonVariants({ variant: "outline" })}
         >
-          Get the card
+          {t.more.cta}
         </Link>
       </div>
 
       <section className="mt-12">
-        <h2 className="text-2xl font-semibold tracking-tight">Where to paste it</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">{t.whereTitle}</h2>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <Tier icon={<Code2 className="size-5" />} title="WordPress" desc="Appearance → Widgets (or the Site Editor) → add a Custom HTML block to your footer → paste the website code." />
-          <Tier icon={<Code2 className="size-5" />} title="Wix" desc="Add → Embed Code → Embed HTML → paste the website code, then drag it into your footer." />
-          <Tier icon={<Code2 className="size-5" />} title="Squarespace" desc="Edit your footer → add a Code block → paste the website code." />
-          <Tier icon={<Mail className="size-5" />} title="Email & quotes" desc="Paste the email-signature line into Gmail or Outlook signature settings, and at the bottom of your quote template." />
+          {t.where.map((w, i) => (
+            <Tier key={w.title} icon={i === 3 ? <Mail className="size-5" /> : <Code2 className="size-5" />} title={w.title} desc={w.desc} />
+          ))}
         </div>
         <p className="mt-4 text-sm text-muted-foreground">
-          Someone else runs your website? Send them this page — the code works on any site.
+          {t.whereNote}
         </p>
       </section>
 
       <section className="mt-12">
-        <h2 className="text-2xl font-semibold tracking-tight">Badge tiers</h2>
-        <p className="mt-2 text-sm text-muted-foreground">Your badge gets stronger as you complete your profile.</p>
+        <h2 className="text-2xl font-semibold tracking-tight">{t.tiersTitle}</h2>
+        <p className="mt-2 text-sm text-muted-foreground">{t.tiersNote}</p>
         <div className="mt-5 grid gap-4 sm:grid-cols-3">
-          <Tier icon={<Star className="size-5" />} title="Listed Vendor" desc="You have an approved profile in the PMRFP directory." />
-          <Tier icon={<BadgeCheck className="size-5" />} title="Verified Vendor" desc="Company details reviewed by the PMRFP team. Buyers should still confirm licensing and insurance directly." />
-          <Tier icon={<ShieldCheck className="size-5" />} title="+ Insured" desc="Insurance details listed on your profile (self-reported). Not shown on the badge image — buyers confirm coverage with you." />
+          {t.tiers.map((tier, i) => (
+            <Tier key={tier.title} icon={TIER_ICONS[i]} title={tier.title} desc={tier.desc} />
+          ))}
         </div>
       </section>
 
       <div className="mt-10 flex flex-wrap gap-3">
         <Link href={memberSlug ? "/dashboard/company" : "/sign-up"} className={buttonVariants()}>
-          {memberSlug ? "Update my profile" : "Get my badge"}
+          {memberSlug ? t.update : t.get}
         </Link>
         <Link href={isSample ? "/directory" : `/directory/${slug}`} className={buttonVariants({ variant: "outline" })}>
-          {isSample ? "Browse the directory" : "View profile"}
+          {isSample ? t.browse : t.view}
         </Link>
       </div>
 
       <p className="mt-8 text-xs text-muted-foreground">
-        The badge reflects your current {SITE.name} status and does not guarantee work or constitute
-        an endorsement of any specific project outcome.
+        {fmt(t.disclaimer, site)}
       </p>
     </Container>
   );
 }
+
+const TIER_ICONS = [<Star key="listed" className="size-5" />, <BadgeCheck key="verified" className="size-5" />, <ShieldCheck key="insured" className="size-5" />];
 
 function Tier({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
   return (

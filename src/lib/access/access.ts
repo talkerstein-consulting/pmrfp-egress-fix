@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { localizePath } from "@/i18n/config";
+import { getLang } from "@/i18n/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -137,8 +139,9 @@ export async function hasActiveTradeAccess(): Promise<boolean> {
 export async function requireUser(): Promise<SessionContext> {
   if (!isSupabaseConfigured()) return demoSession("trade");
   const session = await getSession();
-  if (!session) redirect("/sign-in");
-  if (session.profile.status === "suspended") redirect("/suspended");
+  // Keep the visitor's language on the way out (pages set it via setLangFrom).
+  if (!session) redirect(localizePath("/sign-in", getLang()));
+  if (session.profile.status === "suspended") redirect(localizePath("/suspended", getLang()));
   return session;
 }
 
@@ -149,7 +152,7 @@ export async function requireRole(roles: UserRole[]): Promise<SessionContext> {
   if (!isSupabaseConfigured()) return demoSession(roles[0]);
   const session = await requireUser();
   if (!roles.includes(session.profile.primary_role)) {
-    redirect(roleHome(session.profile.primary_role));
+    redirect(localizePath(roleHome(session.profile.primary_role), getLang()));
   }
   return session;
 }

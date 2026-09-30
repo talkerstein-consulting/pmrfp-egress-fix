@@ -5,7 +5,12 @@ import { usePathname } from "next/navigation";
 import { DEFAULT_LOCALE, splitLocale, type Locale } from "./config";
 import type { ClientMessages } from "./dictionaries";
 
-const I18nContext = createContext<{ lang: Locale; messages: ClientMessages } | null>(null);
+type Ctx = { lang: Locale; messages: ClientMessages } | null;
+// One context object per runtime. Hot reload can re-run this module; a fresh
+// createContext() would leave already-rendered providers on the old object and
+// every useT() below them would see no provider. Production loads it once anyway.
+const g = globalThis as { __pmrfpI18nContext?: React.Context<Ctx> };
+const I18nContext = (g.__pmrfpI18nContext ??= createContext<Ctx>(null));
 
 /** Set once in app/[lang]/layout with the namespaces client components use. */
 export function I18nProvider({ lang, messages, children }: { lang: Locale; messages: ClientMessages; children: React.ReactNode }) {

@@ -9,8 +9,9 @@ import { useEffect } from "react";
  *
  * Works before hydration too: a GET form with no action re-requests the
  * current page, which matters because this page's JS may not be cached.
+ * The label comes from the server page so it is in the HTML without JS.
  */
-export function TryAgainButton({ style }: { style: React.CSSProperties }) {
+export function TryAgainButton({ style, label = "Try again" }: { style: React.CSSProperties; label?: string }) {
   useEffect(() => {
     const retry = () => window.location.reload();
     window.addEventListener("online", retry);
@@ -26,7 +27,7 @@ export function TryAgainButton({ style }: { style: React.CSSProperties }) {
       }}
     >
       <button type="submit" style={style}>
-        Try again
+        {label}
       </button>
     </form>
   );

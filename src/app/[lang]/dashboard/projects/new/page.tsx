@@ -8,9 +8,14 @@ import { canAddProject, photoLimit } from "@/lib/projects/limits";
 import { PageHeader, DemoBanner } from "@/components/dashboard/stat-card";
 import { ActivateButton } from "@/components/dashboard/billing-actions";
 import { ProjectCapture } from "@/components/projects/project-capture";
-import { setLangFrom } from "@/i18n/server";
+import { getLang, getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale, localizePath } from "@/i18n/config";
 
-export const metadata: Metadata = { title: "Add a project · PMRFP" };
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  return { title: getDictionary(hasLocale(lang) ? lang : "en").dash.meta.newProject };
+}
 
 /**
  * Photo-first project capture. Made for a phone on site: snap before /
@@ -19,9 +24,12 @@ export const metadata: Metadata = { title: "Add a project · PMRFP" };
  */
 export default async function NewProjectPage({ params }: { params: Promise<object> }) {
   await setLangFrom(params);
+  const lang = getLang();
+  const dash = getT("dash");
+  const t = dash.newProject;
   const session = await requireRole(["trade", "supplier"]);
   const org = session.organization;
-  if (!org) redirect("/onboarding");
+  if (!org) redirect(localizePath("/onboarding", lang));
   const demo = isDemoMode();
   const paid = session.hasTradeAccess;
 
@@ -36,11 +44,11 @@ export default async function NewProjectPage({ params }: { params: Promise<objec
   if (!ready) {
     return (
       <>
-        <PageHeader title="Add a project" />
+        <PageHeader title={t.title} />
         <p className="max-w-2xl rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
-          Photo projects are switching on soon. Until then you can{" "}
+          {dash.projects.notReady}{" "}
           <Link href="/dashboard/case-studies/new" className="font-medium text-teal-ink hover:underline">
-            write up a project as a case study
+            {dash.projects.notReadyLink}
           </Link>
           .
         </p>
@@ -51,17 +59,14 @@ export default async function NewProjectPage({ params }: { params: Promise<objec
   if (!canAddProject(paid, existing)) {
     return (
       <>
-        <PageHeader title="Add a project" />
+        <PageHeader title={t.title} />
         <div className="max-w-2xl rounded-xl border border-teal-300 bg-teal-50/60 p-6">
-          <h2 className="text-base font-semibold">You&apos;ve used your free project</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Trade Pro lets you add every job you&apos;re proud of, with up to 24 photos each, and ask
-            your clients for reviews that show on your profile.
-          </p>
+          <h2 className="text-base font-semibold">{t.usedTitle}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t.usedBody}</p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <ActivateButton />
             <Link href="/dashboard/projects" className="text-sm font-medium text-teal-ink hover:underline">
-              Back to your projects
+              {t.back}
             </Link>
           </div>
         </div>
@@ -73,11 +78,11 @@ export default async function NewProjectPage({ params }: { params: Promise<objec
     <>
       {demo && <DemoBanner />}
       <PageHeader
-        title="Add a project"
-        description="Photos from the job and a line about what you did. We'll draft the write-up. About two minutes."
+        title={t.title}
+        description={t.description}
         action={
           <Link href="/dashboard/case-studies/new" className="text-sm font-medium text-teal-ink hover:underline">
-            Prefer to type it all out?
+            {t.typeIt}
           </Link>
         }
       />

@@ -13,17 +13,24 @@ import { hasActiveTradeAccess } from "@/lib/access/access";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { boardStats, compactDollars, isPastContract } from "@/lib/data/fomo";
 import { isGcPackage } from "@/lib/gc/packages";
-import { setLangFrom } from "@/i18n/server";
+import { getLang, getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale, type Locale } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { fmt, formatNumber, plural } from "@/i18n/format";
 
 const PAGE_SIZE = 30;
 const AWARDED_PREVIEW = 9;
 
-export async function generateMetadata(): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang: raw } = await params;
+  const lang: Locale = hasLocale(raw) ? raw : "en";
+  const t = getDictionary(lang).board.meta;
   const open = (await listRfps().catch(() => [])).filter((r) => r.status === "open").length;
   return {
-    title: "Commercial Property RFPs & Tenders in Canada and the US",
-    description: `${open > 0 ? `${open} open` : "Open"} commercial property RFPs and public tenders across Canada and the U.S. — snow removal, HVAC, roofing, cleaning, electrical and more. Updated daily, with closing dates and past awards.`,
-    alternates: { canonical: "/rfps" },
+    title: t.title,
+    description: fmt(t.description, { lead: open > 0 ? plural(open, t.lead) : t.leadNone }),
+    alternates: alternatesFor(lang, "/rfps"),
   };
 }
 
@@ -32,6 +39,10 @@ export default async function RfpsPage({
   searchParams: Promise<Record<string, string | undefined>>;
 } & { params: Promise<object> }) {
   await setLangFrom(params);
+  const t = getT("board");
+  const lang = getLang();
+  // Counts: raw in English (as before), grouped the local way elsewhere.
+  const num = (n: number) => (lang === "en" ? String(n) : formatNumber(n, lang));
   const sp = await searchParams;
   const [rfps, categories, regions, propertyTypes, access] = await Promise.all([
     listRfps({
@@ -76,9 +87,9 @@ export default async function RfpsPage({
   };
 
   const tabs: { key: "open" | "gc" | "awarded"; label: string; count: number; href: string; active: boolean; show: boolean }[] = [
-    { key: "open", label: "Open now", count: open.length, href: viewHref(null), active: !showAwarded && !showGc, show: true },
-    { key: "gc", label: "GC packages", count: gcOpen.length, href: viewHref("gc"), active: showGc, show: gcOpen.length > 0 || showGc },
-    { key: "awarded", label: "Awarded", count: past.length + otherClosed.length, href: viewHref("awarded"), active: showAwarded, show: true },
+    { key: "open", label: t.tabs.open, count: open.length, href: viewHref(null), active: !showAwarded && !showGc, show: true },
+    { key: "gc", label: t.tabs.gc, count: gcOpen.length, href: viewHref("gc"), active: showGc, show: gcOpen.length > 0 || showGc },
+    { key: "awarded", label: t.tabs.awarded, count: past.length + otherClosed.length, href: viewHref("awarded"), active: showAwarded, show: true },
   ];
   const hasFilters = Boolean(sp.category || sp.region || sp.propertyType || sp.q);
 
@@ -86,33 +97,32 @@ export default async function RfpsPage({
     <>
       <section className="border-b border-border bg-card">
         <Container className="py-10 sm:py-12">
-          <Eyebrow>Tender board</Eyebrow>
+          <Eyebrow>{t.hero.eyebrow}</Eyebrow>
           <div className="mt-3 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
               <h1 className="font-heading text-3xl font-semibold tracking-tight text-indigo sm:text-4xl">
-                Commercial property RFPs and public tenders
+                {t.hero.title}
               </h1>
               <p className="mt-3 text-muted-foreground">
-                Private RFPs from property managers alongside public tenders from Canadian and U.S. buyers,
-                with closing dates and past awards. Trade Pro members see full scope, documents and contacts.
+                {t.hero.body}
               </p>
             </div>
             {(stats_.open > 0 || stats_.pastContracts > 0) && (
               <dl className="grid shrink-0 grid-cols-3 divide-x divide-border rounded-lg border border-border">
                 <div className="px-4 py-3">
-                  <dt className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Open</dt>
-                  <dd className="mt-0.5 text-xl font-semibold tabular-nums text-foreground">{stats_.open}</dd>
+                  <dt className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{t.stats.open}</dt>
+                  <dd className="mt-0.5 text-xl font-semibold tabular-nums text-foreground">{num(stats_.open)}</dd>
                 </div>
                 <div className="px-4 py-3">
-                  <dt className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Closing in 7d</dt>
-                  <dd className="mt-0.5 text-xl font-semibold tabular-nums text-foreground">{stats_.closingThisWeek}</dd>
+                  <dt className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{t.stats.closingWeek}</dt>
+                  <dd className="mt-0.5 text-xl font-semibold tabular-nums text-foreground">{num(stats_.closingThisWeek)}</dd>
                 </div>
                 <div className="px-4 py-3">
                   <dt className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                    {stats_.awardedValue > 0 ? "Awarded" : "Past awards"}
+                    {stats_.awardedValue > 0 ? t.stats.awarded : t.stats.pastAwards}
                   </dt>
                   <dd className="mt-0.5 text-xl font-semibold tabular-nums text-foreground">
-                    {stats_.awardedValue > 0 ? compactDollars(stats_.awardedValue) : stats_.pastContracts}
+                    {stats_.awardedValue > 0 ? compactDollars(stats_.awardedValue, lang) : num(stats_.pastContracts)}
                   </dd>
                 </div>
               </dl>
@@ -129,29 +139,29 @@ export default async function RfpsPage({
           regions={regions}
           propertyTypes={propertyTypes}
           sortOptions={[
-            { value: "closing", label: "Closing soon" },
-            { value: "newest", label: "Newest" },
+            { value: "closing", label: t.sort.closing },
+            { value: "newest", label: t.sort.newest },
           ]}
         />
 
         <div className="mt-6 flex flex-col gap-3 border-b border-border sm:flex-row sm:items-end sm:justify-between">
-          <nav className="-mb-px flex gap-6 overflow-x-auto text-sm" aria-label="Listing view">
-            {tabs.filter((t) => t.show).map((t) => (
+          <nav className="-mb-px flex gap-6 overflow-x-auto text-sm" aria-label={t.tabs.aria}>
+            {tabs.filter((tab) => tab.show).map((tab) => (
               <Link
-                key={t.key}
-                href={t.href}
-                aria-current={t.active ? "page" : undefined}
-                className={`flex shrink-0 items-center gap-2 border-b-2 pb-3 font-medium transition-colors ${t.active ? "border-indigo text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                key={tab.key}
+                href={tab.href}
+                aria-current={tab.active ? "page" : undefined}
+                className={`flex shrink-0 items-center gap-2 border-b-2 pb-3 font-medium transition-colors ${tab.active ? "border-indigo text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
               >
-                {t.label}
-                <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-muted-foreground">{t.count}</span>
+                {tab.label}
+                <span className="rounded bg-secondary px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-muted-foreground">{num(tab.count)}</span>
               </Link>
             ))}
           </nav>
           {locked && (
             <p className="flex items-center gap-1.5 pb-3 text-xs text-muted-foreground">
-              <Lock className="size-3.5" /> Previews shown.{" "}
-              <Link href="/pricing" className="font-medium text-teal-ink hover:underline">Trade Pro unlocks full details</Link>
+              <Lock className="size-3.5" /> {t.locked.previews}{" "}
+              <Link href="/pricing" className="font-medium text-teal-ink hover:underline">{t.locked.unlock}</Link>
             </p>
           )}
         </div>
@@ -161,25 +171,25 @@ export default async function RfpsPage({
             <EmptyState
               title={
                 showAwarded
-                  ? "No past contracts match these filters"
+                  ? t.empty.awarded
                   : showGc
-                    ? "No open GC sub-trade packages match these filters"
-                    : "No open tenders match these filters"
+                    ? t.empty.gc
+                    : t.empty.open
               }
               description={
                 hasFilters
-                  ? "Widen the region or trade, or check the other tabs. New tenders are added every morning."
-                  : "New tenders are added every morning. The awarded tab shows who won recent contracts."
+                  ? t.empty.filtered
+                  : t.empty.unfiltered
               }
             >
               <div className="flex flex-wrap justify-center gap-2">
                 {hasFilters && (
                   <Link href={showAwarded ? "/rfps?view=awarded" : showGc ? "/rfps?view=gc" : "/rfps"} className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary">
-                    Clear filters
+                    {t.empty.clear}
                   </Link>
                 )}
                 <Link href="/pricing" className="rounded-md bg-indigo px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
-                  Get alerts for new tenders
+                  {t.empty.alerts}
                 </Link>
               </div>
             </EmptyState>
@@ -187,8 +197,8 @@ export default async function RfpsPage({
         ) : (
           <>
             <p className="mt-4 text-xs text-muted-foreground">
-              {listing.length} {listing.length === 1 ? "listing" : "listings"}
-              {pages > 1 && ` · page ${pageNum} of ${pages}`}
+              {plural(listing.length, t.count, { n: num(listing.length) })}
+              {pages > 1 && fmt(t.pageOf, { page: pageNum, pages })}
             </p>
             <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {pageItems.map((r) => (
@@ -199,13 +209,13 @@ export default async function RfpsPage({
         )}
 
         {pages > 1 && (
-          <nav className="mt-8 flex items-center justify-between gap-3 border-t border-border pt-5 text-sm" aria-label="Pagination">
+          <nav className="mt-8 flex items-center justify-between gap-3 border-t border-border pt-5 text-sm" aria-label={t.pagination.aria}>
             {pageNum > 1 ? (
-              <Link href={pageHref(pageNum - 1)} className="rounded-md border border-border px-4 py-2 font-medium hover:bg-secondary">Previous</Link>
+              <Link href={pageHref(pageNum - 1)} className="rounded-md border border-border px-4 py-2 font-medium hover:bg-secondary">{t.pagination.prev}</Link>
             ) : <span />}
             <span className="font-mono text-xs tabular-nums text-muted-foreground">{pageNum} / {pages}</span>
             {pageNum < pages ? (
-              <Link href={pageHref(pageNum + 1)} className="rounded-md border border-border px-4 py-2 font-medium hover:bg-secondary">Next</Link>
+              <Link href={pageHref(pageNum + 1)} className="rounded-md border border-border px-4 py-2 font-medium hover:bg-secondary">{t.pagination.next}</Link>
             ) : <span />}
           </nav>
         )}
@@ -215,15 +225,14 @@ export default async function RfpsPage({
           <section className="mt-16">
             <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4">
               <div>
-                <Eyebrow>Award notices</Eyebrow>
-                <h2 className="mt-2 font-heading text-2xl font-semibold tracking-tight text-indigo">Recently awarded</h2>
+                <Eyebrow>{t.recent.eyebrow}</Eyebrow>
+                <h2 className="mt-2 font-heading text-2xl font-semibold tracking-tight text-indigo">{t.recent.title}</h2>
                 <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                  Public contracts with the winning company and the value. Trade Pro members are alerted the day the
-                  next one in their trade is posted.
+                  {t.recent.body}
                 </p>
               </div>
               <Link href={viewHref("awarded")} className="text-sm font-medium text-teal-ink hover:underline">
-                All {past.length} awards
+                {plural(past.length, t.recent.all, { n: num(past.length) })}
               </Link>
             </div>
             <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

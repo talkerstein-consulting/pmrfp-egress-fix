@@ -7,26 +7,35 @@ import { ReferBanner } from "@/components/public/refer-banner";
 import { buttonVariants } from "@/components/ui/button";
 import { listResources } from "@/lib/data/resources";
 import { cn } from "@/lib/utils";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Resources — Commercial Property RFP & Vendor Guides",
-  description:
-    "Guides and checklists for Canadian trades and property managers: how RFPs work, prequalification, capability statements, and more.",
-  alternates: { canonical: "/resources" },
-};
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const t = getDictionary(l).content.resourcesIndex.meta;
+  return {
+    title: t.title,
+    description: t.description,
+    alternates: alternatesFor(l, "/resources"),
+  };
+}
 
 export default async function ResourcesPage({ params }: { params: Promise<object> }) {
   await setLangFrom(params);
+  const t = getT("content").resourcesIndex;
+  // Articles are database content (English); only the page around them is translated.
   const resources = await listResources();
   return (
     <Container className="py-14">
-      <Eyebrow>Resources</Eyebrow>
+      <Eyebrow>{t.eyebrow}</Eyebrow>
       <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-        Guides for trades and property managers
+        {t.h1}
       </h1>
       <p className="mt-3 max-w-2xl text-muted-foreground">
-        Practical guidance on winning and running commercial property work in Canada.
+        {t.lead}
       </p>
 
       <ReferBanner variant="subtle" className="mt-8" />
@@ -38,18 +47,17 @@ export default async function ResourcesPage({ params }: { params: Promise<object
       >
         <div className="max-w-2xl">
           <span className="eyebrow inline-flex items-center gap-2 text-teal-300">
-            <Sparkles className="size-3.5" /> Done for you
+            <Sparkles className="size-3.5" /> {t.growEyebrow}
           </span>
           <h2 className="mt-2 text-xl font-bold tracking-tight text-white sm:text-2xl">
-            Opening a business — or ready to look the part?
+            {t.growTitle}
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-indigo-100/75">
-            Get your trade business online — branding, a website, your Google profile, and a
-            standout listing, handled for you.
+            {t.growBody}
           </p>
         </div>
         <span className={cn(buttonVariants({ variant: "accent" }), "shrink-0")}>
-          Learn more <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+          {t.learnMore} <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
         </span>
       </Link>
 
@@ -60,24 +68,23 @@ export default async function ResourcesPage({ params }: { params: Promise<object
       >
         <div className="max-w-2xl">
           <span className="eyebrow inline-flex items-center gap-2 text-teal-600">
-            <Calculator className="size-3.5" /> Cost guides
+            <Calculator className="size-3.5" /> {t.costEyebrow}
           </span>
           <h2 className="mt-2 text-xl font-semibold tracking-tight group-hover:text-teal-700">
-            What does commercial property work cost in Canada?
+            {t.costTitle}
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Honest planning ranges for roofing, HVAC, renovations, paving, snow, cleaning, and more
-            — so you walk into an RFP knowing what to expect.
+            {t.costBody}
           </p>
         </div>
         <span className="hidden shrink-0 items-center gap-1 text-sm font-medium text-teal-700 sm:flex">
-          See guides <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+          {t.seeGuides} <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
         </span>
       </Link>
 
       {resources.length === 0 ? (
         <div className="mt-8">
-          <EmptyState title="No resources yet" description="Check back soon — we're publishing guides regularly." />
+          <EmptyState title={t.emptyTitle} description={t.emptyDescription} />
         </div>
       ) : (
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -90,7 +97,7 @@ export default async function ResourcesPage({ params }: { params: Promise<object
               <h2 className="text-lg font-semibold leading-snug group-hover:text-teal-700">{r.title}</h2>
               {r.excerpt && <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{r.excerpt}</p>}
               <span className="mt-4 flex items-center gap-1 text-sm font-medium text-teal-700">
-                Read <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+                {t.read} <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
               </span>
             </Link>
           ))}

@@ -19,6 +19,8 @@ import { ImagePlus, X, Loader2, AlertTriangle } from "lucide-react";
 import { createClient as createBrowserClient } from "@/lib/supabase/browser";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { useT } from "@/i18n/provider";
+import { fmt } from "@/i18n/format";
 
 const UPLOAD_CAP = 12;
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;
@@ -32,7 +34,7 @@ interface PortfolioPhoto {
 
 export function PortfolioUploader({
   organizationId,
-  label = "Portfolio photos",
+  label,
   helpText,
   maxPhotos = 1,
 }: {
@@ -42,12 +44,9 @@ export function PortfolioUploader({
   /** 1 on the free tier, 12 (the upload cap) on any paid tier. */
   maxPhotos?: number;
 }) {
+  const t = useT("dashClient").portfolio;
   const limit = Math.min(maxPhotos, UPLOAD_CAP);
-  const resolvedHelpText =
-    helpText ??
-    (limit <= 1
-      ? "Show one photo of your best work — JPEG, PNG, or WebP, up to 5 MB. Upgrade for an unlimited gallery."
-      : `Show past work — projects, sites, finished installs. JPEG, PNG, or WebP. Up to ${limit} photos, 5 MB each.`);
+  const resolvedHelpText = helpText ?? (limit <= 1 ? t.helpFree : fmt(t.helpPaid, { limit }));
   const [photos, setPhotos] = useState<PortfolioPhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +72,7 @@ export function PortfolioUploader({
           });
         if (cancelled) return;
         if (listErr) {
-          setError(`Could not load existing photos: ${listErr.message}`);
+          setError(fmt(t.loadFailed, { message: listErr.message }));
           setLoading(false);
           return;
         }
@@ -88,7 +87,7 @@ export function PortfolioUploader({
           });
         setPhotos(items);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Could not load photos");
+        setError(e instanceof Error ? e.message : t.loadFailedGeneric);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -96,7 +95,7 @@ export function PortfolioUploader({
     return () => {
       cancelled = true;
     };
-  }, [organizationId]);
+  }, [organizationId, t.loadFailed, t.loadFailedGeneric]);
 
   function pick() {
     setError(null);
@@ -106,22 +105,22 @@ export function PortfolioUploader({
   function handleFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
     if (!organizationId) {
-      setError("Save your basic profile first, then upload portfolio photos.");
+      setError(t.saveFirst);
       return;
     }
     const remaining = limit - photos.length;
     const files = Array.from(fileList).slice(0, remaining);
     if (files.length === 0) {
-      setError(limit <= 1 ? "Free listings get 1 portfolio photo. Upgrade to add more." : `Max ${limit} photos. Remove one to upload more.`);
+      setError(limit <= 1 ? t.freeLimit : fmt(t.max, { limit }));
       return;
     }
     for (const f of files) {
       if (!ACCEPTED_TYPES.includes(f.type)) {
-        setError(`"${f.name}" — only JPEG, PNG, WebP, or HEIC are allowed.`);
+        setError(fmt(t.badType, { name: f.name }));
         return;
       }
       if (f.size > MAX_SIZE_BYTES) {
-        setError(`"${f.name}" is over 5 MB. Compress and try again.`);
+        setError(fmt(t.tooBig, { name: f.name }));
         return;
       }
     }
@@ -139,7 +138,7 @@ export function PortfolioUploader({
           cacheControl: "31536000",
         });
         if (upErr) {
-          setError(`Upload failed for "${f.name}": ${upErr.message}`);
+          setError(fmt(t.uploadFailed, { name: f.name, message: upErr.message }));
           break;
         }
         const { data: pub } = supabase.storage.from("logos").getPublicUrl(path);
@@ -163,7 +162,7 @@ export function PortfolioUploader({
 
   return (
     <div>
-      <Label className="mb-1.5 block">{label}</Label>
+      <Label className="mb-1.5 block">{label ?? t.label}</Label>
       <p className="mb-3 text-xs text-muted-foreground">{resolvedHelpText}</p>
 
       <input
@@ -205,7 +204,7 @@ export function PortfolioUploader({
               <button
                 type="button"
                 onClick={() => remove(i)}
-                aria-label="Remove photo"
+                aria-label={t.remove}
                 className="absolute right-1.5 top-1.5 rounded-full bg-black/70 p-1 text-white opacity-0 transition-opacity hover:bg-black/85 focus:opacity-100 group-hover:opacity-100"
               >
                 <X className="size-3.5" />
@@ -227,12 +226,12 @@ export function PortfolioUploader({
               {isUploading ? (
                 <>
                   <Loader2 className="size-5 animate-spin" />
-                  Uploading…
+                  {t.uploading}
                 </>
               ) : (
                 <>
                   <ImagePlus className="size-6" />
-                  {photos.length === 0 ? "Add photos" : "Add more"}
+                  {photos.length === 0 ? t.add : t.addMore}
                 </>
               )}
             </button>
@@ -241,13 +240,12 @@ export function PortfolioUploader({
       )}
 
       <p className="mt-2 text-xs text-muted-foreground">
-        {photos.length}/{limit} uploaded{limit <= 1 ? " · Upgrade to SEO Listing for an unlimited gallery" : " · Tip: 4-6 sharp project photos beat 12 mediocre ones"}
+        {fmt(t.count, { n: photos.length, limit })}
+        {limit <= 1 ? t.upgradeTip : t.tip}
       </p>
 
       {!organizationId && (
-        <p className="mt-2 text-xs text-amber-700">
-          Portfolio upload requires a saved profile.
-        </p>
+        <p className="mt-2 text-xs text-amber-700">{t.needsProfile}</p>
       )}
     </div>
   );

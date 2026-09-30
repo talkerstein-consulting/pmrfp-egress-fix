@@ -11,14 +11,20 @@ import { DirectoryCard } from "@/components/public/directory-card";
 import { buttonVariants } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { JsonLd, breadcrumbSchema, faqSchema } from "@/lib/seo/jsonld";
-import { VERTICALS, getVertical } from "@/lib/seo/verticals";
+import { VERTICALS } from "@/lib/seo/verticals";
+import { getVerticalFor } from "@/lib/seo/verticals.fr";
 import { listAllRfpsCached } from "@/lib/data/trade-city";
 import { listVendors } from "@/lib/data/directory";
 import { getCategories, getRegions } from "@/lib/data/taxonomy";
 import { boardStats, daysUntil, isPastContract } from "@/lib/data/fomo";
 import { PHOTOS, type Photo } from "@/lib/photos";
 import { cn } from "@/lib/utils";
-import { setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { getLang, getT, setLangFrom } from "@/i18n/server";
+import { hasLocale, localizePath } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { fmt, formatNumber } from "@/i18n/format";
+import { photoAlt } from "@/lib/seo/photos.fr";
 
 export const revalidate = 3600;
 
@@ -26,11 +32,12 @@ export async function generateStaticParams() {
   return VERTICALS.map((v) => ({ vertical: v.slug }));
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ vertical: string }> }): Promise<Metadata> {
-  const { vertical } = await params;
-  const v = getVertical(vertical);
-  if (!v) return { title: "Not found" };
-  return { title: v.metaTitle, description: v.metaDescription, alternates: { canonical: `/for/${v.slug}` } };
+export async function generateMetadata({ params }: { params: Promise<{ lang: string; vertical: string }> }): Promise<Metadata> {
+  const { lang, vertical } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const v = getVerticalFor(vertical, l);
+  if (!v) return { title: getDictionary(l).seo.notFound };
+  return { title: v.metaTitle, description: v.metaDescription, alternates: alternatesFor(l, `/for/${v.slug}`) };
 }
 
 /** Buyers post work and hire; sellers find work and get found. The page's proof and steps follow that. */
@@ -47,23 +54,13 @@ const HERO_PHOTO: Record<string, Photo> = {
   suppliers: PHOTOS.loadingDocks,
 };
 
-const STEPS = {
-  buyer: [
-    ["Describe the job", "Four questions in the free RFP writer, or post your own scope. Takes minutes."],
-    ["Trades come to you", "Vetted companies that cover your trade and area see it and respond with interest."],
-    ["Compare and hire", "Profiles, credentials and past work side by side. No obligation to hire anyone."],
-  ],
-  seller: [
-    ["Get listed free", "A company profile with your trades, service area, insurance and projects."],
-    ["See the work", "Public tenders and property-manager RFPs for your trade, every morning."],
-    ["Bid and win", "Trade Pro unlocks full scope, buyer contacts and what similar contracts sold for."],
-  ],
-} as const;
-
 export default async function VerticalPage({ params }: { params: Promise<{ vertical: string }> }) {
   await setLangFrom(params);
+  const seo = getT("seo");
+  const t = seo.vertical;
+  const lang = getLang();
   const { vertical } = await params;
-  const v = getVertical(vertical);
+  const v = getVerticalFor(vertical, lang);
   if (!v) notFound();
   const buyer = BUYERS.has(v.slug);
   const photo = HERO_PHOTO[v.slug] ?? PHOTOS.officeTower;
@@ -80,20 +77,21 @@ export default async function VerticalPage({ params }: { params: Promise<{ verti
     .slice(0, 3);
   const showcase = vendors.filter((x) => x.logoUrl).slice(0, 3);
 
+  const num = (n: number) => (lang === "en" ? String(n) : formatNumber(n, lang));
   const numbers: [string, string][] = [
-    [stats.open.toLocaleString("en-CA"), "open contracts right now"],
-    [String(stats.closingThisWeek), "close in the next 7 days"],
-    [String(categories.length), "trades covered"],
-    [String(regions.length), "regions in Canada and the U.S."],
+    [lang === "en" ? stats.open.toLocaleString("en-CA") : formatNumber(stats.open, lang), t.numbers.open],
+    [num(stats.closingThisWeek), t.numbers.closing],
+    [num(categories.length), t.numbers.trades],
+    [num(regions.length), t.numbers.regions],
   ];
 
   return (
     <>
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", path: "/" },
-          { name: "Solutions", path: "/for" },
-          { name: v.name, path: `/for/${v.slug}` },
+          { name: seo.crumbs.home, path: localizePath("/", lang) },
+          { name: seo.crumbs.solutions, path: localizePath("/for", lang) },
+          { name: v.name, path: localizePath(`/for/${v.slug}`, lang) },
         ])}
       />
       <JsonLd data={faqSchema(v.faqs)} />
@@ -102,7 +100,7 @@ export default async function VerticalPage({ params }: { params: Promise<{ verti
       <section className="border-b border-border bg-card">
         <Container className="grid items-center gap-10 py-14 md:py-20 lg:grid-cols-[1.1fr_.9fr]">
           <div>
-            <Eyebrow>For {v.who}</Eyebrow>
+            <Eyebrow>{fmt(t.eyebrow, { who: v.who })}</Eyebrow>
             <h1 className="mt-4 text-balance text-4xl font-bold leading-[1.06] tracking-tight sm:text-5xl">{v.headline}</h1>
             <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted-foreground">{v.positioning}</p>
             <div className="mt-8 flex flex-wrap gap-3">
@@ -123,12 +121,12 @@ export default async function VerticalPage({ params }: { params: Promise<{ verti
           </div>
           <div className="relative">
             <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-border">
-              <Image src={photo.src} alt={photo.alt} fill priority sizes="(min-width: 1024px) 520px, 100vw" className="object-cover" />
+              <Image src={photo.src} alt={photoAlt(photo, lang)} fill priority sizes="(min-width: 1024px) 520px, 100vw" className="object-cover" />
             </div>
             {stats.open >= 10 && (
               <div className="absolute -bottom-5 left-5 rounded-xl border border-border bg-card px-5 py-3 shadow-lg shadow-indigo/10">
-                <div className="font-heading text-2xl font-bold tabular-nums text-indigo">{stats.open}</div>
-                <div className="text-xs text-muted-foreground">open contracts on the board today</div>
+                <div className="font-heading text-2xl font-bold tabular-nums text-indigo">{num(stats.open)}</div>
+                <div className="text-xs text-muted-foreground">{t.badge}</div>
               </div>
             )}
           </div>
@@ -150,10 +148,10 @@ export default async function VerticalPage({ params }: { params: Promise<{ verti
       {/* Before and after, side by side. */}
       <section className="bg-background">
         <Container className="py-16 md:py-20">
-          <h2 className="max-w-2xl text-3xl font-bold tracking-tight">What changes when you use PMRFP</h2>
+          <h2 className="max-w-2xl text-3xl font-bold tracking-tight">{t.changesTitle}</h2>
           <div className="mt-10 grid gap-5 lg:grid-cols-2">
             <div className="rounded-2xl border border-border bg-card p-6 sm:p-8">
-              <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">Today</p>
+              <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{t.today}</p>
               <ul className="mt-5 space-y-4">
                 {v.pains.map((p) => (
                   <li key={p} className="flex gap-3 text-[15px] text-foreground/85">
@@ -166,7 +164,7 @@ export default async function VerticalPage({ params }: { params: Promise<{ verti
               </ul>
             </div>
             <div className="rounded-2xl bg-indigo p-6 text-white sm:p-8">
-              <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-teal-300">With PMRFP</p>
+              <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-teal-300">{t.withUs}</p>
               <ul className="mt-5 space-y-5">
                 {v.valueProps.map((vp) => (
                   <li key={vp.title} className="flex gap-3">
@@ -188,9 +186,9 @@ export default async function VerticalPage({ params }: { params: Promise<{ verti
       {/* How it works. */}
       <section className="border-y border-border bg-card">
         <Container className="py-16 md:py-20">
-          <h2 className="text-3xl font-bold tracking-tight">How it works</h2>
+          <h2 className="text-3xl font-bold tracking-tight">{t.howTitle}</h2>
           <ol className="mt-10 grid gap-8 md:grid-cols-3">
-            {STEPS[buyer ? "buyer" : "seller"].map(([title, desc], i) => (
+            {t.steps[buyer ? "buyer" : "seller"].map(({ title, desc }, i) => (
               <li key={title} className="border-t-2 border-indigo pt-5">
                 <span className="font-mono text-xs text-teal-700">0{i + 1}</span>
                 <h3 className="mt-2 text-lg font-semibold">{title}</h3>
@@ -207,10 +205,10 @@ export default async function VerticalPage({ params }: { params: Promise<{ verti
           <Container className="py-16 md:py-20">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <h2 className="text-3xl font-bold tracking-tight">
-                {buyer ? "Companies ready to quote" : "Open on the board right now"}
+                {buyer ? t.proofBuyer : t.proofSeller}
               </h2>
               <Link href={buyer ? "/directory" : "/rfps"} className="text-sm font-semibold text-teal-700 hover:underline">
-                {buyer ? "Browse the directory" : `See all ${stats.open} open`} →
+                {buyer ? seo.browseDirectory : fmt(t.seeAllOpen, { n: num(stats.open) })} →
               </Link>
             </div>
             <div className="mt-8 grid gap-4 md:grid-cols-3">
@@ -224,7 +222,7 @@ export default async function VerticalPage({ params }: { params: Promise<{ verti
 
       <section className="border-t border-border bg-card">
         <Container size="narrow" className="py-16">
-          <h2 className="text-3xl font-bold tracking-tight">Questions</h2>
+          <h2 className="text-3xl font-bold tracking-tight">{t.questions}</h2>
           <Accordion className="mt-6">
             {v.faqs.map((f, i) => (
               <AccordionItem key={i} value={`q${i}`}>

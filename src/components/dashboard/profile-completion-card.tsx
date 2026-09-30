@@ -14,6 +14,8 @@ import Link from "@/i18n/link";
 import { ArrowRight, CheckCircle2, Circle } from "lucide-react";
 import type { Organization } from "@/types/db";
 import { cn } from "@/lib/utils";
+import { getT } from "@/i18n/server";
+import { fmt, plural } from "@/i18n/format";
 
 interface ChecklistItem {
   label: string;
@@ -31,17 +33,18 @@ export function ProfileCompletionCard({
   org: Organization | null;
   hasActiveSub: boolean;
 }) {
+  const t = getT("dash").profile;
   const checklist: ChecklistItem[] = [
-    { label: "Add a company logo", done: Boolean(org?.logo_url), href: "/dashboard/company", weight: 10 },
-    { label: "Write a short description", done: Boolean(org?.short_description), href: "/dashboard/company", weight: 9 },
-    { label: "Write a full description", done: Boolean(org?.full_description), href: "/dashboard/company", weight: 6 },
-    { label: "Add your website", done: Boolean(org?.website), href: "/dashboard/company", weight: 7 },
-    { label: "Add a phone number", done: Boolean(org?.phone), href: "/dashboard/company", weight: 5 },
-    { label: "Confirm your service city", done: Boolean(org?.city), href: "/dashboard/company", weight: 4 },
-    { label: "Confirm insurance status", done: Boolean(org?.insurance_status), href: "/dashboard/company", weight: 8 },
-    { label: "Confirm WSIB / provincial coverage", done: Boolean(org?.wsib_status), href: "/dashboard/company", weight: 6 },
-    { label: "Set team size", done: Boolean(org?.employee_count_range), href: "/dashboard/company", weight: 3 },
-    { label: "Activate Trade Pro membership", done: hasActiveSub, href: "/dashboard/billing", weight: 10 },
+    { label: t.items.logo, done: Boolean(org?.logo_url), href: "/dashboard/company", weight: 10 },
+    { label: t.items.short, done: Boolean(org?.short_description), href: "/dashboard/company", weight: 9 },
+    { label: t.items.full, done: Boolean(org?.full_description), href: "/dashboard/company", weight: 6 },
+    { label: t.items.website, done: Boolean(org?.website), href: "/dashboard/company", weight: 7 },
+    { label: t.items.phone, done: Boolean(org?.phone), href: "/dashboard/company", weight: 5 },
+    { label: t.items.city, done: Boolean(org?.city), href: "/dashboard/company", weight: 4 },
+    { label: t.items.insurance, done: Boolean(org?.insurance_status), href: "/dashboard/company", weight: 8 },
+    { label: t.items.wsib, done: Boolean(org?.wsib_status), href: "/dashboard/company", weight: 6 },
+    { label: t.items.team, done: Boolean(org?.employee_count_range), href: "/dashboard/company", weight: 3 },
+    { label: t.items.pro, done: hasActiveSub, href: "/dashboard/billing", weight: 10 },
   ];
 
   const completed = checklist.filter((c) => c.done).length;
@@ -61,12 +64,12 @@ export function ProfileCompletionCard({
         <div>
           <p className="eyebrow text-teal-ink">
             <span className="mr-2 inline-block h-px w-5 align-middle bg-teal-500" />
-            Profile completion
+            {t.eyebrow}
           </p>
           <h2 className="mt-2 text-3xl font-semibold tracking-tight">{pct}%</h2>
         </div>
         <p className="text-sm text-muted-foreground">
-          {completed} of {checklist.length} steps complete
+          {plural(completed, t.steps, { total: checklist.length })}
         </p>
       </div>
 
@@ -85,7 +88,7 @@ export function ProfileCompletionCard({
         <div className="mt-6 flex flex-col gap-3 rounded-lg border border-teal-300/60 bg-teal-100/40 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-teal-ink">
-              Recommended next step
+              {t.nextStep}
             </p>
             <p className="mt-0.5 text-sm font-semibold text-foreground">{nextStep.label}</p>
           </div>
@@ -93,19 +96,19 @@ export function ProfileCompletionCard({
             href={nextStep.href}
             className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-indigo px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
           >
-            Do it now <ArrowRight className="size-4" />
+            {t.doIt} <ArrowRight className="size-4" />
           </Link>
         </div>
       ) : (
         <div className="mt-6 rounded-lg border border-success/30 bg-success/10 p-4">
           <p className="text-sm font-semibold text-success">
-            Your profile is complete. You&rsquo;ll rank higher in the directory.
+            {t.complete}
           </p>
           <Link
             href="/dashboard/rfps"
             className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-teal-ink"
           >
-            Browse RFPs <ArrowRight className="size-4" />
+            {t.browse} <ArrowRight className="size-4" />
           </Link>
         </div>
       )}
@@ -135,9 +138,9 @@ export function ProfileCompletionCard({
 
       {compactList.length < checklist.length && (
         <p className="mt-3 text-xs text-muted-foreground">
-          + {checklist.length - compactList.length} more steps on{" "}
+          {fmt(t.more, { n: checklist.length - compactList.length })}{" "}
           <Link href="/dashboard/company" className="font-medium text-teal-ink hover:underline">
-            Company Profile
+            {t.moreLink}
           </Link>
         </p>
       )}

@@ -13,9 +13,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { setLangFrom } from "@/i18n/server";
+import { getLang, getT, setLangFrom } from "@/i18n/server";
+import { formatDate } from "@/i18n/format";
+import type { Metadata } from "next";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale } from "@/i18n/config";
 
-export const metadata = { title: "My Interests" };
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  return { title: getDictionary(hasLocale(lang) ? lang : "en").dash.meta.interests };
+}
 
 interface InterestRow {
   id: string;
@@ -25,12 +32,10 @@ interface InterestRow {
   rfp_posts: { title: string; slug: string } | { title: string; slug: string }[] | null;
 }
 
-function fmt(d: string) {
-  return new Date(d).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
-}
-
 export default async function InterestsPage({ params }: { params: Promise<object> }) {
   await setLangFrom(params);
+  const lang = getLang();
+  const t = getT("dash").interests;
   const session = await requireRole(["trade"]);
 
   let interests: InterestRow[] = [];
@@ -47,17 +52,17 @@ export default async function InterestsPage({ params }: { params: Promise<object
   return (
     <div>
       <PageHeader
-        title="My Interests"
-        description="RFPs you've expressed interest in and their current status."
+        title={t.title}
+        description={t.description}
       />
 
       {interests.length === 0 ? (
         <EmptyState
-          title="You haven't expressed interest in any RFPs yet"
-          description="When you find a relevant opportunity, express interest to let the property manager know."
+          title={t.emptyTitle}
+          description={t.emptyBody}
         >
           <Link href="/dashboard/rfps" className={buttonVariants()}>
-            View RFP feed
+            {t.viewFeed}
           </Link>
         </EmptyState>
       ) : (
@@ -65,9 +70,9 @@ export default async function InterestsPage({ params }: { params: Promise<object
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>RFP</TableHead>
-                <TableHead>Submitted</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>{t.colRfp}</TableHead>
+                <TableHead>{t.colSubmitted}</TableHead>
+                <TableHead>{t.colStatus}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -84,7 +89,7 @@ export default async function InterestsPage({ params }: { params: Promise<object
                         "—"
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{fmt(it.created_at)}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatDate(it.created_at, lang)}</TableCell>
                     <TableCell>
                       <StatusBadge status={it.status} />
                     </TableCell>

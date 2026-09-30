@@ -1,8 +1,11 @@
 import Link from "@/i18n/link";
 import { Clock, MapPin } from "lucide-react";
 import type { TalentProfile } from "@/lib/talent/data";
-import { AVAILABILITY_LABEL, yearsLabel, type Availability } from "@/lib/talent/rules";
+import { ticketName, type Availability } from "@/lib/talent/rules";
 import { cn } from "@/lib/utils";
+import { getLang, getT } from "@/i18n/server";
+import { fmt, plural } from "@/i18n/format";
+import { regionName, tradeName } from "@/i18n/terms";
 
 const BADGE: Record<Availability, string> = {
   available_now: "border-teal-300 bg-teal-50 text-teal-800",
@@ -11,9 +14,10 @@ const BADGE: Record<Availability, string> = {
 };
 
 export function AvailabilityBadge({ availability, className }: { availability: Availability; className?: string }) {
+  const labels = getT("jobsClient").availability;
   return (
     <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium", BADGE[availability], className)}>
-      {AVAILABILITY_LABEL[availability]}
+      {labels[availability]}
     </span>
   );
 }
@@ -24,8 +28,12 @@ export function initials(name: string): string {
 
 /** A directory card. No contact details, ever. */
 export function TalentCard({ person }: { person: TalentProfile }) {
-  const where = [person.city, person.province].filter(Boolean).join(", ");
-  const years = yearsLabel(person.yearsExperience);
+  const lang = getLang();
+  const t = getT("jobs").talentCard;
+  const labels = getT("jobsClient");
+  const trade = person.trade ? tradeName(person.trade, lang) : null;
+  const where = [person.city, person.province && regionName(person.province, lang)].filter(Boolean).join(", ");
+  const years = person.yearsExperience == null ? "" : plural(person.yearsExperience, labels.years);
   const tickets = person.certifications.slice(0, 4);
   return (
     <Link
@@ -40,9 +48,9 @@ export function TalentCard({ person }: { person: TalentProfile }) {
           <span className="font-semibold leading-snug text-foreground group-hover:text-teal-700">{person.displayName}</span>
           <AvailabilityBadge availability={person.availability} />
         </span>
-        <span className="mt-0.5 block text-sm text-muted-foreground">{person.headline || person.trade || "Tradesperson"}</span>
+        <span className="mt-0.5 block text-sm text-muted-foreground">{person.headline || trade || t.tradesperson}</span>
         <span className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          {person.trade && <span className="font-medium text-foreground">{person.trade}</span>}
+          {trade && <span className="font-medium text-foreground">{trade}</span>}
           {where && (
             <span className="inline-flex items-center gap-1">
               <MapPin className="size-3.5" /> {where}
@@ -56,13 +64,15 @@ export function TalentCard({ person }: { person: TalentProfile }) {
         </span>
         {tickets.length > 0 && (
           <span className="mt-2.5 flex flex-wrap gap-1.5">
-            {tickets.map((t) => (
-              <span key={t} className="rounded border border-border bg-secondary/60 px-1.5 py-0.5 font-mono text-[11px] text-foreground/80">
-                {t}
+            {tickets.map((c) => (
+              <span key={c} className="rounded border border-border bg-secondary/60 px-1.5 py-0.5 font-mono text-[11px] text-foreground/80">
+                {ticketName(c, labels.tickets)}
               </span>
             ))}
             {person.certifications.length > tickets.length && (
-              <span className="px-1 py-0.5 text-[11px] text-muted-foreground">+{person.certifications.length - tickets.length} more</span>
+              <span className="px-1 py-0.5 text-[11px] text-muted-foreground">
+                {fmt(t.more, { n: person.certifications.length - tickets.length })}
+              </span>
             )}
           </span>
         )}

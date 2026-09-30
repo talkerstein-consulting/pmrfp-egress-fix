@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { LogoUploader } from "@/components/forms/logo-uploader";
 import { PortfolioUploader } from "@/components/forms/portfolio-uploader";
+import { useLang, useT } from "@/i18n/provider";
+import { propertyTypeName, regionName, tradeName } from "@/i18n/terms";
 
 type Option = { slug: string; name: string };
 
@@ -44,77 +46,84 @@ export function CompanyProfileForm({
   portfolioMaxPhotos?: number;
 }) {
   const [state, action, pending] = useActionState(updateCompanyProfileAction, {} as ActionState);
+  const t = useT("dashClient").company;
+  const lang = useLang();
+  // Only what's shown is translated; the checkbox values stay slugs.
+  const shown = (names: Option[], tr: (name: string, l: typeof lang) => string) =>
+    names.map((o) => ({ slug: o.slug, name: tr(o.name, lang) }));
 
   return (
     <form action={action} className="space-y-6">
+      {/* Lets the server action answer in the page's language. */}
+      <input type="hidden" name="lang" value={lang} />
       {state.error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>}
       {state.success && <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">{state.success}</p>}
 
-      <Section title="Logo">
+      <Section title={t.logo}>
         <LogoUploader
           organizationId={organizationId}
           initialLogoUrl={defaults.logoUrl ?? null}
         />
       </Section>
 
-      <Section title="Portfolio">
+      <Section title={t.portfolio}>
         <PortfolioUploader organizationId={organizationId} maxPhotos={portfolioMaxPhotos} />
       </Section>
 
-      <Section title="Company basics">
+      <Section title={t.basics}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Company name" req><Input name="name" defaultValue={defaults.name} required /></Field>
-          <Field label="Website"><Input name="website" defaultValue={defaults.website} placeholder="https://" /></Field>
-          <Field label="Email" req><Input name="email" type="email" defaultValue={defaults.email} required /></Field>
-          <Field label="Phone"><Input name="phone" defaultValue={defaults.phone} /></Field>
-          <Field label="Address"><Input name="addressLine1" defaultValue={defaults.addressLine1} /></Field>
-          <Field label="City"><Input name="city" defaultValue={defaults.city} /></Field>
-          <Field label="Province"><Input name="province" defaultValue={defaults.province} /></Field>
-          <Field label="Postal code"><Input name="postalCode" defaultValue={defaults.postalCode} /></Field>
+          <Field label={t.name} req><Input name="name" defaultValue={defaults.name} required /></Field>
+          <Field label={t.website}><Input name="website" defaultValue={defaults.website} placeholder="https://" /></Field>
+          <Field label={t.email} req><Input name="email" type="email" defaultValue={defaults.email} required /></Field>
+          <Field label={t.phone}><Input name="phone" defaultValue={defaults.phone} /></Field>
+          <Field label={t.address}><Input name="addressLine1" defaultValue={defaults.addressLine1} /></Field>
+          <Field label={t.city}><Input name="city" defaultValue={defaults.city} /></Field>
+          <Field label={t.province}><Input name="province" defaultValue={defaults.province} /></Field>
+          <Field label={t.postalCode}><Input name="postalCode" defaultValue={defaults.postalCode} /></Field>
         </div>
       </Section>
 
-      <Section title="About">
-        <Field label="Short description (max 300 chars)">
+      <Section title={t.about}>
+        <Field label={t.shortDescription}>
           <Textarea name="shortDescription" rows={2} maxLength={300} defaultValue={defaults.shortDescription} />
         </Field>
-        <Field label="Full description (max 2500 chars)">
+        <Field label={t.fullDescription}>
           <Textarea name="fullDescription" rows={5} maxLength={2500} defaultValue={defaults.fullDescription} />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Years in business"><Input name="yearsInBusiness" type="number" defaultValue={defaults.yearsInBusiness ?? ""} /></Field>
-          <Field label="Team size">
+          <Field label={t.years}><Input name="yearsInBusiness" type="number" defaultValue={defaults.yearsInBusiness ?? ""} /></Field>
+          <Field label={t.teamSize}>
             <select name="employeeCountRange" defaultValue={defaults.employeeCountRange ?? ""} className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm">
-              <option value="">Select…</option>
+              <option value="">{t.select}</option>
               {["1-10", "11-50", "51-200", "200+"].map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </Field>
-          <Field label="Insurance"><Input name="insuranceStatus" defaultValue={defaults.insuranceStatus} placeholder="e.g. Fully insured ($5M)" /></Field>
-          <Field label="WSIB status"><Input name="wsibStatus" defaultValue={defaults.wsibStatus} placeholder="e.g. Active" /></Field>
+          <Field label={t.insurance}><Input name="insuranceStatus" defaultValue={defaults.insuranceStatus} placeholder={t.insurancePlaceholder} /></Field>
+          <Field label={t.wsib}><Input name="wsibStatus" defaultValue={defaults.wsibStatus} placeholder={t.wsibPlaceholder} /></Field>
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="emergencyService" defaultChecked={defaults.emergencyService} className="size-4" />
-          We offer emergency / 24-7 service
+          {t.emergency}
         </label>
       </Section>
 
-      <Section title="Services & coverage">
-        <CheckboxGroup label="Service categories" name="categories" options={categories} selected={selectedCategories} req />
-        <CheckboxGroup label="Service regions" name="regions" options={regions} selected={selectedRegions} req />
-        <CheckboxGroup label="Property types served" name="propertyTypes" options={propertyTypes} selected={selectedPropertyTypes} />
+      <Section title={t.services}>
+        <CheckboxGroup label={t.categories} name="categories" options={shown(categories, tradeName)} selected={selectedCategories} req />
+        <CheckboxGroup label={t.regions} name="regions" options={shown(regions, regionName)} selected={selectedRegions} req />
+        <CheckboxGroup label={t.propertyTypes} name="propertyTypes" options={shown(propertyTypes, propertyTypeName)} selected={selectedPropertyTypes} />
       </Section>
 
-      <Section title="Contact visibility">
-        <Field label="How buyers see your contact details">
+      <Section title={t.visibility}>
+        <Field label={t.visibilityLabel}>
           <select name="publicContactVisibility" defaultValue={defaults.publicContactVisibility ?? "request_intro"} className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm">
-            <option value="show_contact">Show contact details publicly</option>
-            <option value="request_intro">Let buyers request an introduction</option>
-            <option value="hide_contact">Hide contact details</option>
+            <option value="show_contact">{t.showContact}</option>
+            <option value="request_intro">{t.requestIntro}</option>
+            <option value="hide_contact">{t.hideContact}</option>
           </select>
         </Field>
       </Section>
 
-      <Button type="submit" size="lg" disabled={pending}>{pending ? "Saving…" : "Save profile"}</Button>
+      <Button type="submit" size="lg" disabled={pending}>{pending ? t.saving : t.save}</Button>
     </form>
   );
 }

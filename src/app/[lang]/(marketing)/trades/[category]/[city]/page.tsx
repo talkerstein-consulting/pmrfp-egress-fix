@@ -27,13 +27,21 @@ import { parseAward } from "@/lib/data/fomo";
 import { isPublishableWinner, winnerKey, winnersFromRfps } from "@/lib/data/winners";
 import { publicTenderSource } from "@/lib/tenders/sources";
 import { signUpHrefForPlan } from "@/lib/billing/plan-intent";
-import { COST_GUIDES } from "@/lib/seo/cost-guides";
+import { costGuidesFor } from "@/lib/seo/cost-guides.fr";
 import { listCaseStudies } from "@/lib/data/case-studies";
 import { heroUrlsBySlug } from "@/lib/data/projects";
 import { getTemplatesForTrade } from "@/lib/seo/rfp-templates";
+import { localizeRfpTemplate } from "@/lib/seo/rfp-templates.fr";
 import { PRICING, SITE } from "@/lib/site";
 import { SponsorSlot } from "@/components/sponsors/sponsor-slot";
-import { setLangFrom } from "@/i18n/server";
+import { getLang, getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale, localizePath, type Locale } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { fmt, formatNumber, plural } from "@/i18n/format";
+import { regionName, tradeName } from "@/i18n/terms";
+import { frIn, frPortal, frTradeOf } from "@/lib/seo/phrases.fr";
+import { esIn, esPortal, esTradeOf } from "@/lib/seo/phrases.es";
 
 export const revalidate = 3600;
 
@@ -52,8 +60,31 @@ export async function generateStaticParams() {
 
 const hasListings = (c: TradeCityCombo) => c.open.length + c.past.length > 0;
 
-function money(n: number): string {
+/** English "$1,200", Spanish (U.S.) "$1,200", French "1 200 $". */
+function money(n: number, lang: Locale): string {
+  if (lang === "fr") return `${formatNumber(Math.round(n), lang)} $`;
+  if (lang === "es") return `$${formatNumber(Math.round(n), lang)}`;
   return `$${Math.round(n).toLocaleString("en-CA")}`;
+}
+
+/** Counts: English keeps its bare digits, other languages get their separators. */
+function num(n: number, lang: Locale): string {
+  return lang === "en" ? String(n) : formatNumber(n, lang);
+}
+
+/** The {in} place phrase: Spanish "en Toronto", French "à Toronto" (English strings don't use it). */
+const placeIn = (name: string, lang: Locale) => (lang === "es" ? esIn(name) : frIn(name));
+
+/** Placeholders for the seo strings: each language picks the ones it needs. */
+function comboVars(tradeEn: string, placeEn: string, lang: Locale) {
+  return {
+    site: SITE.name,
+    trade: tradeName(tradeEn, lang),
+    lower: tradeEn.toLowerCase(),
+    of: lang === "es" ? esTradeOf(tradeEn) : frTradeOf(tradeEn),
+    place: regionName(placeEn, lang),
+    in: placeIn(placeEn, lang),
+  };
 }
 
 function awardStats(c: TradeCityCombo) {
@@ -73,22 +104,23 @@ function awardStats(c: TradeCityCombo) {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ category: string; city: string }>;
+  params: Promise<{ lang: string; category: string; city: string }>;
 }): Promise<Metadata> {
-  const { category, city } = await params;
+  const { lang, category, city } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const seo = getDictionary(l).seo;
+  const m = seo.tradeCity.meta;
   const combo = await getQualifyingCombo(category, city);
-  if (!combo) return { title: "Not found" };
+  if (!combo) return { title: seo.notFound };
   const { category: cat, region, open, past } = combo;
-  const lower = cat.name.toLowerCase();
-  const canonical = { canonical: `/trades/${cat.slug}/${region.slug}` };
+  const vars = comboVars(cat.name, region.name, l);
+  const alternates = alternatesFor(l, `/trades/${cat.slug}/${region.slug}`);
 
   if (!hasListings(combo)) {
     return {
-      title: `Commercial ${cat.name} Contractors in ${region.name} | Directory & RFPs`,
-      description: `${combo.vendorCount} commercial ${lower} ${
-        combo.vendorCount === 1 ? "contractor" : "contractors"
-      } serving ${region.name} on ${SITE.name} — compare companies, post an RFP free, and get quotes for ${lower} work.`,
-      alternates: canonical,
+      title: fmt(m.vendorTitle, vars),
+      description: plural(combo.vendorCount, m.vendorDescription, { ...vars, n: num(combo.vendorCount, l) }),
+      alternates,
     };
   }
 
@@ -96,13 +128,19 @@ export async function generateMetadata({
   // Searchers type "<trade> rfp <city>" / "<trade> tenders <city>" / "<trade>
   // contracts <city>" — say those words, and the live count.
   const parts = [
-    open.length ? `${open.length} open ${lower} RFPs and tenders in ${region.name}` : `${lower} RFPs and tenders in ${region.name}`,
-    past.length ? `${past.length} past contracts with the winner${stats ? ` (median ${money(stats.median)})` : ""}` : null,
+    open.length ? plural(open.length, m.partOpen, { ...vars, n: num(open.length, l) }) : fmt(m.partNoOpen, vars),
+    past.length
+      ? plural(past.length, m.partPast, {
+          ...vars,
+          n: num(past.length, l),
+          median: stats ? fmt(m.median, { money: money(stats.median, l) }) : "",
+        })
+      : null,
   ].filter(Boolean);
   return {
-    title: `${cat.name} RFPs & Tenders in ${region.name}${open.length ? ` (${open.length} Open)` : ""}`,
-    description: `${parts.join(", plus ")}. Updated every morning on ${SITE.name}.`.replace(/^./, (c) => c.toUpperCase()),
-    alternates: canonical,
+    title: fmt(m.title, { ...vars, open: open.length ? plural(open.length, m.openSuffix, { n: num(open.length, l) }) : "" }),
+    description: fmt(m.description, { ...vars, parts: parts.join(m.join) }).replace(/^./, (c) => c.toUpperCase()),
+    alternates,
   };
 }
 
@@ -112,12 +150,16 @@ export default async function TradeCityPage({
   params: Promise<{ category: string; city: string }>;
 }) {
   await setLangFrom(params);
+  const seo = getT("seo");
+  const t = seo.tradeCity;
+  const lang = getLang();
   const { category, city } = await params;
   const combo = await getQualifyingCombo(category, city);
   if (!combo) notFound();
 
   const { category: cat, region, open, past } = combo;
-  const lower = cat.name.toLowerCase();
+  const vars = comboVars(cat.name, region.name, lang);
+  const n = (x: number) => num(x, lang);
 
   const [vendors, caseStudies, allRfps, sameTrade, sameRegion] = await Promise.all([
     listVendors({ category: cat.slug, region: region.slug }),
@@ -142,86 +184,85 @@ export default async function TradeCityPage({
   for (const r of past) {
     const w = parseAward(r.summary).winner;
     if (!w || !isPublishableWinner(w)) continue; // never name individuals
-    const t = tally.get(winnerKey(w)) ?? { name: w, count: 0 };
-    t.count++;
-    tally.set(winnerKey(w), t);
+    const entry = tally.get(winnerKey(w)) ?? { name: w, count: 0 };
+    entry.count++;
+    tally.set(winnerKey(w), entry);
   }
   const topWinners = [...tally]
-    .filter(([, t]) => t.count >= 2)
+    .filter(([, w]) => w.count >= 2)
     .sort((a, b) => b[1].count - a[1].count)
     .slice(0, 5)
-    .map(([k, t]) => ({ ...t, slug: winnerPages.get(k) }));
+    .map(([k, w]) => ({ ...w, slug: winnerPages.get(k) }));
   const sources = [...new Set([...open, ...past].filter((r) => r.sourceType === "public_source").map((r) => publicTenderSource(r.slug).portal))];
   const hasPmRfps = open.some((r) => r.sourceType !== "public_source");
 
-  const guide = COST_GUIDES.find((g) => g.tradeSlug === cat.slug);
-  const templates = getTemplatesForTrade(cat.slug);
+  const guide = costGuidesFor(lang).find((g) => g.tradeSlug === cat.slug);
+  const templates = getTemplatesForTrade(cat.slug).map((tpl) => localizeRfpTemplate(tpl, lang));
   const proHref = signUpHrefForPlan("pro", "annual");
   const otherPlaces = sameTrade.filter((c) => c.region.slug !== region.slug).slice(0, 10);
   const otherTrades = sameRegion.filter((c) => c.category.slug !== cat.slug).slice(0, 10);
 
+  const f = t.faqs;
+  const sourceList = sources.map((s) => (lang === "fr" ? frPortal(s) : lang === "es" ? esPortal(s) : s)).join(", ");
   const faqs = hasListings(combo)
     ? [
         {
-          q: `Where do ${lower} RFPs and tenders in ${region.name} come from?`,
-          a: `${sources.length ? `Public buyers publishing on ${sources.join(", ")}` : "Property managers and owners"}${
-            sources.length && hasPmRfps ? ", and property managers posting on " + SITE.name : ""
-          }. ${SITE.name} checks the official open-data feeds every morning and lists the ${lower} work, so you don't have to search each portal. Bids go directly to the buyer.`,
+          q: fmt(f.whereQ, vars),
+          a: `${sources.length ? fmt(f.wherePublic, { sources: sourceList }) : f.wherePm}${
+            sources.length && hasPmRfps ? fmt(f.wherePlusPm, vars) : ""
+          }${fmt(f.whereTail, vars)}`,
         },
         ...(stats
           ? [
               {
-                q: `How much do ${lower} contracts in ${region.name} pay?`,
-                a: `Across the last ${stats.count} awarded ${lower} contracts here with a published value, the median was ${money(stats.median)} CAD, ranging from ${money(stats.min)} to ${money(stats.max)}. Each past contract below shows who won it and for how much.`,
+                q: fmt(f.payQ, vars),
+                a: fmt(f.payA, {
+                  ...vars,
+                  count: n(stats.count),
+                  median: money(stats.median, lang),
+                  min: money(stats.min, lang),
+                  max: money(stats.max, lang),
+                }),
               },
             ]
           : []),
         {
-          q: `How do I hear about new ${lower} RFPs in ${region.name} first?`,
-          a: `Trade Pro ($${PRICING.proAnnual} CAD a year, or $${PRICING.proMonthly} a month) emails you the morning a matching ${lower} tender or RFP posts in your regions, with the full scope, documents and the buyer's contact.`,
+          q: fmt(f.firstQ, vars),
+          a: fmt(f.firstA, { ...vars, annual: PRICING.proAnnual, monthly: PRICING.proMonthly }),
         },
         {
-          q: `Hiring for ${lower} work in ${region.name}?`,
-          a: `Write the RFP free with the ${SITE.name} RFP Writer, then post it free. ${cat.name} companies serving ${region.name} see it and express interest.`,
+          q: fmt(f.hiringQ, vars),
+          a: fmt(f.hiringA, vars),
         },
       ]
     : [
-        {
-          q: `How do I get quotes from ${lower} contractors in ${region.name}?`,
-          a: `Post your project as an RFP on ${SITE.name} — free for property managers and owners. ${cat.name} contractors serving ${region.name} see it and express interest, and you compare respondents in one place instead of chasing quotes by email.`,
-        },
-        {
-          q: `Are these ${lower} companies vetted?`,
-          a: `Each company maintains its own profile, including insurance and licensing details where provided. Listings marked Verified have been reviewed by ${SITE.name}. Always confirm credentials directly before awarding work.`,
-        },
-        {
-          q: `I run a ${lower} company serving ${region.name} — how do I get listed?`,
-          a: `Create a free profile, select ${cat.name} as a service category and ${region.name} as a service region. Your company appears in this directory where local property managers search.`,
-        },
+        { q: fmt(f.quotesQ, vars), a: fmt(f.quotesA, vars) },
+        { q: fmt(f.vettedQ, vars), a: fmt(f.vettedA, vars) },
+        { q: fmt(f.listedQ, vars), a: fmt(f.listedA, vars) },
       ];
 
   return (
     <>
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", path: "/" },
-          { name: "Trades", path: "/trades" },
-          { name: cat.name, path: `/trades/${cat.slug}` },
-          { name: region.name, path: `/trades/${cat.slug}/${region.slug}` },
+          { name: seo.crumbs.home, path: localizePath("/", lang) },
+          { name: seo.crumbs.trades, path: localizePath("/trades", lang) },
+          { name: vars.trade, path: localizePath(`/trades/${cat.slug}`, lang) },
+          { name: vars.place, path: localizePath(`/trades/${cat.slug}/${region.slug}`, lang) },
         ])}
       />
       {open.length > 0 ? (
         <JsonLd
           data={itemListSchema(
-            `Open ${lower} RFPs in ${region.name}`,
-            open.slice(0, 20).map((r) => ({ name: r.title, path: `/rfps/${r.slug}` })),
+            fmt(t.openTitle, vars),
+            open.slice(0, 20).map((r) => ({ name: r.title, path: localizePath(`/rfps/${r.slug}`, lang) })),
           )}
         />
       ) : vendors.length > 0 ? (
         <JsonLd
           data={itemListSchema(
-            `${cat.name} companies in ${region.name}`,
-            vendors.map((v) => ({ name: v.name, path: `/directory/${v.slug}` })),
+            fmt(t.companiesList, vars),
+            vendors.map((v) => ({ name: v.name, path: localizePath(`/directory/${v.slug}`, lang) })),
           )}
         />
       ) : null}
@@ -230,78 +271,75 @@ export default async function TradeCityPage({
       <section className="border-b border-border bg-secondary/30">
         <Container className="py-12">
           <nav className="mb-3 text-xs text-muted-foreground">
-            <Link href="/trades" className="hover:text-foreground">Trades</Link>
+            <Link href="/trades" className="hover:text-foreground">{seo.crumbs.trades}</Link>
             {" / "}
-            <Link href={`/trades/${cat.slug}`} className="hover:text-foreground">{cat.name}</Link>
+            <Link href={`/trades/${cat.slug}`} className="hover:text-foreground">{vars.trade}</Link>
             {" / "}
-            {region.name}
+            {vars.place}
           </nav>
           <Eyebrow>
-            {cat.name} · {region.name}
+            {fmt(t.eyebrow, vars)}
           </Eyebrow>
           {hasListings(combo) ? (
             <>
               <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl">
-                {cat.name} RFPs &amp; contracts in {region.name}
+                {fmt(t.title, vars)}
               </h1>
               <p className="mt-4 max-w-2xl text-muted-foreground">
                 {open.length > 0
-                  ? `${open.length} ${lower} ${open.length === 1 ? "tender is" : "tenders are"} open for bids in ${region.name} right now`
-                  : `No ${lower} tenders are open in ${region.name} today`}
-                {past.length > 0 ? `, and ${past.length} past ${past.length === 1 ? "contract shows" : "contracts show"} who won the work and for how much` : ""}.
-                Updated every morning.
+                  ? plural(open.length, t.leadOpen, { ...vars, n: n(open.length) })
+                  : fmt(t.leadNoOpen, vars)}
+                {past.length > 0 ? plural(past.length, t.leadPast, { ...vars, n: n(past.length) }) : ""}
+                {t.leadTail}
               </p>
               <dl className="mt-6 flex flex-wrap gap-x-10 gap-y-3">
                 <div>
-                  <dt className="text-xs uppercase tracking-wide text-muted-foreground">Open now</dt>
-                  <dd className="text-2xl font-semibold">{open.length}</dd>
+                  <dt className="text-xs uppercase tracking-wide text-muted-foreground">{t.stats.open}</dt>
+                  <dd className="text-2xl font-semibold">{n(open.length)}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs uppercase tracking-wide text-muted-foreground">Past contracts</dt>
-                  <dd className="text-2xl font-semibold">{past.length}</dd>
+                  <dt className="text-xs uppercase tracking-wide text-muted-foreground">{t.stats.past}</dt>
+                  <dd className="text-2xl font-semibold">{n(past.length)}</dd>
                 </div>
                 {stats && (
                   <div>
-                    <dt className="text-xs uppercase tracking-wide text-muted-foreground">Median award</dt>
-                    <dd className="text-2xl font-semibold">{money(stats.median)}</dd>
+                    <dt className="text-xs uppercase tracking-wide text-muted-foreground">{t.stats.median}</dt>
+                    <dd className="text-2xl font-semibold">{money(stats.median, lang)}</dd>
                   </div>
                 )}
                 {vendors.length > 0 && (
                   <div>
-                    <dt className="text-xs uppercase tracking-wide text-muted-foreground">Companies listed</dt>
-                    <dd className="text-2xl font-semibold">{vendors.length}</dd>
+                    <dt className="text-xs uppercase tracking-wide text-muted-foreground">{t.stats.companies}</dt>
+                    <dd className="text-2xl font-semibold">{n(vendors.length)}</dd>
                   </div>
                 )}
               </dl>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link href={proHref} className={buttonVariants()}>
-                  Get {lower} RFPs by email
+                  {fmt(t.byEmail, vars)}
                 </Link>
                 <Link href="/rfp-writer" className={buttonVariants({ variant: "outline" })}>
-                  Hiring? Write an RFP free
+                  {t.hiring}
                 </Link>
               </div>
             </>
           ) : (
             <>
               <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl">
-                Commercial {cat.name} Contractors in {region.name}
+                {fmt(t.vendorTitle, vars)}
               </h1>
               <p className="mt-4 max-w-2xl text-muted-foreground">
-                {combo.vendorCount === 1 ? "One" : combo.vendorCount} {lower}{" "}
-                {combo.vendorCount === 1 ? "company" : "companies"} on {SITE.name}{" "}
-                serve{combo.vendorCount === 1 ? "s" : ""} {region.name}. Managing property here? Post
-                your {lower} project once, free, and interested contractors come to you.
+                {plural(combo.vendorCount, t.vendorLead, { ...vars, n: n(combo.vendorCount) })}
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link href="/sign-up" className={buttonVariants()}>
-                  Post a {lower} RFP — free
+                  {fmt(t.postFree, vars)}
                 </Link>
                 <Link
                   href={`/directory?category=${cat.slug}&region=${region.slug}`}
                   className={buttonVariants({ variant: "outline" })}
                 >
-                  Browse the directory
+                  {seo.browseDirectory}
                 </Link>
               </div>
             </>
@@ -313,10 +351,10 @@ export default async function TradeCityPage({
         <Container className="py-12">
           <div className="flex items-end justify-between gap-4">
             <h2 className="text-2xl font-semibold tracking-tight">
-              Open {lower} RFPs in {region.name}
+              {fmt(t.openTitle, vars)}
             </h2>
             <Link href={`/rfps?category=${cat.slug}`} className="text-sm text-teal-700 hover:underline">
-              All {lower} RFPs →
+              {fmt(t.allRfps, vars)}
             </Link>
           </div>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -326,7 +364,7 @@ export default async function TradeCityPage({
           </div>
           {open.length > 12 && (
             <p className="mt-4 text-sm text-muted-foreground">
-              +{open.length - 12} more on the <Link href={`/rfps?category=${cat.slug}`} className="text-teal-700 underline">RFP board</Link>.
+              {fmt(t.more.before, { n: n(open.length - 12) })}<Link href={`/rfps?category=${cat.slug}`} className="text-teal-700 underline">{t.more.link}</Link>{t.more.after}
             </p>
           )}
         </Container>
@@ -336,19 +374,19 @@ export default async function TradeCityPage({
         <section className="bg-secondary/30">
           <Container className="py-12">
             <h2 className="text-2xl font-semibold tracking-tight">
-              Past {lower} contracts in {region.name}
+              {fmt(t.pastTitle, vars)}
             </h2>
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Awarded public contracts: what the work was, who won it and the published value.
+              {t.pastLead}
             </p>
             <div className="mt-4 overflow-x-auto rounded-lg border border-border bg-card">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-muted-foreground">
-                    <th className="p-3 font-medium">Contract</th>
-                    <th className="p-3 font-medium">Won by</th>
-                    <th className="p-3 text-right font-medium">Value</th>
-                    <th className="hidden p-3 font-medium sm:table-cell">Awarded</th>
+                    <th className="p-3 font-medium">{t.table.contract}</th>
+                    <th className="p-3 font-medium">{t.table.wonBy}</th>
+                    <th className="p-3 text-right font-medium">{t.table.value}</th>
+                    <th className="hidden p-3 font-medium sm:table-cell">{t.table.awarded}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -372,7 +410,7 @@ export default async function TradeCityPage({
                           <span className="text-muted-foreground">—</span>
                         )}
                       </td>
-                      <td className="whitespace-nowrap p-3 text-right">{amount ? money(amount) : "—"}</td>
+                      <td className="whitespace-nowrap p-3 text-right">{amount ? money(amount, lang) : "—"}</td>
                       <td className="hidden whitespace-nowrap p-3 text-muted-foreground sm:table-cell">{r.deadline ?? "—"}</td>
                     </tr>
                   ))}
@@ -381,16 +419,16 @@ export default async function TradeCityPage({
             </div>
             {topWinners.length > 0 && (
               <p className="mt-4 text-sm text-muted-foreground">
-                Most frequent winners here:{" "}
-                {topWinners.map((t, i) => (
-                  <span key={t.name}>
+                {t.topWinners}{" "}
+                {topWinners.map((w, i) => (
+                  <span key={w.name}>
                     {i > 0 && " · "}
-                    {t.slug ? (
-                      <Link href={`/contract-winners/${t.slug}`} className="text-teal-700 hover:underline">{t.name}</Link>
+                    {w.slug ? (
+                      <Link href={`/contract-winners/${w.slug}`} className="text-teal-700 hover:underline">{w.name}</Link>
                     ) : (
-                      t.name
+                      w.name
                     )}{" "}
-                    ({t.count})
+                    ({n(w.count)})
                   </span>
                 ))}
               </p>
@@ -402,7 +440,7 @@ export default async function TradeCityPage({
       {vendors.length > 0 && (
         <Container className="py-12">
           <h2 className="text-2xl font-semibold tracking-tight">
-            {cat.name} companies serving {region.name}
+            {fmt(t.companiesTitle, vars)}
           </h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {vendors.map((v) => (
@@ -415,7 +453,7 @@ export default async function TradeCityPage({
       {caseStudies.length > 0 && (
         <Container className="py-12">
           <h2 className="text-2xl font-semibold tracking-tight">
-            Recent {lower} projects in {region.name}
+            {fmt(t.projectsTitle, vars)}
           </h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {caseStudies.map((cs) => (
@@ -442,7 +480,7 @@ export default async function TradeCityPage({
                   <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
                     {cs.challenge}
                   </p>
-                  <span className="mt-auto pt-4 text-sm font-medium text-teal-ink">By {cs.orgName} →</span>
+                  <span className="mt-auto pt-4 text-sm font-medium text-teal-ink">{fmt(t.projectBy, { org: cs.orgName })}</span>
                 </div>
               </Link>
             ))}
@@ -453,7 +491,7 @@ export default async function TradeCityPage({
       {(guide || templates.length > 0) && (
         <Container className="py-12">
           <h2 className="text-2xl font-semibold tracking-tight">
-            Planning {lower} work in {region.name}?
+            {fmt(t.planningTitle, vars)}
           </h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             {guide && (
@@ -462,25 +500,24 @@ export default async function TradeCityPage({
                 className="group rounded-lg border border-border bg-card p-5 transition-all hover:border-teal-400 hover:shadow-sm"
               >
                 <h3 className="text-base font-semibold group-hover:text-teal-ink">
-                  What does it cost? →
+                  {t.costTitle}
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  Planning ranges for {lower} work — before you collect real quotes.
+                  {fmt(t.costBody, vars)}
                 </p>
               </Link>
             )}
-            {templates.slice(0, 1).map((t) => (
+            {templates.slice(0, 1).map((tpl) => (
               <Link
-                key={t.slug}
-                href={`/rfp-templates/${t.slug}`}
+                key={tpl.slug}
+                href={`/rfp-templates/${tpl.slug}`}
                 className="group rounded-lg border border-border bg-card p-5 transition-all hover:border-teal-400 hover:shadow-sm"
               >
                 <h3 className="text-base font-semibold group-hover:text-teal-ink">
-                  Start from an RFP template →
+                  {t.templateTitle}
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  {t.name.replace(/ RFP Template$/, "")} — scope, requirements, and evaluation
-                  criteria, ready to customize.
+                  {fmt(t.templateBody, { name: tpl.shortName })}
                 </p>
               </Link>
             ))}
@@ -492,11 +529,11 @@ export default async function TradeCityPage({
         <Container className="pb-12">
           {otherPlaces.length > 0 && (
             <>
-              <h2 className="text-lg font-semibold tracking-tight">{cat.name} in other places</h2>
+              <h2 className="text-lg font-semibold tracking-tight">{fmt(t.otherPlaces, vars)}</h2>
               <div className="mt-3 flex flex-wrap gap-2">
                 {otherPlaces.map((c) => (
                   <Link key={c.region.slug} href={`/trades/${cat.slug}/${c.region.slug}`} className="rounded-md border border-border bg-card px-3 py-1.5 text-sm hover:border-teal-400">
-                    {cat.name} in {c.region.name}
+                    {fmt(seo.trade.inPlace, { ...vars, place: regionName(c.region.name, lang), in: placeIn(c.region.name, lang) })}
                   </Link>
                 ))}
               </div>
@@ -504,11 +541,11 @@ export default async function TradeCityPage({
           )}
           {otherTrades.length > 0 && (
             <>
-              <h2 className="mt-8 text-lg font-semibold tracking-tight">Other trades in {region.name}</h2>
+              <h2 className="mt-8 text-lg font-semibold tracking-tight">{fmt(t.otherTrades, vars)}</h2>
               <div className="mt-3 flex flex-wrap gap-2">
                 {otherTrades.map((c) => (
                   <Link key={c.category.slug} href={`/trades/${c.category.slug}/${region.slug}`} className="rounded-md border border-border bg-card px-3 py-1.5 text-sm hover:border-teal-400">
-                    {c.category.name} in {region.name}
+                    {fmt(seo.trade.inPlace, { ...vars, trade: tradeName(c.category.name, lang) })}
                   </Link>
                 ))}
               </div>
@@ -531,7 +568,7 @@ export default async function TradeCityPage({
 
       <section className="border-t border-border">
         <Container size="narrow" className="py-12">
-          <h2 className="text-2xl font-semibold tracking-tight">Frequently asked</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">{seo.faqTitle}</h2>
           <Accordion className="mt-4">
             {faqs.map((f, i) => (
               <AccordionItem key={i} value={`q${i}`}>
@@ -545,21 +582,21 @@ export default async function TradeCityPage({
 
       {hasListings(combo) ? (
         <CTASection
-          title={`Get ${lower} RFPs in ${region.name} the morning they post`}
-          description={`Trade Pro: daily email alerts, full scopes, documents and buyer contacts. $${PRICING.proAnnual} CAD a year.`}
+          title={fmt(t.ctaPro.title, vars)}
+          description={fmt(t.ctaPro.description, { annual: PRICING.proAnnual })}
           primaryHref={proHref}
-          primaryLabel="Start Trade Pro"
+          primaryLabel={seo.startPro}
           secondaryHref={`/trades/${cat.slug}`}
-          secondaryLabel={`All ${cat.name}`}
+          secondaryLabel={fmt(t.allTrade, vars)}
         />
       ) : (
         <CTASection
-          title={`Need a ${lower} contractor in ${region.name}?`}
-          description={`Post your project free on ${SITE.name} and compare interested ${lower} companies side by side.`}
+          title={fmt(t.ctaHire.title, vars)}
+          description={fmt(t.ctaHire.description, vars)}
           primaryHref="/sign-up"
-          primaryLabel="Post an RFP free"
+          primaryLabel={t.ctaHire.primary}
           secondaryHref={`/trades/${cat.slug}`}
-          secondaryLabel={`All ${cat.name}`}
+          secondaryLabel={fmt(t.allTrade, vars)}
         />
       )}
     </>

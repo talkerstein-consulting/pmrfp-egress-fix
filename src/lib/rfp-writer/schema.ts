@@ -30,6 +30,8 @@ export const wizardInputSchema = z.object({
   siteVisit: z.boolean(),
   siteVisitDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   priority: z.enum(PRIORITY),
+  /** Language the RFP is written in (the wizard's page language). Missing = English. */
+  lang: z.enum(["en", "fr", "es"]).optional(),
 });
 export type WizardInput = z.infer<typeof wizardInputSchema>;
 

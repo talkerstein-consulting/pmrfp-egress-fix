@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { clientMessages } from "@/i18n/dictionaries";
+import { I18nProvider } from "@/i18n/provider";
 import { fontVariables } from "../fonts";
 import "../globals.css";
 
@@ -19,7 +21,8 @@ export default function EmbedLayout({ children }: { children: React.ReactNode })
     <html lang="en-CA" className={`${fontVariables} antialiased`}>
       <body>
         <style>{FRAME_CSS}</style>
-        {children}
+        {/* Widgets are English; the provider keeps shared client components working here. */}
+        <I18nProvider lang="en" messages={clientMessages("en")}>{children}</I18nProvider>
       </body>
     </html>
   );

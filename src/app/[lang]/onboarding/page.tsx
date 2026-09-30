@@ -13,15 +13,23 @@ import { needsRolePick, parseRoleChoice } from "@/lib/auth/oauth";
 import { rolePickStateFor } from "@/lib/auth/google";
 import { getSignupGcIntent } from "@/lib/gc/intent";
 import { parseAwardRef } from "@/lib/gc/packages";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale, localizePath } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
 
-export const metadata: Metadata = { title: "Set up your account" };
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  return { title: getDictionary(l).auth.meta.onboarding, alternates: alternatesFor(l, "/onboarding") };
+}
 
 export default async function OnboardingPage({
   searchParams, params }: {
   searchParams: Promise<{ next?: string; kind?: string; award?: string; role?: string }>;
 } & { params: Promise<object> }) {
-  await setLangFrom(params);
+  const lang = await setLangFrom(params);
+  const t = getT("auth").onboarding;
   const session = await requireUser();
   const role = session.profile.primary_role;
   const { next: rawNext, kind, award: awardParam, role: roleParam } = await searchParams;
@@ -29,12 +37,12 @@ export default async function OnboardingPage({
   // What the sign-up page said (?role=). Only a pre-selection: never saved as-is.
   const choice = parseRoleChoice(roleParam, kind);
   // Tradespeople looking for work have no company to set up.
-  if (role === "talent") redirect("/talent/edit");
+  if (role === "talent") redirect(localizePath("/talent/edit", lang));
 
   // Signed up with Google, so no role yet: ask that one question first.
   if (needsRolePick(await rolePickStateFor(session))) {
     return (
-      <Shell heading="How will you use PMRFP?" intro="Pick the one that fits. We'll set up the right account for you.">
+      <Shell heading={t.rolePickHeading} intro={t.rolePickIntro}>
         <RolePickerForm initial={choice} next={next} award={parseAwardRef(awardParam)} />
       </Shell>
     );
@@ -57,24 +65,24 @@ export default async function OnboardingPage({
 
   const heading =
     role === "trade"
-      ? "Set up your company profile"
+      ? t.headings.trade
       : role === "supplier"
-        ? "Set up your supplier profile"
+        ? t.headings.supplier
         : isGc
-          ? "Tell us about your company"
+          ? t.headings.gc
           : role === "property_manager"
-            ? "Tell us about your organization"
-            : "You're all set";
+            ? t.headings.pm
+            : t.headings.done;
 
   return (
     <Shell
       heading={heading}
       intro={
         role === "trade" || role === "supplier"
-          ? "This helps property decision-makers and trades find you. You can edit everything later."
+          ? t.intros.listing
           : isGc
-            ? "Just the basics — you can post your first sub-trade package right after."
-            : "Just the basics — you can post an RFP right after."
+            ? t.intros.gc
+            : t.intros.buyer
       }
     >
       <OnboardingForm

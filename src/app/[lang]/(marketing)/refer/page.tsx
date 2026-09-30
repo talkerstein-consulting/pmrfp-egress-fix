@@ -6,30 +6,39 @@ import type { Metadata } from "next";
 import Link from "@/i18n/link";
 import { ArrowRight, Banknote, HardHat, FileText, Trophy } from "lucide-react";
 import { Container, Eyebrow } from "@/components/container";
-import { PRICING, REFERRAL, SITE } from "@/lib/site";
-import { setLangFrom } from "@/i18n/server";
+import { REFERRAL } from "@/lib/site";
+import { getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { fmt } from "@/i18n/format";
 
-export const metadata: Metadata = {
-  title: `Refer to ${SITE.name} — Earn up to $${REFERRAL.tradeFee} (Trade) or Get Credit (Project)`,
-  description: `Two referral lanes. Refer a trade and earn up to $${REFERRAL.tradeFee} cash when they subscribe to Trade Pro. Refer a project and earn public credit on the RFP + a spot on the Top Connectors leaderboard.`,
-  alternates: { canonical: "/refer" },
-};
+/** Referral numbers for the {placeholders} in the copy (lib/site.ts). */
+const VARS = { fee: REFERRAL.tradeFee, feeMonthly: REFERRAL.tradeFeeMonthly, currency: REFERRAL.currency };
+const f = (s: string) => fmt(s, VARS);
+
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const t = getDictionary(l).misc.refer.meta;
+  return { title: f(t.title), description: f(t.description), alternates: alternatesFor(l, "/refer") };
+}
 
 export default async function ReferHubPage({ params }: { params: Promise<object> }) {
   await setLangFrom(params);
+  const t = getT("misc").refer;
+  const [titleBefore, titleAfter] = t.title.split("{cash}");
   return (
     <section className="border-b border-border bg-indigo text-white">
       <Container className="py-20 sm:py-24">
-        <Eyebrow className="text-teal">Referral program</Eyebrow>
+        <Eyebrow className="text-teal">{t.eyebrow}</Eyebrow>
         <h1 className="mt-4 max-w-3xl text-4xl font-semibold leading-[1.05] tracking-tight sm:text-5xl">
-          Two lanes.{" "}
-          <span className="text-teal-300">Up to ${REFERRAL.tradeFee} cash</span> for trades. Public
-          credit for projects.
+          {titleBefore}
+          <span className="text-teal-300">{f(t.titleCash)}</span>
+          {titleAfter}
         </h1>
         <p className="mt-6 max-w-2xl text-lg leading-relaxed text-indigo-100/80">
-          The cash lane (trade) pays after the trade you refer subscribes to Trade Pro and
-          their payment clears. The credit lane (project) starts when the RFP goes live and pays in visibility — your name on every RFP
-          you bring, plus a spot on the Top Connectors leaderboard.
+          {t.lead}
         </p>
 
         <div className="mt-12 grid gap-6 lg:grid-cols-2">
@@ -44,19 +53,17 @@ export default async function ReferHubPage({ params }: { params: Promise<object>
               </span>
               <div>
                 <p className="font-mono text-[11px] uppercase tracking-widest text-teal-300">
-                  Direct-revenue lane
+                  {t.trade.kicker}
                 </p>
-                <h2 className="mt-1 text-2xl font-semibold text-white">Refer a Trade</h2>
+                <h2 className="mt-1 text-2xl font-semibold text-white">{t.trade.title}</h2>
                 <p className="mt-1 text-3xl font-semibold text-teal-300">
-                  Up to ${REFERRAL.tradeFee} {REFERRAL.currency}
+                  {f(t.trade.amount)}
                 </p>
                 <p className="mt-3 text-sm leading-relaxed text-indigo-100/85">
-                  Refer a trade or service company. ${REFERRAL.tradeFee} on an annual Trade Pro plan, paid ~30 days
-                  after their payment clears; ${REFERRAL.tradeFeeMonthly} on a monthly plan, after their
-                  third monthly payment clears. By e-transfer.
+                  {f(t.trade.body)}
                 </p>
                 <p className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-teal-300">
-                  Refer a trade <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+                  {t.trade.cta} <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
                 </p>
               </div>
             </div>
@@ -73,19 +80,17 @@ export default async function ReferHubPage({ params }: { params: Promise<object>
               </span>
               <div>
                 <p className="font-mono text-[11px] uppercase tracking-widest text-indigo-100/70">
-                  Recognition lane
+                  {t.project.kicker}
                 </p>
-                <h2 className="mt-1 text-2xl font-semibold text-white">Refer a Project</h2>
+                <h2 className="mt-1 text-2xl font-semibold text-white">{t.project.title}</h2>
                 <p className="mt-1 text-xl font-semibold text-white">
-                  Public credit + leaderboard
+                  {t.project.amount}
                 </p>
                 <p className="mt-3 text-sm leading-relaxed text-indigo-100/85">
-                  Refer a property project (pre-listing repairs, maintenance, capital work).
-                  When the RFP goes live, your name appears on the listing as the connector and
-                  you climb the Top Connectors leaderboard. No cash, just real visibility.
+                  {t.project.body}
                 </p>
                 <p className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-white">
-                  Refer a project <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+                  {t.project.cta} <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
                 </p>
               </div>
             </div>
@@ -95,12 +100,7 @@ export default async function ReferHubPage({ params }: { params: Promise<object>
         <div className="mt-12 flex items-start gap-4 rounded-xl border border-white/15 bg-white/5 p-5">
           <Banknote className="mt-0.5 size-5 shrink-0 text-teal-300" />
           <p className="text-sm leading-relaxed text-indigo-100/80">
-            <strong className="text-white">Why two lanes:</strong> Trade subscriptions are PMRFP&rsquo;s
-            direct revenue, so the trade lane pays cash. Project referrals create the inventory
-            that retains paying trades — real value, but indirect — so we reward those in
-            recognition (public credit + leaderboard) rather than cash. Both are no-cap and
-            need no signup. The reference visible
-            on the live RFP is the most valuable thing your name can sit next to in this network.
+            <strong className="text-white">{t.whyLabel}</strong> {t.whyBody}
           </p>
         </div>
 

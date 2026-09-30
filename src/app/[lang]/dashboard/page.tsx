@@ -9,12 +9,20 @@ import { ActivateButton } from "@/components/dashboard/billing-actions";
 import { ProfileCompletionCard } from "@/components/dashboard/profile-completion-card";
 import { SponsorSlot } from "@/components/sponsors/sponsor-slot";
 import { createClient } from "@/lib/supabase/server";
-import { setLangFrom } from "@/i18n/server";
+import type { Metadata } from "next";
+import { getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale } from "@/i18n/config";
+import { fmt } from "@/i18n/format";
 
-export const metadata = { title: "Dashboard" };
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  return { title: getDictionary(hasLocale(lang) ? lang : "en").dash.meta.home };
+}
 
 export default async function TradeDashboardHome({ params }: { params: Promise<object> }) {
   await setLangFrom(params);
+  const t = getT("dash").home;
   const session = await requireRole(["trade"]);
   const demo = isDemoMode();
   const org = session.organization;
@@ -25,8 +33,8 @@ export default async function TradeDashboardHome({ params }: { params: Promise<o
     <div>
       {demo && <DemoBanner />}
       <PageHeader
-        title={`Welcome${org?.name ? `, ${org.name}` : ""}`}
-        description="Your trade visibility, opportunities, and profile health at a glance."
+        title={org?.name ? fmt(t.welcomeName, { name: org.name }) : t.welcome}
+        description={t.description}
       />
 
       {/* Prominent profile-completion meter — single source of truth for "what
@@ -36,15 +44,15 @@ export default async function TradeDashboardHome({ params }: { params: Promise<o
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
-          label="Subscription"
-          value={session.hasTradeAccess ? "Trade Pro — Active" : "Free"}
-          hint={session.hasTradeAccess ? "Full RFP access" : "Upgrade for full access"}
+          label={t.subscription}
+          value={session.hasTradeAccess ? t.proActive : t.free}
+          hint={session.hasTradeAccess ? t.fullAccess : t.upgradeHint}
           href="/dashboard/billing"
         />
-        <StatCard label="Matching RFPs" value={matchingRfps} hint="Open opportunities" href="/dashboard/rfps" />
-        <StatCard label="Saved RFPs" value={0} href="/dashboard/saved-rfps" />
-        <StatCard label="Interests submitted" value={0} href="/dashboard/interests" />
-        <StatCard label="Profile views" value={demo ? 42 : 0} hint="Last 30 days" />
+        <StatCard label={t.matching} value={matchingRfps} hint={t.openOpps} href="/dashboard/rfps" />
+        <StatCard label={t.saved} value={0} href="/dashboard/saved-rfps" />
+        <StatCard label={t.interests} value={0} href="/dashboard/interests" />
+        <StatCard label={t.views} value={demo ? 42 : 0} hint={t.last30} />
       </div>
 
       {photoProjects && (
@@ -55,14 +63,11 @@ export default async function TradeDashboardHome({ params }: { params: Promise<o
           <div className="flex items-start gap-4">
             <Camera className="mt-0.5 size-6 shrink-0 text-teal-600" />
             <div>
-              <h2 className="text-base font-semibold">Show a job you&apos;re proud of</h2>
-              <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                Snap before and after photos on your phone, say what you did in a line, and we&apos;ll
-                write it up. It goes on your profile for property managers to see.
-              </p>
+              <h2 className="text-base font-semibold">{t.projectTitle}</h2>
+              <p className="mt-1 max-w-xl text-sm text-muted-foreground">{t.projectBody}</p>
             </div>
           </div>
-          <span className={buttonVariants()}>Add a project</span>
+          <span className={buttonVariants()}>{t.addProject}</span>
         </Link>
       )}
 
@@ -70,21 +75,18 @@ export default async function TradeDashboardHome({ params }: { params: Promise<o
         <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-border bg-card p-6">
           <div className="flex items-start gap-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`/api/badge/${org.slug}`} alt="Your PMRFP badge" width={160} height={40} className="mt-1 hidden sm:block" />
+            <img src={`/api/badge/${org.slug}`} alt={t.badgeAlt} width={160} height={40} className="mt-1 hidden sm:block" />
             <div>
-              <h2 className="text-base font-semibold">Your profile is live — add your badge</h2>
-              <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                Paste it into your website footer and email signature. Property managers who click it
-                see your profile, and your profile links back to your site. Two minutes, free.
-              </p>
+              <h2 className="text-base font-semibold">{t.badgeTitle}</h2>
+              <p className="mt-1 max-w-xl text-sm text-muted-foreground">{t.badgeBody}</p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link href="/badge" className={buttonVariants({ variant: "outline" })}>
-              Get the badge
+              {t.getBadge}
             </Link>
             <Link href="/widgets?w=company" className={buttonVariants({ variant: "outline" })}>
-              Company card widget
+              {t.companyWidget}
             </Link>
           </div>
         </div>
@@ -92,11 +94,8 @@ export default async function TradeDashboardHome({ params }: { params: Promise<o
 
       {!session.hasTradeAccess && (
         <div className="mt-6 rounded-lg border border-teal-300 bg-teal-50/60 p-6">
-          <h2 className="text-base font-semibold">Unlock full RFP access with Trade Pro</h2>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            See the full scope, documents and buyer contact on every RFP, what similar contracts sold
-            for, and get an email the morning each match posts. $29/month or $249 CAD/year.
-          </p>
+          <h2 className="text-base font-semibold">{t.upsellTitle}</h2>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t.upsellBody}</p>
           <div className="mt-4">
             <ActivateButton />
           </div>

@@ -15,7 +15,7 @@ import { UsdHint } from "@/components/geo/usd-hint";
 import { rfpMarket } from "@/lib/visitor-geo";
 import type { RfpListItem } from "@/lib/data/types";
 import { buttonVariants } from "@/components/ui/button";
-import { COPY, PRICING, SITE } from "@/lib/site";
+import { PRICING, SITE } from "@/lib/site";
 import { getCategories, getRegions } from "@/lib/data/taxonomy";
 import { listAllRfpsCached, listQualifyingCombos, openCountsByTradeRegion, regionTree } from "@/lib/data/trade-city";
 import { JobFinder, type FinderPlace } from "@/components/public/job-finder";
@@ -26,18 +26,42 @@ import { winnersFromRfps } from "@/lib/data/winners";
 import { boardStats, compactDollars, daysUntil, isPastContract, parseAward } from "@/lib/data/fomo";
 import { cn } from "@/lib/utils";
 import { signUpHrefForPlan } from "@/lib/billing/plan-intent";
-import { setLangFrom } from "@/i18n/server";
+import { getLang, getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale, type Locale } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { fmt, formatNumber, plural } from "@/i18n/format";
+import { regionName, tradeName } from "@/i18n/terms";
 
 // The RFP board refreshes daily from the public-tender feed; without this the
 // page was frozen at build time and showed stale open counts until a deploy.
 export const revalidate = 3600;
 
-export const metadata: Metadata = {
-  title: { absolute: `${SITE.name} — Commercial Property RFPs & Public Tenders in Canada and the US` },
-  description:
-    "Open commercial property contracts across Canada and the U.S. — snow removal, HVAC, roofing, cleaning, electrical and more — from property managers and public buyers, updated daily. Trades get listed free; property managers post free.",
-  alternates: { canonical: "/" },
-};
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const t = getDictionary(l).home.meta;
+  return {
+    title: { absolute: `${SITE.name} — ${t.title}` },
+    description: t.description,
+    alternates: alternatesFor(l, "/"),
+  };
+}
+
+/** Plain counts: English keeps its bare digits, other languages get their separators. */
+function count(n: number, lang: Locale): string {
+  return lang === "en" ? String(n) : formatNumber(n, lang);
+}
+
+/** compactDollars ("$1.2M") for English, "$1.2 M" for Spanish; "1,2 M$" style for French. */
+function money(n: number, lang: Locale): string {
+  if (lang === "en" || lang === "es") return compactDollars(n, lang);
+  const one = (x: number) => formatNumber(x, lang, { maximumFractionDigits: 1 });
+  if (n >= 1e9) return `${one(n / 1e9)} G$`;
+  if (n >= 1e6) return `${n >= 1e8 ? formatNumber(Math.round(n / 1e6), lang) : one(n / 1e6)} M$`;
+  if (n >= 1e3) return `${formatNumber(Math.round(n / 1e3), lang)} k$`;
+  return `${formatNumber(Math.round(n), lang)} $`;
+}
 
 /** Public buyers the board pulls from every morning (see /api/cron/public-tenders). */
 // Public sources. CanadaBuys and SEAO show government signatures rather than
@@ -55,31 +79,26 @@ const SOURCES: { name: string; logo?: string; h?: number }[] = [
 
 // Every row must stay true of Trade Pro (rfp-alerts cron, LockedContentPanel,
 // express-interest). No "appear higher" claims.
-const COMPARE: [string, boolean, boolean][] = [
-  ["Company profile in the trade directory", true, true],
-  ["Website badge that links to your profile", true, true],
-  ["Open RFP titles, regions and closing dates", true, true],
-  ["Weekly tender digest email", true, true],
-  ["Full scope, documents and buyer contact", false, true],
-  ["Daily email the day a matching RFP posts", false, true],
-  ["Express interest on property-manager RFPs", false, true],
+// Labels live in messages/home.ts (compare.*).
+type CompareKey = keyof ReturnType<typeof getDictionary>["home"]["compare"];
+const COMPARE: [CompareKey, boolean, boolean][] = [
+  ["profile", true, true],
+  ["badge", true, true],
+  ["titles", true, true],
+  ["digest", true, true],
+  ["full", false, true],
+  ["daily", false, true],
+  ["interest", false, true],
 ];
 
-/** Photo tiles: one per headline trade, each with its live open count. */
+/** Photo tiles: one per headline trade, each with its live open count. Alt text: messages/home.ts (tiles.*). */
 const TRADE_TILES = [
-  { slug: "roofing", img: "/images/home/hero-roofing.webp", alt: "Roofers installing a new membrane on a commercial flat roof" },
-  { slug: "snow-removal", img: "/images/home/trade-snow.webp", alt: "Plow truck clearing a condominium parking lot before dawn" },
-  { slug: "hvac", img: "/images/home/trade-hvac.webp", alt: "HVAC technician servicing a rooftop unit" },
-  { slug: "electrical", img: "/images/home/trade-electrical.webp", alt: "Electrician testing a distribution panel" },
-  { slug: "cleaning-janitorial", img: "/images/home/trade-cleaning.webp", alt: "Cleaning crew polishing an office lobby floor at night" },
-];
-
-const FAQS = [
-  { q: "Does PMRFP guarantee work?", a: "No. PMRFP lists projects and trades. We don't guarantee contracts, bid success, or responses." },
-  { q: "Can I cancel anytime?", a: "Yes. Cancel from the billing portal at any time. Your membership stays active until the end of your billing period." },
-  { q: "Where do the public tenders come from?", a: "Official open-data feeds, checked every morning: CanadaBuys, the City of Toronto, Quebec's SEAO and the Government of Yukon in Canada, and U.S. federal building and property work from SAM.gov plus New York City solicitations from The City Record. Bids go directly to the public buyer." },
-  { q: "Can property managers post for free?", a: "Yes. Posting RFPs, using the RFP Writer and browsing the directory are free for property managers, builders and owners." },
-];
+  { slug: "roofing", img: "/images/home/hero-roofing.webp", alt: "roofing" },
+  { slug: "snow-removal", img: "/images/home/trade-snow.webp", alt: "snow" },
+  { slug: "hvac", img: "/images/home/trade-hvac.webp", alt: "hvac" },
+  { slug: "electrical", img: "/images/home/trade-electrical.webp", alt: "electrical" },
+  { slug: "cleaning-janitorial", img: "/images/home/trade-cleaning.webp", alt: "cleaning" },
+] as const;
 
 /** SEAO (Quebec) notices are published in French. */
 function isFrench(r: { slug: string }) {
@@ -104,7 +123,8 @@ function spread<T>(items: T[], key: (t: T) => string): T[] {
 
 
 export default async function HomePage({ params }: { params: Promise<object> }) {
-  await setLangFrom(params);
+  const lang = await setLangFrom(params);
+  const t = getT("home");
   // One cached board fetch shared with the trade × place index.
   const [categories, rfps, regions, tree, combos] = await Promise.all([
     getCategories(),
@@ -117,12 +137,12 @@ export default async function HomePage({ params }: { params: Promise<object> }) 
   const openCounts = openCountsByTradeRegion(rfps, categories, tree);
   const finderPlaces: FinderPlace[] = orderPlaces(regions, tree).map((p) => ({
     slug: p.slug,
-    name: p.name,
+    name: regionName(p.name, lang),
     depth: p.depth,
     country: p.root === "united-states" || p.slug.startsWith("us-") ? "US" : "CA",
   }));
   const finderTrades = categories
-    .map((c) => ({ slug: c.slug, name: c.name }))
+    .map((c) => ({ slug: c.slug, name: tradeName(c.name, lang) }))
     .sort((a, b) => (openCounts[`${b.slug}|*`] ?? 0) - (openCounts[`${a.slug}|*`] ?? 0) || a.name.localeCompare(b.name));
   const livePages = combos.map((c) => `${c.category.slug}|${c.region.slug}`);
   const stats = boardStats(rfps);
@@ -169,15 +189,16 @@ export default async function HomePage({ params }: { params: Promise<object> }) 
     .filter((n): n is number => typeof n === "number" && n > 0)
     .sort((a, b) => a - b);
   const medianAward = awardAmounts.length >= 25 ? awardAmounts[Math.floor(awardAmounts.length / 2)] : null;
-  const tiles = TRADE_TILES.map((t) => {
-    const name = categories.find((c) => c.slug === t.slug)?.name ?? t.slug;
+  const tiles = TRADE_TILES.map((tile) => {
+    const name = categories.find((c) => c.slug === tile.slug)?.name ?? tile.slug;
     const open = rfps.filter((r) => r.status === "open" && r.categories.includes(name)).length;
-    return { ...t, name, open };
+    return { ...tile, name: tradeName(name, lang), open };
   });
   // Below ~10 open listings a live-count headline undersells; lead with the PM pitch.
   const live = stats.open >= 10;
   const proMonthly = signUpHrefForPlan("pro", "monthly");
   const proAnnual = signUpHrefForPlan("pro", "annual");
+  const disclaimer = getT("common").disclaimer;
 
   return (
     <>
@@ -201,37 +222,35 @@ export default async function HomePage({ params }: { params: Promise<object> }) 
           <div>
             <p className="inline-flex items-center gap-2.5 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-sm text-indigo-100">
               <span className="inline-flex size-2 rounded-full bg-teal-300" />
-              {live ? "Live across Canada and the U.S., updated every morning" : "Now live in the GTA"}
+              {live ? t.hero.badgeLive : t.hero.badgeGta}
             </p>
             <h1 className="mt-6 text-balance text-4xl font-extrabold leading-[1.06] tracking-tight text-white md:text-5xl lg:text-[3.35rem] xl:text-[3.6rem]">
               {live ? (
                 <>
-                  <span className="text-teal-300">{stats.open}</span> commercial property contracts are open for bids.
+                  <span className="text-teal-300">{count(stats.open, lang)}</span>{t.hero.titleLive}
                 </>
               ) : (
-                <>Post commercial property RFPs free. Vetted trades bid to win them.</>
+                <>{t.hero.titleIntro}</>
               )}
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-indigo-100/80">
-              {live
-                ? "Public tenders and property-manager RFPs on one board. Trade Pro emails you every match the day it posts."
-                : `${SITE.name} is the RFP board for commercial and residential buildings.`}
+              {live ? t.hero.subLive : fmt(t.hero.subIntro, { name: SITE.name })}
             </p>
             {live ? (
               <div className="mt-9">
                 {/* Relevance before payment: show this trade, this area, right now. */}
                 <JobFinder trades={finderTrades} places={finderPlaces} counts={openCounts} livePages={livePages} />
                 <p className="mt-4 text-sm text-indigo-100/70">
-                  Want every match emailed the morning it posts?{" "}
+                  {t.hero.proPrompt}{" "}
                   <Link href={proMonthly} className="font-semibold text-teal-300 hover:underline">
-                    Start Trade Pro, ${PRICING.proMonthly}/month
+                    {fmt(t.hero.proLink, { price: PRICING.proMonthly })}
                   </Link>
                 </p>
               </div>
             ) : (
               <div className="mt-9 flex flex-wrap items-center gap-3">
                 <Link href="/sign-up?role=property_manager" className={cn(buttonVariants({ size: "lg", variant: "accent" }), "active:scale-[0.98]")}>
-                  Post a project <ArrowRight className="size-4" />
+                  {t.hero.postProject} <ArrowRight className="size-4" />
                 </Link>
                 <Link
                   href="/rfps"
@@ -240,7 +259,7 @@ export default async function HomePage({ params }: { params: Promise<object> }) 
                     "border-white/25 bg-transparent text-white hover:bg-white/10 hover:text-white active:scale-[0.98]",
                   )}
                 >
-                  See what&apos;s open
+                  {t.hero.seeOpen}
                 </Link>
               </div>
             )}
@@ -252,9 +271,9 @@ export default async function HomePage({ params }: { params: Promise<object> }) 
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-2 shadow-2xl shadow-black/30 backdrop-blur-sm">
                 <div className="rounded-xl bg-white p-5 text-foreground">
                   <div className="flex items-center justify-between border-b border-border pb-3">
-                    <span className="font-heading text-sm font-semibold">Closing soonest</span>
+                    <span className="font-heading text-sm font-semibold">{t.hero.closingSoonest}</span>
                     <Link href="/rfps" className="text-xs font-medium text-teal-700 hover:underline">
-                      All {stats.open} open
+                      {fmt(t.hero.allOpen, { n: count(stats.open, lang) })}
                     </Link>
                   </div>
                   <ByMarket ca={<HeroRows rows={heroRows} />} us={heroRowsUs.length ? <HeroRows rows={heroRowsUs} /> : undefined} />
@@ -269,26 +288,29 @@ export default async function HomePage({ params }: { params: Promise<object> }) 
       <section className="border-b border-border bg-secondary/40">
         <Container className="flex flex-col gap-4 py-6 md:flex-row md:items-center md:gap-10">
           <p className="shrink-0 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-            Pulled every morning from
+            {t.sourcesStrip.pulled}
           </p>
           <ul className="flex flex-wrap items-center gap-x-9 gap-y-3">
-            {SOURCES.map((src) => (
-              <li key={src.name} title={src.name}>
-                {src.logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={src.logo}
-                    alt={src.name}
-                    style={{ height: src.h }}
-                    className="w-auto opacity-60 grayscale transition hover:opacity-100 hover:grayscale-0"
-                  />
-                ) : (
-                  <span className="font-heading text-base font-semibold tracking-tight text-indigo/60">{src.name}</span>
-                )}
-              </li>
-            ))}
-            <li className="text-sm text-muted-foreground">+ property managers</li>
-            <li className="basis-full text-[11px] text-muted-foreground/80">Public tender sources. PMRFP isn&apos;t affiliated with or endorsed by them.</li>
+            {SOURCES.map((src) => {
+              const name = t.sources[src.name] ?? src.name;
+              return (
+                <li key={src.name} title={name}>
+                  {src.logo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={src.logo}
+                      alt={name}
+                      style={{ height: src.h }}
+                      className="w-auto opacity-60 grayscale transition hover:opacity-100 hover:grayscale-0"
+                    />
+                  ) : (
+                    <span className="font-heading text-base font-semibold tracking-tight text-indigo/60">{name}</span>
+                  )}
+                </li>
+              );
+            })}
+            <li className="text-sm text-muted-foreground">{t.sourcesStrip.pms}</li>
+            <li className="basis-full text-[11px] text-muted-foreground/80">{t.sourcesStrip.notAffiliated}</li>
           </ul>
         </Container>
       </section>
@@ -297,10 +319,10 @@ export default async function HomePage({ params }: { params: Promise<object> }) 
       <section className="border-b border-border bg-background">
         <Container className="grid grid-cols-2 divide-border py-10 md:grid-cols-4 md:divide-x">
           {[
-            [String(stats.open), "open right now", "/rfps"],
-            [String(stats.closingThisWeek), "close in the next 7 days", "/rfps"],
-            [stats.awardedValue ? compactDollars(stats.awardedValue) : String(stats.pastContracts), "awarded in past contracts", "/rfps?view=awarded"],
-            [String(winners.length), "companies won 2+ contracts", "/contract-winners"],
+            [count(stats.open, lang), t.numbers.open, "/rfps"],
+            [count(stats.closingThisWeek, lang), t.numbers.closing, "/rfps"],
+            [stats.awardedValue ? money(stats.awardedValue, lang) : count(stats.pastContracts, lang), t.numbers.awarded, "/rfps?view=awarded"],
+            [count(winners.length, lang), t.numbers.winners, "/contract-winners"],
           ].map(([v, k, href]) => (
             <Link key={k} href={href} className="group px-2 py-3 md:px-8 first:md:pl-0">
               <div className="font-heading text-3xl font-extrabold tracking-tight text-indigo sm:text-4xl">{v}</div>
@@ -315,7 +337,7 @@ export default async function HomePage({ params }: { params: Promise<object> }) 
       {/* ──────────────────── HOW IT WORKS (infographic) ──────────────────── */}
       <section className="bg-background">
         <Container className="pt-20 md:pt-24">
-          <h2 className="sr-only">How PMRFP works</h2>
+          <h2 className="sr-only">{t.how.heading}</h2>
           <picture>
             <source media="(max-width: 767px)" srcSet="/images/home/how-it-works-tall.webp" />
             <img
@@ -324,7 +346,7 @@ export default async function HomePage({ params }: { params: Promise<object> }) 
               height={1018}
               loading="lazy"
               className="w-full rounded-2xl shadow-xl shadow-indigo/15"
-              alt="How PMRFP works: 1. Every morning we collect open tenders from CanadaBuys, the City of Toronto, Quebec SEAO, Yukon and property managers. 2. They're matched to your trade and region. 3. You get an email the day one posts, with the full scope, documents and the buyer's contact. 4. You bid, and the buyer picks the winner."
+              alt={t.how.alt}
             />
           </picture>
         </Container>
@@ -333,28 +355,28 @@ export default async function HomePage({ params }: { params: Promise<object> }) 
       {/* ──────────────────── PICK YOUR TRADE (photo mosaic) ──────────────────── */}
       <section className="bg-background">
         <Container className="pt-20 md:pt-24">
-          <h2 className="max-w-xl text-3xl font-bold tracking-tight sm:text-4xl">Pick your trade. See what&apos;s open.</h2>
+          <h2 className="max-w-xl text-3xl font-bold tracking-tight sm:text-4xl">{t.trades.heading}</h2>
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:grid-rows-2">
-            {tiles.map((t, i) => (
+            {tiles.map((tile, i) => (
               <Link
-                key={t.slug}
-                href={`/rfps?category=${t.slug}`}
+                key={tile.slug}
+                href={`/rfps?category=${tile.slug}`}
                 className={cn(
                   "group relative isolate flex min-h-56 flex-col justify-end overflow-hidden rounded-2xl bg-indigo p-6 text-white",
                   i === 0 && "sm:col-span-2 lg:col-span-1 lg:row-span-2 lg:min-h-[30rem]",
                 )}
               >
                 <Image
-                  src={t.img}
-                  alt={t.alt}
+                  src={tile.img}
+                  alt={t.tiles[tile.alt]}
                   fill
                   sizes={i === 0 ? "(min-width: 1024px) 33vw, 100vw" : "(min-width: 1024px) 33vw, 50vw"}
                   className="-z-10 object-cover transition-transform duration-500 group-hover:scale-[1.04]"
                 />
                 <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-t from-indigo via-indigo/40 to-transparent" />
-                <span className="text-xl font-semibold">{t.name}</span>
+                <span className="text-xl font-semibold">{tile.name}</span>
                 <span className="mt-1 inline-flex items-center gap-1.5 text-sm text-teal-300">
-                  {t.open > 0 ? `${t.open} open now` : "See recent work"}
+                  {tile.open > 0 ? plural(tile.open, t.trades.openNow, { n: count(tile.open, lang) }) : t.trades.recent}
                   <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
                 </span>
               </Link>
@@ -368,36 +390,35 @@ export default async function HomePage({ params }: { params: Promise<object> }) 
         <section className="bg-background">
           <Container className="grid items-center gap-12 py-20 md:py-24 lg:grid-cols-[.95fr_1.05fr] lg:gap-16">
             <div>
-              <p className="font-mono text-xs uppercase tracking-[0.14em] text-teal-700">Trade Pro</p>
+              <p className="font-mono text-xs uppercase tracking-[0.14em] text-teal-700">{t.email.eyebrow}</p>
               <h2 className="mt-3 text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-                Every match lands in your inbox the morning it posts.
+                {t.email.heading}
               </h2>
               <p className="mt-4 max-w-lg text-lg leading-relaxed text-muted-foreground">
-                Tell us your trades and where you work. Every morning we check each source and email you only what fits,
-                soonest deadline first.
+                {t.email.body}
               </p>
               <ul className="mt-8 space-y-3.5">
-                {COMPARE.filter(([, free]) => !free).map(([label]) => (
-                  <li key={label} className="flex items-start gap-3">
+                {COMPARE.filter(([, free]) => !free).map(([key]) => (
+                  <li key={key} className="flex items-start gap-3">
                     <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-teal-100">
                       <Check className="size-3 text-teal-800" strokeWidth={3} />
                     </span>
-                    <span className="font-medium">{label}</span>
+                    <span className="font-medium">{t.compare[key]}</span>
                   </li>
                 ))}
               </ul>
               <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-3">
                 <Link href={proMonthly} className={cn(buttonVariants({ size: "lg" }), "active:scale-[0.98]")}>
-                  Start Trade Pro <ArrowRight className="size-4" />
+                  {t.email.start} <ArrowRight className="size-4" />
                 </Link>
                 <span className="text-sm text-muted-foreground">
-                  ${PRICING.proMonthly}/month or ${PRICING.proAnnual}/year. Cancel anytime.
+                  {fmt(t.email.price, { monthly: PRICING.proMonthly, annual: PRICING.proAnnual })}
                 </span>
               </div>
             </div>
             <ByMarket
-              ca={<MatchEmailPreview trade={emailCa.trade} place="across Canada" rows={emailCa.rows} />}
-              us={emailUs.trade ? <MatchEmailPreview trade={emailUs.trade} place="across the U.S." rows={emailUs.rows} /> : undefined}
+              ca={<MatchEmailPreview trade={emailCa.trade} place={t.email.acrossCanada} rows={emailCa.rows} />}
+              us={emailUs.trade ? <MatchEmailPreview trade={emailUs.trade} place={t.email.acrossUs} rows={emailUs.rows} /> : undefined}
             />
           </Container>
         </section>
@@ -408,11 +429,11 @@ export default async function HomePage({ params }: { params: Promise<object> }) 
         <section className="bg-indigo text-white">
           <Container className="py-20 md:py-24">
             <p className="inline-flex items-center gap-2 text-sm font-medium text-teal-300">
-              <Trophy className="size-4" /> Already awarded
+              <Trophy className="size-4" /> {t.awarded.eyebrow}
             </p>
-            <h2 className="mt-3 max-w-2xl text-3xl font-bold tracking-tight text-white sm:text-4xl">Someone else won these.</h2>
+            <h2 className="mt-3 max-w-2xl text-3xl font-bold tracking-tight text-white sm:text-4xl">{t.awarded.heading}</h2>
             <p className="mt-4 max-w-xl text-lg text-indigo-100/75">
-              Real public contracts from the past year. The next ones are on the board now.
+              {t.awarded.body}
             </p>
             <div className="mt-10 grid gap-4 text-foreground md:grid-cols-3">
               {bigAwards.map((r) => (
@@ -421,13 +442,13 @@ export default async function HomePage({ params }: { params: Promise<object> }) 
             </div>
             <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
               <Link href={proMonthly} className={cn(buttonVariants({ size: "lg", variant: "accent" }), "active:scale-[0.98]")}>
-                Start Trade Pro <ArrowRight className="size-4" />
+                {t.awarded.start} <ArrowRight className="size-4" />
               </Link>
               <Link href="/contract-winners" className="text-sm font-semibold text-teal-300 hover:underline">
-                See who wins the most
+                {t.awarded.winners}
               </Link>
               <Link href="/reports/public-building-contracts" className="text-sm font-semibold text-teal-300 hover:underline">
-                Read the public contracts report
+                {t.awarded.report}
               </Link>
             </div>
           </Container>
@@ -440,24 +461,23 @@ export default async function HomePage({ params }: { params: Promise<object> }) 
           <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-indigo">
             <Image
               src="/images/home/pm-lobby.webp"
-              alt="Property manager and contractor reviewing drawings in a condominium lobby"
+              alt={t.pm.alt}
               fill
               sizes="(min-width: 1024px) 50vw, 100vw"
               className="object-cover"
             />
           </div>
           <div>
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Property manager? Write the RFP in two minutes.</h2>
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">{t.pm.heading}</h2>
             <p className="mt-4 max-w-lg text-lg leading-relaxed text-muted-foreground">
-              Answer four questions and get a complete RFP: scope, insurance and WSIB requirements, and bid scoring.
-              Post it free and qualified trades in your region see it.
+              {t.pm.body}
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/rfp-writer" className={cn(buttonVariants({ size: "lg" }), "active:scale-[0.98]")}>
-                Write an RFP <ArrowRight className="size-4" />
+                {t.pm.write} <ArrowRight className="size-4" />
               </Link>
               <Link href="/for-property-managers" className={cn(buttonVariants({ size: "lg", variant: "outline" }), "active:scale-[0.98]")}>
-                How it works
+                {t.pm.how}
               </Link>
             </div>
           </div>
@@ -470,30 +490,29 @@ export default async function HomePage({ params }: { params: Promise<object> }) 
           <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-border">
             <Image
               src="/images/photos/keys-in-door.webp"
-              alt="Keys in the front door of a newly sold home"
+              alt={t.realtors.alt}
               fill
               sizes="(min-width: 1024px) 560px, 100vw"
               className="object-cover"
             />
           </div>
           <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-teal-700">For realtors</p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">Send clients one link, not ten phone numbers.</h2>
+            <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-teal-700">{t.realtors.eyebrow}</p>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">{t.realtors.heading}</h2>
             <p className="mt-4 max-w-xl text-lg leading-relaxed text-muted-foreground">
-              Build a free page of the trades you trust: inspectors&apos; fixes, pre-listing repairs, movers, cleaners.
-              Add a note on each, text the link after every deal, and put it on your own website.
+              {t.realtors.body}
             </p>
             <ul className="mt-6 space-y-2 text-sm">
-              <li className="flex gap-2"><ArrowRight className="mt-0.5 size-4 shrink-0 text-teal-700" /> Clients request quotes straight from your page</li>
-              <li className="flex gap-2"><ArrowRight className="mt-0.5 size-4 shrink-0 text-teal-700" /> Your name stays in front of them long after closing</li>
-              <li className="flex gap-2"><ArrowRight className="mt-0.5 size-4 shrink-0 text-teal-700" /> Free for up to {5} trades. Realtor Pro ${PRICING.realtorAnnual}/year for unlimited, plus your contact buttons</li>
+              <li className="flex gap-2"><ArrowRight className="mt-0.5 size-4 shrink-0 text-teal-700" /> {t.realtors.quotes}</li>
+              <li className="flex gap-2"><ArrowRight className="mt-0.5 size-4 shrink-0 text-teal-700" /> {t.realtors.name}</li>
+              <li className="flex gap-2"><ArrowRight className="mt-0.5 size-4 shrink-0 text-teal-700" /> {fmt(t.realtors.free, { n: 5, price: PRICING.realtorAnnual })}</li>
             </ul>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/sign-up?role=real_estate_agent" className={cn(buttonVariants({ size: "lg" }), "active:scale-[0.98]")}>
-                Build my trusted-trades page <ArrowRight className="size-4" />
+                {t.realtors.build} <ArrowRight className="size-4" />
               </Link>
               <Link href="/for/real-estate" className={buttonVariants({ size: "lg", variant: "outline" })}>
-                How it works
+                {t.realtors.how}
               </Link>
             </div>
           </div>
@@ -504,21 +523,20 @@ export default async function HomePage({ params }: { params: Promise<object> }) 
       <section className="border-t border-border bg-secondary/40">
         <Container className="grid gap-12 py-20 md:py-24 lg:grid-cols-[1fr_420px] lg:items-start">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Free gets you seen. Pro gets you every match, first.</h2>
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">{t.pricing.heading}</h2>
             <p className="mt-4 max-w-xl text-lg text-muted-foreground">
-              Early-bird Trade Pro is ${PRICING.proAnnual} a year or ${PRICING.proMonthly} a month. The annual rate rises to
-              $399 once we reach 100 members; join before then and your rate is locked in.
-              {medianAward ? ` The median public contract on the board is ${compactDollars(medianAward)}.` : ""}
+              {fmt(t.pricing.body, { annual: PRICING.proAnnual, monthly: PRICING.proMonthly })}
+              {medianAward ? fmt(t.pricing.median, { amount: money(medianAward, lang) }) : ""}
             </p>
             <div className="mt-8 overflow-hidden rounded-2xl border border-border bg-card">
               <div className="grid grid-cols-[1fr_64px_88px] items-center border-b border-border px-5 py-3 text-sm font-semibold sm:grid-cols-[1fr_100px_120px]">
                 <span />
-                <span className="text-center text-muted-foreground">Free</span>
-                <span className="text-center text-indigo">Trade Pro</span>
+                <span className="text-center text-muted-foreground">{t.pricing.free}</span>
+                <span className="text-center text-indigo">{t.pricing.pro}</span>
               </div>
-              {COMPARE.map(([label, free, pro]) => (
-                <div key={label} className="grid grid-cols-[1fr_64px_88px] items-center px-5 py-3 text-sm sm:grid-cols-[1fr_100px_120px]">
-                  <span className={cn(!free && "font-semibold")}>{label}</span>
+              {COMPARE.map(([key, free, pro]) => (
+                <div key={key} className="grid grid-cols-[1fr_64px_88px] items-center px-5 py-3 text-sm sm:grid-cols-[1fr_100px_120px]">
+                  <span className={cn(!free && "font-semibold")}>{t.compare[key]}</span>
                   <span className="flex justify-center">
                     {free ? <Check className="size-4 text-teal-700" strokeWidth={3} /> : <Minus className="size-4 text-muted-foreground/40" />}
                   </span>
@@ -526,13 +544,13 @@ export default async function HomePage({ params }: { params: Promise<object> }) 
                 </div>
               ))}
               <div className="grid grid-cols-[1fr_64px_88px] items-center border-t border-border bg-secondary/50 px-5 py-4 text-sm font-semibold sm:grid-cols-[1fr_100px_120px]">
-                <span>Price</span>
-                <span className="text-center">$0</span>
-                <span className="text-center text-indigo">${PRICING.proMonthly}/mo</span>
+                <span>{t.pricing.price}</span>
+                <span className="text-center">{fmt(t.money.amount, { n: 0 })}</span>
+                <span className="text-center text-indigo">{fmt(t.money.perMonthShort, { n: PRICING.proMonthly })}</span>
               </div>
             </div>
             <div className="mt-8 divide-y divide-border border-y border-border">
-              {FAQS.map((f, i) => (
+              {t.faqs.map((f, i) => (
                 <details key={f.q} open={i === 0} className="group py-4">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium">
                     {f.q}
@@ -545,27 +563,27 @@ export default async function HomePage({ params }: { params: Promise<object> }) 
           </div>
 
           <div className="rounded-2xl bg-indigo p-8 text-white shadow-xl shadow-indigo/20">
-            <div className="text-sm text-teal-300">Trade Pro · Annual · locked in before it rises to $399</div>
+            <div className="text-sm text-teal-300">{t.pricing.cardEyebrow}</div>
             <div className="mt-3 flex items-end gap-2">
-              <span className="font-heading text-6xl font-extrabold leading-none tracking-tight">${PRICING.proAnnual}</span>
-              <span className="pb-1.5 text-sm text-indigo-100/70">CAD / year</span>
+              <span className="font-heading text-6xl font-extrabold leading-none tracking-tight">{fmt(t.money.amount, { n: PRICING.proAnnual })}</span>
+              <span className="pb-1.5 text-sm text-indigo-100/70">{t.money.cadPerYear}</span>
             </div>
             <UsdHint cad={PRICING.proAnnual} per="year" className="mt-2 text-teal-300" />
             <ul className="mt-7 space-y-3 text-sm text-indigo-100">
-              {COMPARE.filter(([, , pro]) => pro).map(([label]) => (
-                <li key={label} className="flex items-start gap-3">
+              {COMPARE.filter(([, , pro]) => pro).map(([key]) => (
+                <li key={key} className="flex items-start gap-3">
                   <Check className="mt-0.5 size-4 shrink-0 text-teal-300" strokeWidth={3} />
-                  {label}
+                  {t.compare[key]}
                 </li>
               ))}
             </ul>
             <Link href={proAnnual} className={cn(buttonVariants({ size: "lg", variant: "accent" }), "mt-8 w-full active:scale-[0.98]")}>
-              Lock in ${PRICING.proAnnual}/yr <ArrowRight className="size-4" />
+              {fmt(t.pricing.lockIn, { price: PRICING.proAnnual })} <ArrowRight className="size-4" />
             </Link>
             <Link href={proMonthly} className="mt-3 block text-center text-sm font-medium text-teal-300 hover:underline">
-              Or go monthly at ${PRICING.proMonthly}
+              {fmt(t.pricing.monthly, { price: PRICING.proMonthly })}
             </Link>
-            <p className="mt-4 text-center text-xs text-indigo-100/55">Cancel anytime. Access runs to the end of your billing period.</p>
+            <p className="mt-4 text-center text-xs text-indigo-100/55">{t.pricing.cancel}</p>
           </div>
         </Container>
       </section>
@@ -573,8 +591,8 @@ export default async function HomePage({ params }: { params: Promise<object> }) 
       <div className="border-b border-border bg-secondary/60">
         <Container className="py-5">
           <p className="max-w-4xl text-xs leading-relaxed text-muted-foreground">
-            <b className="font-semibold text-ink-2">{COPY.disclaimer.split(".")[0]}.</b>
-            {COPY.disclaimer.slice(COPY.disclaimer.indexOf(".") + 1)}
+            <b className="font-semibold text-ink-2">{disclaimer.split(".")[0]}.</b>
+            {disclaimer.slice(disclaimer.indexOf(".") + 1)}
           </p>
         </Container>
       </div>
@@ -584,6 +602,8 @@ export default async function HomePage({ params }: { params: Promise<object> }) 
 
 /** "Closing soonest" rows in the hero card. */
 function HeroRows({ rows }: { rows: RfpListItem[] }) {
+  const lang = getLang();
+  const t = getT("home").hero;
   return (
     <ul className="divide-y divide-border">
       {rows.map((r) => (
@@ -591,7 +611,7 @@ function HeroRows({ rows }: { rows: RfpListItem[] }) {
           <Link href={`/rfps/${r.slug}`} className="group flex items-start justify-between gap-4 py-3.5">
             <div className="min-w-0">
               <div className="font-mono text-[11px] uppercase tracking-wide text-teal-700">
-                {r.categories[0] ?? "Commercial"} · {r.regionName ?? "Canada"}
+                {r.categories[0] ? tradeName(r.categories[0], lang) : t.commercial} · {r.regionName ? regionName(r.regionName, lang) : t.canada}
               </div>
               <div className="mt-1 line-clamp-2 font-medium group-hover:text-teal-700">{r.title}</div>
             </div>

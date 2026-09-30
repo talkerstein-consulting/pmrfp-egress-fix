@@ -21,7 +21,14 @@ import { listVendors } from "@/lib/data/directory";
 import { listRfps } from "@/lib/data/rfps";
 import { listTradesForRegion } from "@/lib/data/trade-city";
 import { SITE } from "@/lib/site";
-import { setLangFrom } from "@/i18n/server";
+import { getLang, getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale, localizePath, type Locale } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { fmt } from "@/i18n/format";
+import { regionName, tradeName } from "@/i18n/terms";
+import { frIn, frPlace, frTradeOf } from "@/lib/seo/phrases.fr";
+import { esIn, esPlace, esTradeOf } from "@/lib/seo/phrases.es";
 
 export const revalidate = 3600;
 
@@ -35,14 +42,28 @@ async function getRegion(slug: string) {
   return regions.find((r) => r.slug === slug) ?? null;
 }
 
+/** Placeholders for the seo strings: each language picks the ones it needs. */
+function placeVars(placeEn: string, lang: Locale) {
+  return { site: SITE.name, place: regionName(placeEn, lang), in: lang === "es" ? esIn(placeEn) : frIn(placeEn) };
+}
+
+/** A group heading (province, state or country) in the page language. */
+function placeHeading(name: string, lang: Locale): string {
+  if (lang === "fr") return frPlace(name);
+  if (lang === "es") return esPlace(name);
+  return regionName(name, lang);
+}
+
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ lang: string; slug: string }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
+  const { lang, slug } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const t = getDictionary(l).seo.region;
   const region = await getRegion(slug);
-  if (!region) return { title: "Region not found" };
+  if (!region) return { title: t.notFound };
   // Thin-content guard: a region with no vendors AND no RFPs is an empty-state
   // page with no unique value. Keep it out of the index (links still flow) until
   // it has real content, so empty pages don't drag the domain's quality signal
@@ -52,10 +73,11 @@ export async function generateMetadata({
     listRfps({ region: region.slug }),
   ]);
   const isThin = vendors.length === 0 && rfps.length === 0;
+  const vars = placeVars(region.name, l);
   return {
-    title: `Commercial Property Vendors & RFPs in ${region.name}`,
-    description: `Find commercial property trades and service companies in ${region.name}, and monitor local property RFP opportunities on ${SITE.name}.`,
-    alternates: { canonical: `/regions/${region.slug}` },
+    title: fmt(t.meta.title, vars),
+    description: fmt(t.meta.description, vars),
+    alternates: alternatesFor(l, `/regions/${region.slug}`),
     ...(isThin ? { robots: { index: false, follow: true } } : {}),
   };
 }
@@ -66,9 +88,13 @@ export default async function RegionPage({
   params: Promise<{ slug: string }>;
 }) {
   await setLangFrom(params);
+  const seo = getT("seo");
+  const t = seo.region;
+  const lang = getLang();
   const { slug } = await params;
   const region = await getRegion(slug);
   if (!region) notFound();
+  const vars = placeVars(region.name, lang);
 
   const [vendors, rfps, categories, liveTrades] = await Promise.all([
     listVendors({ region: region.slug }),
@@ -81,12 +107,16 @@ export default async function RegionPage({
   const tradeLinks = [
     ...liveTrades.map((c) => ({
       slug: c.category.slug,
-      name: c.open.length + c.past.length ? `${c.category.name} RFPs in ${region.name}` : `${c.category.name} in ${region.name}`,
+      name: fmt(c.open.length + c.past.length ? t.tradeRfps : t.tradeIn, {
+        ...vars,
+        trade: tradeName(c.category.name, lang),
+        of: lang === "es" ? esTradeOf(c.category.name) : frTradeOf(c.category.name),
+      }),
       href: `/trades/${c.category.slug}/${region.slug}`,
     })),
     ...categories
       .filter((c) => !liveTradeSlugs.has(c.slug))
-      .map((c) => ({ slug: c.slug, name: c.name, href: `/trades/${c.slug}` })),
+      .map((c) => ({ slug: c.slug, name: tradeName(c.name, lang), href: `/trades/${c.slug}` })),
   ].slice(0, Math.max(18, liveTrades.length));
   // listRfps() includes closed RFPs — only status === "open" may be called open.
   const openRfps = rfps.filter((r) => r.status === "open");
@@ -94,44 +124,33 @@ export default async function RegionPage({
   const regionLiq = await getRegionLiquidityBySlug(region.slug);
   const showFounding = regionLiq ? regionLiq.tier !== "active" : false;
 
-  const faqs = [
-    {
-      q: `How do I find commercial property RFPs in ${region.name}?`,
-      a: `${SITE.name} aggregates commercial property RFPs from property managers, builders, and owners in ${region.name}. Browse opportunities and, with Trade Pro, view full details and express interest.`,
-    },
-    {
-      q: `How do I find vendors in ${region.name}?`,
-      a: `Browse the ${SITE.name} directory filtered to ${region.name} to discover trades and service companies by category, then request an introduction or contact them directly.`,
-    },
-  ];
+  const faqs = t.faqs.map((f) => ({ q: fmt(f.q, vars), a: fmt(f.a, vars) }));
 
   return (
     <>
       <JsonLd data={breadcrumbSchema([
-        { name: "Home", path: "/" },
-        { name: "Regions", path: "/regions" },
-        { name: region.name, path: `/regions/${region.slug}` },
+        { name: seo.crumbs.home, path: localizePath("/", lang) },
+        { name: seo.crumbs.regions, path: localizePath("/regions", lang) },
+        { name: vars.place, path: localizePath(`/regions/${region.slug}`, lang) },
       ])} />
-      <JsonLd data={itemListSchema(`Vendors in ${region.name}`, vendors.map((v) => ({ name: v.name, path: `/directory/${v.slug}` })))} />
+      <JsonLd data={itemListSchema(fmt(t.listName, vars), vendors.map((v) => ({ name: v.name, path: localizePath(`/directory/${v.slug}`, lang) })))} />
       <JsonLd data={faqSchema(faqs)} />
 
       <section className="border-b border-border bg-secondary/30">
         <Container className="py-12">
           <nav className="mb-3 text-xs text-muted-foreground">
-            <Link href="/regions" className="hover:text-foreground">Regions</Link> / {region.name}
+            <Link href="/regions" className="hover:text-foreground">{seo.crumbs.regions}</Link> / {vars.place}
           </nav>
-          <Eyebrow>{region.province ?? region.country}</Eyebrow>
+          <Eyebrow>{placeHeading(region.province ?? region.country, lang)}</Eyebrow>
           <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl">
-            Commercial Property Vendors & RFP Opportunities in {region.name}
+            {fmt(t.title, vars)}
           </h1>
           <p className="mt-4 max-w-2xl text-muted-foreground">
-            {SITE.name} connects property managers, builders, and owners in {region.name} with
-            qualified local trades — and gives trade companies a focused feed of property RFP
-            opportunities in the area.
+            {fmt(t.lead, vars)}
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link href={`/directory?region=${region.slug}`} className={buttonVariants()}>Find vendors in {region.name}</Link>
-            <Link href={`/rfps?region=${region.slug}`} className={buttonVariants({ variant: "outline" })}>View {region.name} RFPs</Link>
+            <Link href={`/directory?region=${region.slug}`} className={buttonVariants()}>{fmt(t.findVendors, vars)}</Link>
+            <Link href={`/rfps?region=${region.slug}`} className={buttonVariants({ variant: "outline" })}>{fmt(t.viewRfps, vars)}</Link>
           </div>
         </Container>
       </section>
@@ -152,17 +171,17 @@ export default async function RegionPage({
       <Container className="py-12">
         <div className="flex items-end justify-between gap-4">
           <h2 className="text-2xl font-semibold tracking-tight">
-            {openRfps.length > 0 ? `Open opportunities in ${region.name}` : `Recent RFPs in ${region.name}`}
+            {fmt(openRfps.length > 0 ? t.openTitle : t.recentTitle, vars)}
           </h2>
-          <Link href={`/rfps?region=${region.slug}`} className="text-sm text-teal-700 hover:underline">View all →</Link>
+          <Link href={`/rfps?region=${region.slug}`} className="text-sm text-teal-700 hover:underline">{seo.viewAll}</Link>
         </div>
         {rfps.length === 0 ? (
-          <div className="mt-4"><EmptyState title={`No RFPs in ${region.name} right now`} description="Create a free profile and save your trade and region — we'll notify you when a match is posted." /></div>
+          <div className="mt-4"><EmptyState title={fmt(t.emptyRfps.title, vars)} description={t.emptyRfps.description} /></div>
         ) : (
           <>
             {openRfps.length === 0 && (
               <p className="mt-2 text-sm text-muted-foreground">
-                Nothing is open right now. These closed projects show the kind of work posted here.
+                {t.closedNote}
               </p>
             )}
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -175,11 +194,11 @@ export default async function RegionPage({
       <section className="bg-secondary/30">
         <Container className="py-12">
           <div className="flex items-end justify-between gap-4">
-            <h2 className="text-2xl font-semibold tracking-tight">Vendors serving {region.name}</h2>
-            <Link href={`/directory?region=${region.slug}`} className="text-sm text-teal-700 hover:underline">Browse all →</Link>
+            <h2 className="text-2xl font-semibold tracking-tight">{fmt(t.vendorsTitle, vars)}</h2>
+            <Link href={`/directory?region=${region.slug}`} className="text-sm text-teal-700 hover:underline">{seo.browseAll}</Link>
           </div>
           {vendors.length === 0 ? (
-            <div className="mt-4"><EmptyState title={`Be the first vendor listed in ${region.name}`} description="Create a profile and get discovered by property managers in your area." /></div>
+            <div className="mt-4"><EmptyState title={fmt(t.emptyVendors.title, vars)} description={t.emptyVendors.description} /></div>
           ) : (
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {vendors.slice(0, 6).map((v) => <DirectoryCard key={v.slug} vendor={v} />)}
@@ -189,7 +208,7 @@ export default async function RegionPage({
       </section>
 
       <Container className="py-12">
-        <h2 className="text-2xl font-semibold tracking-tight">Trades in {region.name}</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">{fmt(t.tradesTitle, vars)}</h2>
         <div className="mt-4 flex flex-wrap gap-2">
           {tradeLinks.map((c) => (
             <Link key={c.slug} href={c.href} className="rounded-md border border-border bg-card px-3 py-1.5 text-sm hover:border-teal-400">
@@ -201,7 +220,7 @@ export default async function RegionPage({
 
       <section className="border-t border-border">
         <Container size="narrow" className="py-12">
-          <h2 className="text-2xl font-semibold tracking-tight">Frequently asked</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">{seo.faqTitle}</h2>
           <Accordion className="mt-4">
             {faqs.map((f, i) => (
               <AccordionItem key={i} value={`q${i}`}>
@@ -214,12 +233,12 @@ export default async function RegionPage({
       </section>
 
       <CTASection
-        title={`Get found in ${region.name}`}
-        description="List your trade company where property decision-makers in your region are searching."
+        title={fmt(t.cta.title, vars)}
+        description={t.cta.description}
         primaryHref="/sign-up"
-        primaryLabel="Join as a Trade Company"
+        primaryLabel={seo.joinTrade}
         secondaryHref="/trades"
-        secondaryLabel="Browse by trade"
+        secondaryLabel={seo.browseByTrade}
       />
     </>
   );

@@ -5,135 +5,133 @@ import { Container, Eyebrow } from "@/components/container";
 import { Section, SectionHeading } from "@/components/public/section";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Services for Trades: Card Payments and a Credible Website",
-  description:
-    "Two services we recommend to trades on PMRFP: taking card payments on the job with Cleverpays, and a website, brand and Google profile from Talkerstein Consulting Group.",
-  alternates: { canonical: "/services-for-trades" },
-};
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const t = getDictionary(l).misc.services.meta;
+  return { title: t.title, description: t.description, alternates: alternatesFor(l, "/services-for-trades") };
+}
 
 /**
  * Partner services for trades. Both companies have a business relationship
  * with PMRFP, disclosed on the page. Cleverpays is placed as part of a paid
  * relationship, so its outbound links are rel="sponsored"; Talkerstein is
  * PMRFP's affiliate. Only claims each company's own site makes.
+ * Copy (headline, blurb, points) lives in messages/misc.ts under
+ * services.partners, in the same order as `points` here.
  */
 const PARTNERS = [
   {
+    key: "cleverpays",
     name: "Cleverpays",
-    headline: "Take card payments on the job",
-    blurb:
-      "Payment processing for Canadian businesses, in English and French. For trades, the useful part is getting paid before you leave the site instead of chasing a cheque.",
-    serves: "Canada",
     href: "https://cleverpays.ca/payment-processing",
     rel: "sponsored noopener",
-    cta: "Visit Cleverpays",
     points: [
-      { icon: Smartphone, t: "In-person payments for mobile teams", d: "Portable card terminals your crew can take to the job.", href: "https://cleverpays.ca/payment-processing/card-present-payments" },
-      { icon: CreditCard, t: "Card payments by phone or browser", d: "A virtual terminal for taking a customer's card remotely, no device needed.", href: "https://cleverpays.ca/payment-processing/virtual-terminal" },
-      { icon: Receipt, t: "Invoices customers can pay", d: "Send an invoice with a way to pay it when it arrives.", href: "https://cleverpays.ca/payment-processing/einvoicing" },
-      { icon: FileText, t: "Statement review", d: "Send your current processing statement and ask a specialist to go through the charges.", href: "https://cleverpays.ca/statement-analysis" },
+      { icon: Smartphone, href: "https://cleverpays.ca/payment-processing/card-present-payments" },
+      { icon: CreditCard, href: "https://cleverpays.ca/payment-processing/virtual-terminal" },
+      { icon: Receipt, href: "https://cleverpays.ca/payment-processing/einvoicing" },
+      { icon: FileText, href: "https://cleverpays.ca/statement-analysis" },
     ],
   },
   {
+    key: "talkerstein",
     name: "Talkerstein Consulting Group",
-    headline: "Look credible online",
-    blurb:
-      "Property managers check you out before they call. Talkerstein sets up the pieces that make a trade look established, done for you. Based in Toronto.",
-    serves: "Based in Toronto",
     href: "https://talkerstein.com",
     rel: "noopener",
-    cta: "Visit Talkerstein",
     points: [
-      { icon: Globe, t: "A website that turns visits into calls", d: "Shows your work, services and credentials.", href: "/resources/grow" },
-      { icon: PenTool, t: "Brand and logo", d: "A clean identity property managers take seriously.", href: "/resources/grow" },
-      { icon: MapPin, t: "Google Business Profile", d: "Set up so local buyers find you when they search your trade.", href: "/resources/grow" },
-      { icon: FileText, t: "Help with public tender bids", d: "Support preparing a bid on a government tender.", href: "/rfps" },
+      { icon: Globe, href: "/resources/grow" },
+      { icon: PenTool, href: "/resources/grow" },
+      { icon: MapPin, href: "/resources/grow" },
+      { icon: FileText, href: "/rfps" },
     ],
   },
 ] as const;
 
 export default async function ServicesForTradesPage({ params }: { params: Promise<object> }) {
   await setLangFrom(params);
+  const t = getT("misc").services;
   return (
     <>
       <section className="border-b border-border bg-background">
         <Container className="py-20 sm:py-24">
           <div className="max-w-3xl">
-            <Eyebrow>Services for trades</Eyebrow>
+            <Eyebrow>{t.eyebrow}</Eyebrow>
             <h1 className="mt-5 text-4xl font-semibold leading-[1.08] text-foreground sm:text-5xl">
-              Get paid on the job. Look the part online.
+              {t.title}
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground">
-              Winning the work is half of it. These are two services we point trades to: taking card
-              payments on site, and a website and Google profile that make property managers pick up
-              the phone.
+              {t.lead}
             </p>
           </div>
           <div className="mt-8 flex max-w-3xl items-start gap-3 rounded-lg border border-border bg-secondary/40 px-5 py-4 text-sm text-muted-foreground">
             <Info className="mt-0.5 size-4 shrink-0" />
             <p>
-              <span className="font-medium text-foreground">Disclosure:</span> PMRFP has a business
-              relationship with both companies on this page. Talkerstein Consulting Group is an
-              affiliate of PMRFP.
+              <span className="font-medium text-foreground">{t.disclosureLabel}</span> {t.disclosure}
             </p>
           </div>
         </Container>
       </section>
 
-      {PARTNERS.map((p, i) => (
-        <Section key={p.name} tone={i % 2 ? "muted" : "default"}>
-          <div className="grid gap-10 lg:grid-cols-[1fr_1.4fr]">
-            <div>
-              <p className="font-mono text-xs uppercase tracking-wide text-teal-700">{p.serves}</p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground">{p.headline}</h2>
-              <p className="mt-2 text-lg font-medium text-indigo">{p.name}</p>
-              <p className="mt-4 leading-relaxed text-muted-foreground">{p.blurb}</p>
-              <a
-                href={p.href}
-                rel={p.rel}
-                target="_blank"
-                className={cn(buttonVariants({ size: "lg", variant: "accent" }), "mt-6")}
-              >
-                {p.cta} <ArrowRight className="size-4" />
-              </a>
+      {PARTNERS.map((p, i) => {
+        const copy = t.partners[p.key];
+        return (
+          <Section key={p.name} tone={i % 2 ? "muted" : "default"}>
+            <div className="grid gap-10 lg:grid-cols-[1fr_1.4fr]">
+              <div>
+                <p className="font-mono text-xs uppercase tracking-wide text-teal-700">{copy.serves}</p>
+                <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground">{copy.headline}</h2>
+                <p className="mt-2 text-lg font-medium text-indigo">{p.name}</p>
+                <p className="mt-4 leading-relaxed text-muted-foreground">{copy.blurb}</p>
+                <a
+                  href={p.href}
+                  rel={p.rel}
+                  target="_blank"
+                  className={cn(buttonVariants({ size: "lg", variant: "accent" }), "mt-6")}
+                >
+                  {copy.cta} <ArrowRight className="size-4" />
+                </a>
+              </div>
+              <ul className="grid gap-4 sm:grid-cols-2">
+                {p.points.map((pt, j) => {
+                  const external = pt.href.startsWith("http");
+                  const text = copy.points[j];
+                  return (
+                    <li key={text.t} className="rounded-xl border border-border bg-card p-5">
+                      <pt.icon className="size-5 text-teal-600" />
+                      <p className="mt-3 font-semibold text-foreground">
+                        {external ? (
+                          <a href={pt.href} rel={p.rel} target="_blank" className="hover:underline">
+                            {text.t}
+                          </a>
+                        ) : (
+                          <Link href={pt.href} className="hover:underline">
+                            {text.t}
+                          </Link>
+                        )}
+                      </p>
+                      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{text.d}</p>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
-            <ul className="grid gap-4 sm:grid-cols-2">
-              {p.points.map((pt) => {
-                const external = pt.href.startsWith("http");
-                return (
-                  <li key={pt.t} className="rounded-xl border border-border bg-card p-5">
-                    <pt.icon className="size-5 text-teal-600" />
-                    <p className="mt-3 font-semibold text-foreground">
-                      {external ? (
-                        <a href={pt.href} rel={p.rel} target="_blank" className="hover:underline">
-                          {pt.t}
-                        </a>
-                      ) : (
-                        <Link href={pt.href} className="hover:underline">
-                          {pt.t}
-                        </Link>
-                      )}
-                    </p>
-                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{pt.d}</p>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </Section>
-      ))}
+          </Section>
+        );
+      })}
 
       <Section>
         <SectionHeading
-          eyebrow="Sell to contractors?"
-          title="Get in front of trades across Canada and the U.S."
-          description="If your company sells to commercial trades, like insurance, bonding, software or equipment, talk to us about a spot on this page."
+          eyebrow={t.sellEyebrow}
+          title={t.sellTitle}
+          description={t.sellBody}
         />
         <Link href="/contact" className={cn(buttonVariants({ size: "lg", variant: "outline" }), "mt-8")}>
-          Contact us <ArrowRight className="size-4" />
+          {t.contactUs} <ArrowRight className="size-4" />
         </Link>
       </Section>
     </>

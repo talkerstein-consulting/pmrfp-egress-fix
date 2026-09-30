@@ -13,12 +13,22 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { JsonLd, breadcrumbSchema, faqSchema } from "@/lib/seo/jsonld";
-import { COMPETITORS, getCompetitor } from "@/lib/seo/competitors";
+import { COMPETITORS } from "@/lib/seo/competitors";
+import { competitorNameOf, getCompetitorFor } from "@/lib/seo/competitors.fr";
 import { PRICING, SITE } from "@/lib/site";
 import { listRfps } from "@/lib/data/rfps";
 import { publicTenderSource } from "@/lib/tenders/sources";
 import { signUpHrefForPlan } from "@/lib/billing/plan-intent";
-import { setLangFrom } from "@/i18n/server";
+import { getLang, getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale, localizePath, type Locale } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { fmt, formatNumber, plural } from "@/i18n/format";
+
+/** Sentence case for French and Spanish ("le statu quo vs PMRFP" -> "Le statu quo...", "el statu quo" -> "El statu quo"); English is left as written. */
+function cap(s: string, lang: Locale): string {
+  return lang === "en" ? s : s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 export const revalidate = 86400;
 
@@ -29,24 +39,25 @@ export async function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ competitor: string }>;
+  params: Promise<{ lang: string; competitor: string }>;
 }): Promise<Metadata> {
-  const { competitor } = await params;
-  const c = getCompetitor(competitor);
-  if (!c) return { title: "Comparison not found" };
+  const { lang, competitor } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const t = getDictionary(l).seo.vs;
+  const c = getCompetitorFor(competitor, l);
+  if (!c) return { title: t.notFound };
   // Lead with the competitor's name, not ours. Search Console shows these pages
   // earn their impressions on "<competitor>", "<competitor> pricing" and
   // "<competitor> alternative" queries — searchers who have never heard of us.
   // Putting our brand first buried the term they actually typed, and the layout
   // already appends "— PMRFP", so the old title spent its budget saying our name
   // twice. "Pricing" is in the title because it's the top comparison query.
-  const title = c.seoTitle ?? `${c.name} vs ${SITE.name}: Pricing & Which Fits Canadian Trades`;
+  const vars = { site: SITE.name, name: c.name, annual: PRICING.proAnnual };
+  const title = c.seoTitle ?? cap(fmt(t.meta.title, vars), l);
   return {
     title,
-    description:
-      c.seoDescription ??
-      `Compare ${c.name} and ${SITE.name} on price, focus, and what each is actually built for. ${SITE.name} is $${PRICING.proAnnual} CAD/yr flat.`,
-    alternates: { canonical: `/vs/${c.slug}` },
+    description: c.seoDescription ?? fmt(t.meta.description, vars),
+    alternates: alternatesFor(l, `/vs/${c.slug}`),
   };
 }
 
@@ -56,9 +67,20 @@ export default async function VersusPage({
   params: Promise<{ competitor: string }>;
 }) {
   await setLangFrom(params);
+  const seo = getT("seo");
+  const t = seo.vs;
+  const lang = getLang();
   const { competitor } = await params;
-  const c = getCompetitor(competitor);
+  const c = getCompetitorFor(competitor, lang);
   if (!c) notFound();
+  const vars = {
+    site: SITE.name,
+    name: c.name,
+    nameOf: competitorNameOf(c, lang),
+    annual: PRICING.proAnnual,
+    monthly: PRICING.proMonthly,
+  };
+  const num = (n: number) => (lang === "en" ? String(n) : formatNumber(n, lang));
 
   // Competitors that sell tender access get live proof: what's open on PMRFP
   // right now from public sources, soonest-closing first.
@@ -77,26 +99,26 @@ export default async function VersusPage({
   return (
     <>
       <JsonLd data={breadcrumbSchema([
-        { name: "Home", path: "/" },
-        { name: "Compare", path: "/vs" },
-        { name: `vs ${c.name}`, path: `/vs/${c.slug}` },
+        { name: seo.crumbs.home, path: localizePath("/", lang) },
+        { name: seo.crumbs.compare, path: localizePath("/vs", lang) },
+        { name: fmt(t.crumb, vars), path: localizePath(`/vs/${c.slug}`, lang) },
       ])} />
       <JsonLd data={faqSchema(c.faqs)} />
 
       <section className="border-b border-border bg-secondary/30">
         <Container className="py-14">
           <nav className="mb-3 text-xs text-muted-foreground">
-            <Link href="/vs" className="hover:text-foreground">Compare</Link> / {SITE.name} vs {c.name}
+            <Link href="/vs" className="hover:text-foreground">{seo.crumbs.compare}</Link> / {fmt(t.trail, vars)}
           </nav>
-          <Eyebrow>Comparison</Eyebrow>
+          <Eyebrow>{t.eyebrow}</Eyebrow>
           <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl">
-            {c.name} vs {SITE.name}{c.publicTenderProof ? ": price, coverage and a cheaper option" : ""}
+            {cap(fmt(t.title, vars), lang)}{c.publicTenderProof ? t.titleTenders : ""}
           </h1>
           <p className="mt-4 max-w-2xl text-lg leading-relaxed text-muted-foreground">{c.angle}</p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link href={proHref} className={buttonVariants()}>Start Trade Pro — ${PRICING.proAnnual}/yr</Link>
+            <Link href={proHref} className={buttonVariants()}>{fmt(t.startPro, vars)}</Link>
             <Link href={openTenders.length ? "/rfps" : "/pricing"} className={buttonVariants({ variant: "outline" })}>
-              {openTenders.length ? `See ${openTenders.length} open tenders free` : "See pricing"}
+              {openTenders.length ? fmt(t.seeOpen, { n: num(openTenders.length) }) : seo.seePricing}
             </Link>
           </div>
         </Container>
@@ -104,22 +126,22 @@ export default async function VersusPage({
 
       {c.priceTable && c.priceSource && (
         <Container className="pt-12">
-          <h2 className="text-2xl font-semibold tracking-tight">What {c.name} costs</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">{fmt(t.costsTitle, vars)}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            From{" "}
+            {t.source.before}
             <a href={c.priceSource.url} rel="nofollow noopener" target="_blank" className="text-teal-700 hover:underline">
-              {c.name}&apos;s pricing page
+              {fmt(t.source.link, vars)}
             </a>
-            , checked {c.priceSource.checked}.
+            {fmt(t.source.after, { date: c.priceSource.checked })}
           </p>
           <div className="mt-4 overflow-x-auto rounded-lg border border-border">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-secondary/40 text-left">
-                  <th className="p-3 font-medium">Plan</th>
-                  <th className="p-3 font-medium">Covers</th>
-                  <th className="p-3 font-medium">Price</th>
-                  <th className="p-3 font-medium">Per year</th>
+                  <th className="p-3 font-medium">{t.priceHead.plan}</th>
+                  <th className="p-3 font-medium">{t.priceHead.covers}</th>
+                  <th className="p-3 font-medium">{t.priceHead.price}</th>
+                  <th className="p-3 font-medium">{t.priceHead.perYear}</th>
                 </tr>
               </thead>
               <tbody>
@@ -132,10 +154,10 @@ export default async function VersusPage({
                   </tr>
                 ))}
                 <tr className="bg-teal-100/40">
-                  <td className="p-3 font-semibold">{SITE.name} Trade Pro</td>
-                  <td className="p-3 text-muted-foreground">Building and property tenders and RFPs, daily email of matches</td>
-                  <td className="p-3">$29/month, or $249/year</td>
-                  <td className="p-3 font-semibold">${PRICING.proAnnual}</td>
+                  <td className="p-3 font-semibold">{fmt(t.proRow.plan, vars)}</td>
+                  <td className="p-3 text-muted-foreground">{t.proRow.covers}</td>
+                  <td className="p-3">{fmt(t.proRow.price, vars)}</td>
+                  <td className="p-3 font-semibold">{fmt(t.proRow.perYear, vars)}</td>
                 </tr>
               </tbody>
             </table>
@@ -145,12 +167,12 @@ export default async function VersusPage({
       )}
 
       <Container className="py-12">
-        <h2 className="text-2xl font-semibold tracking-tight">At a glance</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">{t.glanceTitle}</h2>
         <div className="mt-4 overflow-x-auto rounded-lg border border-border">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-secondary/40 text-left">
-                <th className="p-3 font-medium">Feature</th>
+                <th className="p-3 font-medium">{t.feature}</th>
                 <th className="p-3 font-semibold text-foreground">{SITE.name}</th>
                 <th className="p-3 font-medium text-muted-foreground">{c.name}</th>
               </tr>
@@ -171,11 +193,10 @@ export default async function VersusPage({
       {sample.length > 0 && (
         <Container className="pb-12">
           <h2 className="text-2xl font-semibold tracking-tight">
-            {openTenders.length} public building tenders open on {SITE.name} right now
+            {plural(openTenders.length, t.tendersTitle, { ...vars, n: num(openTenders.length) })}
           </h2>
           <p className="mt-2 max-w-2xl text-muted-foreground">
-            Imported every morning from CanadaBuys, the City of Toronto, Quebec&apos;s SEAO and Yukon. Titles and
-            deadlines are free to browse; Trade Pro emails you the day a match posts.
+            {t.tendersLead}
           </p>
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             {sample.map((r) => (
@@ -187,12 +208,12 @@ export default async function VersusPage({
 
       <section className="bg-secondary/30">
         <Container className="py-12">
-          <h2 className="text-2xl font-semibold tracking-tight">What {c.name} is — and where it fits</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">{fmt(t.whatTitle, vars)}</h2>
           <p className="mt-3 max-w-3xl leading-relaxed text-foreground/90">{c.whatItIs}</p>
-          <p className="mt-2 text-sm text-muted-foreground"><strong>Best for:</strong> {c.whoFor} · <strong>Pricing:</strong> {c.pricing}</p>
+          <p className="mt-2 text-sm text-muted-foreground"><strong>{t.bestFor}</strong> {c.whoFor} · <strong>{t.pricing}</strong> {c.pricing}</p>
           <div className="mt-6 grid gap-6 md:grid-cols-2">
             <div className="rounded-lg border border-border bg-card p-6">
-              <h3 className="text-base font-semibold">{c.name} strengths</h3>
+              <h3 className="text-base font-semibold">{cap(fmt(t.strengthsTitle, vars), lang)}</h3>
               <ul className="mt-3 space-y-2 text-sm">
                 {c.strengths.map((s) => (
                   <li key={s} className="flex gap-2"><Check className="mt-0.5 size-4 shrink-0 text-success" />{s}</li>
@@ -200,7 +221,7 @@ export default async function VersusPage({
               </ul>
             </div>
             <div className="rounded-lg border border-border bg-card p-6">
-              <h3 className="text-base font-semibold">Where {SITE.name} wins</h3>
+              <h3 className="text-base font-semibold">{fmt(t.winsTitle, vars)}</h3>
               <ul className="mt-3 space-y-2 text-sm">
                 {c.weaknesses.map((w) => (
                   <li key={w} className="flex gap-2"><X className="mt-0.5 size-4 shrink-0 text-teal-600" />{w}</li>
@@ -212,7 +233,7 @@ export default async function VersusPage({
       </section>
 
       <Container size="narrow" className="py-12">
-        <h2 className="text-2xl font-semibold tracking-tight">FAQ</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">{t.faqTitle}</h2>
         <Accordion className="mt-4">
           {c.faqs.map((f, i) => (
             <AccordionItem key={i} value={`q${i}`}>
@@ -222,19 +243,17 @@ export default async function VersusPage({
           ))}
         </Accordion>
         <p className="mt-6 text-xs text-muted-foreground">
-          Comparison reflects publicly available information as of 2026 and PMRFP&apos;s own positioning.
-          Competitor names and trademarks belong to their respective owners. {SITE.name} does not
-          guarantee work or outcomes.
+          {fmt(t.disclaimer, vars)}
         </p>
       </Container>
 
       <CTASection
-        title={`Ready to try the commercial & residential property network?`}
-        description={`Free directory listing, or go Pro for $${PRICING.proAnnual} CAD/year.`}
+        title={t.cta.title}
+        description={fmt(t.cta.description, vars)}
         primaryHref={proHref}
-        primaryLabel="Start Trade Pro"
+        primaryLabel={seo.startPro}
         secondaryHref="/vs"
-        secondaryLabel="See all comparisons"
+        secondaryLabel={t.cta.secondary}
       />
     </>
   );

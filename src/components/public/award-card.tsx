@@ -5,6 +5,9 @@ import type { RfpListItem } from "@/lib/data/types";
 import { parseAward } from "@/lib/data/fomo";
 import { sourceTypeLabel } from "@/lib/gc/packages";
 import { tradePhotoForName } from "@/lib/photos";
+import { getLang, getT } from "@/i18n/server";
+import { fmt, formatDate, formatNumber } from "@/i18n/format";
+import { regionName, tradeName } from "@/i18n/terms";
 
 /** "SHUNDA CONSULTING AND CONSTRUCTION LTD" → "Shunda Consulting and Construction Ltd". */
 function tidyName(name: string): string {
@@ -35,21 +38,23 @@ function splitValue(value: string | null): { amount: string; currency: string } 
   return m ? { amount: m[1], currency: m[2] ?? "" } : null;
 }
 
-function formatDate(d: string) {
-  return new Date(d).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-}
-
 /**
  * A public contract that's already been won. The value leads, because that's
  * the point: this is what work like yours sells for, and who got it.
  */
 export function AwardCard({ rfp }: { rfp: RfpListItem }) {
+  const t = getT("shared").award;
+  const lang = getLang();
   const award = parseAward(rfp.summary);
-  const value = splitValue(award.value);
+  const parsed = splitValue(award.value);
+  // French money reads "1 792 350 $"; English and Spanish keep the notice's own "$1,792,350".
+  const value = parsed && lang === "fr" && award.amount ? { ...parsed, amount: `${formatNumber(award.amount, lang)} $` } : parsed;
   const trade = rfp.categories[0] ?? null;
   const photo = tradePhotoForName(trade);
-  const buyer = sourceTypeLabel(rfp.sourceType, rfp.slug)?.split(" · ")[1] ?? "Public buyer";
-  const place = [rfp.city, rfp.province].filter(Boolean).join(", ") || rfp.regionName;
+  const buyer = sourceTypeLabel(rfp.sourceType, rfp.slug, lang)?.split(" · ")[1] ?? t.publicBuyer;
+  const place =
+    [rfp.city, rfp.province && regionName(rfp.province, lang)].filter(Boolean).join(", ") ||
+    (rfp.regionName && regionName(rfp.regionName, lang));
   const winner = award.winner ? tidyName(award.winner) : null;
 
   return (
@@ -68,18 +73,18 @@ export function AwardCard({ rfp }: { rfp: RfpListItem }) {
         <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-[#161834]/95 via-[#161834]/55 to-[#161834]/10" />
         <div className="absolute left-5 top-4 flex items-center gap-2">
           <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
-            {trade ?? "Contract"}
+            {trade ? tradeName(trade, lang) : t.contract}
           </span>
         </div>
         <div className="absolute inset-x-5 bottom-4">
-          <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-teal-300">Contract value</div>
+          <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-teal-300">{t.value}</div>
           {value ? (
             <div className="mt-0.5 flex items-baseline gap-1.5 text-white">
               <span className="font-heading text-3xl font-bold tracking-tight tabular-nums">{value.amount}</span>
               {value.currency && <span className="text-xs font-semibold text-white/70">{value.currency}</span>}
             </div>
           ) : (
-            <div className="mt-0.5 font-heading text-xl font-semibold text-white">Value not disclosed</div>
+            <div className="mt-0.5 font-heading text-xl font-semibold text-white">{t.undisclosed}</div>
           )}
         </div>
       </div>
@@ -97,16 +102,18 @@ export function AwardCard({ rfp }: { rfp: RfpListItem }) {
               {initials(winner) || "W"}
             </span>
             <div className="min-w-0">
-              <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Won by</div>
+              <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{t.wonBy}</div>
               <div className="truncate text-sm font-semibold">{winner}</div>
             </div>
           </div>
         )}
 
         <div className="mt-auto flex items-center justify-between gap-3 pt-4 text-xs">
-          <span className="text-muted-foreground">Awarded {rfp.deadline ? formatDate(rfp.deadline) : ""}</span>
+          <span className="text-muted-foreground">
+            {rfp.deadline ? fmt(t.awardedOn, { date: formatDate(rfp.deadline, lang) }) : t.awardedNoDate}
+          </span>
           <span className="inline-flex items-center gap-1 font-semibold text-teal-700 group-hover:underline">
-            See the notice <ArrowUpRight className="size-3.5" />
+            {t.notice} <ArrowUpRight className="size-3.5" />
           </span>
         </div>
       </div>

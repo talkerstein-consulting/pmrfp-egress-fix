@@ -5,6 +5,10 @@
  * needs a higher score than the house sponsors (Cleverpays, Talkerstein,
  * Maple: 1–3) so it holds its slot instead of rotating with them.
  */
+import type { Locale } from "@/i18n/config";
+import type { ClientMessages } from "@/i18n/dictionaries";
+import { formatNumber } from "@/i18n/format";
+
 // No Region Spotlight yet: the sponsor registry matches trades, not regions,
 // so a region package couldn't be delivered as sold.
 export type SponsorPackageId = "trade" | "founding";
@@ -56,7 +60,22 @@ export function sponsorPackage(id: string): SponsorPackage | undefined {
   return SPONSOR_PACKAGES.find((p) => p.id === id);
 }
 
-export const cad = (n: number) => `$${n.toLocaleString("en-CA")}`;
+/** "$149" in English, "149 $" in French, "$149" / "$1,490" in Spanish (U.S. style). */
+export const cad = (n: number, lang: Locale = "en") =>
+  lang === "es"
+    ? `$${formatNumber(n, lang)}`
+    : lang === "en"
+      ? `$${n.toLocaleString("en-CA")}`
+      : `${formatNumber(n, lang)} $`;
+
+/**
+ * Name, summary, features and note in the visitor's language (English text
+ * is the same as SPONSOR_PACKAGES; translations in messages/partnersClient).
+ */
+export function packageCopy(p: SponsorPackage, t: ClientMessages["partnersClient"]): Omit<SponsorPackage, "id" | "monthly"> {
+  const c = t.packages[p.id];
+  return { name: c.name, summary: c.summary, features: c.features, note: c.note || undefined };
+}
 
 /**
  * Signed founding partners, shown on /advertise once there are any. Add one

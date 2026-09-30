@@ -27,10 +27,14 @@ import {
 } from "@/components/ui/accordion";
 import { JsonLd, breadcrumbSchema, faqSchema } from "@/lib/seo/jsonld";
 import { RFP_TEMPLATES, getRfpTemplate } from "@/lib/seo/rfp-templates";
-import { COST_GUIDES } from "@/lib/seo/cost-guides";
-import { SITE } from "@/lib/site";
+import { localizeRfpTemplate } from "@/lib/seo/rfp-templates.fr";
+import { getCostGuideFor } from "@/lib/seo/cost-guides.fr";
 import { cn } from "@/lib/utils";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale, localizePath } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { fmt } from "@/i18n/format";
 
 export const revalidate = 86400;
 
@@ -41,16 +45,23 @@ export async function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ lang: string; slug: string }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
-  const t = getRfpTemplate(slug);
-  if (!t) return { title: "Not found" };
+  const { lang, slug } = await params;
+  const l = hasLocale(lang) ? lang : "en";
+  const base = getRfpTemplate(slug);
+  if (!base) return { title: getDictionary(l).content.template.notFound };
+  const t = localizeRfpTemplate(base, l);
   return {
     title: t.metaTitle,
     description: t.metaDescription,
-    alternates: { canonical: `/rfp-templates/${t.slug}` },
+    alternates: alternatesFor(l, `/rfp-templates/${t.slug}`),
   };
+}
+
+/** "Toiture" -> "toiture" mid-sentence; acronyms like "CVC" stay. */
+function lowerFirst(s: string): string {
+  return /^[A-ZÀ-Ý][a-zà-ÿ]/.test(s) ? s[0].toLowerCase() + s.slice(1) : s;
 }
 
 export default async function RfpTemplateDetailPage({
@@ -58,24 +69,28 @@ export default async function RfpTemplateDetailPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  await setLangFrom(params);
+  const lang = await setLangFrom(params);
+  const c = getT("content");
+  const tt = c.template;
   const { slug } = await params;
-  const t = getRfpTemplate(slug);
-  if (!t) notFound();
+  const base = getRfpTemplate(slug);
+  if (!base) notFound();
+  const t = localizeRfpTemplate(base, lang);
+  const tradeLower = lang === "en" ? t.tradeName.toLowerCase() : lowerFirst(t.tradeName);
 
-  const costGuide = t.costGuideSlug
-    ? COST_GUIDES.find((g) => g.slug === t.costGuideSlug)
-    : undefined;
+  const costGuide = t.costGuideSlug ? getCostGuideFor(t.costGuideSlug, lang) : undefined;
 
   const related = RFP_TEMPLATES.filter(
     (other) => other.slug !== t.slug && other.tradeSlug === t.tradeSlug,
-  ).slice(0, 3);
+  )
+    .slice(0, 3)
+    .map((other) => localizeRfpTemplate(other, lang));
 
   // Single CTA that does the right thing regardless of auth state.
   // /use-template/[slug] is a tiny server route that branches on session.
   const useTemplateHref = `/use-template/${t.slug}`;
   const signUpHref = `/sign-up?role=property_manager&next=${encodeURIComponent(
-    `/pm-dashboard/rfps/new?template=${t.slug}`,
+    localizePath(`/pm-dashboard/rfps/new?template=${t.slug}`, lang),
   )}`;
   const pdfHref = `/rfp-templates/${t.slug}/print`;
 
@@ -97,9 +112,9 @@ export default async function RfpTemplateDetailPage({
     <>
       <JsonLd
         data={breadcrumbSchema([
-          { name: "Home", path: "/" },
-          { name: "RFP Templates", path: "/rfp-templates" },
-          { name: t.name, path: `/rfp-templates/${t.slug}` },
+          { name: c.crumbs.home, path: localizePath("/", lang) },
+          { name: c.crumbs.templates, path: localizePath("/rfp-templates", lang) },
+          { name: t.name, path: localizePath(`/rfp-templates/${t.slug}`, lang) },
         ])}
       />
       <JsonLd data={faqSchema(t.faqs)} />
@@ -108,7 +123,7 @@ export default async function RfpTemplateDetailPage({
       {/* HERO */}
       <section className="border-b border-border bg-background">
         <Container className="py-14 sm:py-16">
-          <Eyebrow>{t.tradeName} · RFP template</Eyebrow>
+          <Eyebrow>{fmt(tt.eyebrow, { trade: t.tradeName })}</Eyebrow>
           <h1 className="mt-4 max-w-3xl text-3xl font-semibold leading-[1.1] tracking-tight sm:text-4xl">
             {t.name}
           </h1>
@@ -121,26 +136,29 @@ export default async function RfpTemplateDetailPage({
               href={useTemplateHref}
               className={buttonVariants({ size: "lg" })}
             >
-              Use this template <ArrowRight className="size-4" />
+              {tt.useTemplate} <ArrowRight className="size-4" />
             </Link>
             <Link
               href={pdfHref}
               className={buttonVariants({ size: "lg", variant: "outline" })}
             >
-              <Download className="size-4" /> Download PDF
+              <Download className="size-4" /> {tt.downloadPdf}
             </Link>
             <Link
               href={signUpHref}
               className="inline-flex items-center px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
             >
-              Don&rsquo;t have an account? Sign up free →
+              {tt.noAccount}
             </Link>
           </div>
 
           <div className="mt-8 grid gap-3 sm:grid-cols-3">
-            <FactPill icon={<Sparkles className="size-4" />} label="Pre-filled scope + requirements" />
-            <FactPill icon={<FileText className="size-4" />} label={`Tagged to /trades/${t.tradeSlug}`} />
-            <FactPill icon={<Calendar className="size-4" />} label={`${t.timeline.length}-phase timeline`} />
+            <FactPill icon={<Sparkles className="size-4" />} label={tt.factPrefilled} />
+            <FactPill
+              icon={<FileText className="size-4" />}
+              label={fmt(tt.factTagged, { slug: t.tradeSlug, trade: t.tradeName })}
+            />
+            <FactPill icon={<Calendar className="size-4" />} label={fmt(tt.factPhases, { n: t.timeline.length })} />
           </div>
         </Container>
       </section>
@@ -148,7 +166,7 @@ export default async function RfpTemplateDetailPage({
       {/* WHEN TO USE */}
       <Container className="py-12">
         <div className="rounded-2xl border border-border bg-secondary/30 p-6 sm:p-8">
-          <Eyebrow>When to use this template</Eyebrow>
+          <Eyebrow>{tt.whenToUse}</Eyebrow>
           <p className="mt-3 max-w-3xl text-base leading-relaxed text-foreground/90">
             {t.whenToUse}
           </p>
@@ -157,20 +175,20 @@ export default async function RfpTemplateDetailPage({
 
       {/* SAMPLE TITLE + SUMMARY */}
       <Container className="py-6">
-        <h2 className="text-2xl font-semibold tracking-tight">Sample RFP title &amp; summary</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">{tt.sampleTitle}</h2>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          What auto-fills when you click &ldquo;Use this template&rdquo; — you can edit anything.
+          {tt.sampleLead}
         </p>
         <div className="mt-5 overflow-hidden rounded-xl border border-border">
           <div className="border-b border-border bg-secondary/40 px-5 py-3">
             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Title
+              {tt.titleLabel}
             </span>
             <p className="mt-1 text-base font-semibold text-foreground">{t.titleSample}</p>
           </div>
           <div className="bg-card px-5 py-4">
             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Summary
+              {tt.summaryLabel}
             </span>
             <p className="mt-1 text-sm leading-relaxed text-foreground/90">{t.summarySample}</p>
           </div>
@@ -180,7 +198,7 @@ export default async function RfpTemplateDetailPage({
       {/* SCOPE */}
       <section className="border-t border-border bg-secondary/20">
         <Container className="py-12">
-          <SectionHeading icon={<ClipboardList className="size-5" />} title="Scope of work" />
+          <SectionHeading icon={<ClipboardList className="size-5" />} title={tt.scope} />
           <div className="mt-5 rounded-xl border border-border bg-card p-6 sm:p-8">
             <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground/90">
               {t.scope}
@@ -191,7 +209,7 @@ export default async function RfpTemplateDetailPage({
 
       {/* REQUIREMENTS */}
       <Container className="py-12">
-        <SectionHeading icon={<ShieldCheck className="size-5" />} title="Standard requirements" />
+        <SectionHeading icon={<ShieldCheck className="size-5" />} title={tt.requirements} />
         <div className="mt-5 rounded-xl border border-border bg-card p-6 sm:p-8">
           <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground/90">
             {t.requirements}
@@ -202,7 +220,7 @@ export default async function RfpTemplateDetailPage({
       {/* TIMELINE */}
       <section className="border-t border-border bg-secondary/20">
         <Container className="py-12">
-          <SectionHeading icon={<Calendar className="size-5" />} title="Suggested timeline" />
+          <SectionHeading icon={<Calendar className="size-5" />} title={tt.timeline} />
           <ol className="mt-6 grid gap-3 sm:grid-cols-2">
             {t.timeline.map((phase, i) => (
               <li
@@ -226,7 +244,7 @@ export default async function RfpTemplateDetailPage({
 
       {/* SITE ACCESS */}
       <Container className="py-12">
-        <SectionHeading icon={<KeySquare className="size-5" />} title="Site access &amp; logistics" />
+        <SectionHeading icon={<KeySquare className="size-5" />} title={tt.siteAccess} />
         <p className="mt-4 max-w-3xl text-sm leading-relaxed text-foreground/90">{t.siteAccess}</p>
       </Container>
 
@@ -235,10 +253,10 @@ export default async function RfpTemplateDetailPage({
         <Container className="py-12">
           <SectionHeading
             icon={<HelpCircle className="size-5" />}
-            title="Questions every bidder should answer"
+            title={tt.questionsTitle}
           />
           <p className="mt-3 max-w-3xl text-sm text-muted-foreground">
-            Ask all bidders the same questions so you get apples-to-apples responses.
+            {tt.questionsLead}
           </p>
           <ul className="mt-6 grid gap-3 sm:grid-cols-2">
             {t.questions.map((q, i) => (
@@ -256,18 +274,18 @@ export default async function RfpTemplateDetailPage({
 
       {/* EVALUATION CRITERIA */}
       <Container className="py-12">
-        <SectionHeading icon={<Scale className="size-5" />} title="Evaluation criteria" />
+        <SectionHeading icon={<Scale className="size-5" />} title={tt.evaluationTitle} />
         <p className="mt-3 max-w-3xl text-sm text-muted-foreground">
-          How you&rsquo;ll weigh bids when you receive them.
+          {tt.evaluationLead}
         </p>
         <ol className="mt-6 grid gap-2 sm:grid-cols-2">
-          {t.evaluationCriteria.map((c, i) => (
+          {t.evaluationCriteria.map((crit, i) => (
             <li
               key={i}
               className="flex gap-3 rounded-lg border border-border bg-card p-4 text-sm"
             >
               <span className="text-sm font-semibold text-teal-ink">{i + 1}.</span>
-              <span>{c}</span>
+              <span>{crit}</span>
             </li>
           ))}
         </ol>
@@ -279,13 +297,14 @@ export default async function RfpTemplateDetailPage({
           <Container className="py-10">
             <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <Eyebrow className="text-teal">Pair with the cost guide</Eyebrow>
+                <Eyebrow className="text-teal">{tt.costEyebrow}</Eyebrow>
                 <h2 className="mt-2 text-xl font-semibold sm:text-2xl">
                   {costGuide.headline.replace(/\?$/, "")}
                 </h2>
                 <p className="mt-1 text-sm text-indigo-100/80">
-                  Read what a typical {costGuide.tradeName.toLowerCase()} job runs in Canada before you
-                  post — so you know the budget range to expect.
+                  {fmt(tt.costLead, {
+                    tradeLower: lang === "en" ? costGuide.tradeName.toLowerCase() : lowerFirst(costGuide.tradeName),
+                  })}
                 </p>
               </div>
               <Link
@@ -295,7 +314,7 @@ export default async function RfpTemplateDetailPage({
                   "border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white",
                 )}
               >
-                See the cost guide <ArrowRight className="size-4" />
+                {tt.costCta} <ArrowRight className="size-4" />
               </Link>
             </div>
           </Container>
@@ -304,19 +323,19 @@ export default async function RfpTemplateDetailPage({
 
       {/* MATCHING TRADES */}
       <Container className="py-12">
-        <SectionHeading icon={<Wrench className="size-5" />} title="Trades who match this work" />
+        <SectionHeading icon={<Wrench className="size-5" />} title={tt.matchingTitle} />
         <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
-          Once you post, these are the kind of vendors who&rsquo;ll see your RFP and express interest.
+          {tt.matchingLead}
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
             href={`/trades/${t.tradeSlug}`}
             className={buttonVariants({ variant: "outline" })}
           >
-            Browse {t.tradeName} companies <ArrowRight className="size-4" />
+            {fmt(tt.browseCompanies, { trade: t.tradeName, tradeLower })} <ArrowRight className="size-4" />
           </Link>
           <Link href="/directory" className={buttonVariants({ variant: "outline" })}>
-            Full directory
+            {tt.fullDirectory}
           </Link>
         </div>
       </Container>
@@ -324,7 +343,7 @@ export default async function RfpTemplateDetailPage({
       {/* FAQS */}
       <section className="border-t border-border bg-secondary/20">
         <Container size="narrow" className="py-12">
-          <h2 className="text-2xl font-semibold tracking-tight">Common questions</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">{tt.faqTitle}</h2>
           <Accordion className="mt-5">
             {t.faqs.map((f, i) => (
               <AccordionItem key={i} value={`q${i}`}>
@@ -343,7 +362,7 @@ export default async function RfpTemplateDetailPage({
       {related.length > 0 && (
         <Container className="py-12">
           <h2 className="text-2xl font-semibold tracking-tight">
-            More {t.tradeName} RFP templates
+            {fmt(tt.moreTemplates, { trade: t.tradeName, tradeLower })}
           </h2>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {related.map((r) => (
@@ -354,11 +373,11 @@ export default async function RfpTemplateDetailPage({
               >
                 <Eyebrow>{r.tradeName}</Eyebrow>
                 <h3 className="mt-3 text-base font-semibold leading-snug group-hover:text-teal-ink">
-                  {r.name.replace(/ RFP Template$/, "")}
+                  {r.shortName}
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{r.pitch}</p>
                 <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-teal-ink">
-                  See template{" "}
+                  {tt.seeTemplate}{" "}
                   <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
                 </span>
               </Link>
@@ -368,15 +387,12 @@ export default async function RfpTemplateDetailPage({
       )}
 
       <CTASection
-        title={`Ready to post your ${t.tradeName.toLowerCase()} RFP?`}
-        description={`Click below to start with the ${t.name.replace(
-          / RFP Template$/,
-          "",
-        )} template pre-filled. Customize anything that doesn't fit your project and post free.`}
+        title={fmt(tt.cta.title, { trade: t.tradeName, tradeLower })}
+        description={fmt(tt.cta.description, { name: t.shortName })}
         primaryHref={useTemplateHref}
-        primaryLabel="Use this template"
+        primaryLabel={tt.cta.primary}
         secondaryHref="/rfp-templates"
-        secondaryLabel="See all templates"
+        secondaryLabel={tt.cta.secondary}
       />
     </>
   );

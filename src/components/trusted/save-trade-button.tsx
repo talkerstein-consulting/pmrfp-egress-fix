@@ -6,6 +6,10 @@ import { Check, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { toggleTrustedTradeAction, trustedStateAction } from "@/lib/trusted/actions";
+import { useLang, useT } from "@/i18n/provider";
+import { localizePath } from "@/i18n/config";
+import { fmt } from "@/i18n/format";
+import { useTrustedActionMessage } from "./action-messages";
 
 /**
  * "Save to my trusted trades" on a directory profile. The profile page is
@@ -14,6 +18,9 @@ import { toggleTrustedTradeAction, trustedStateAction } from "@/lib/trusted/acti
  * trades nothing.
  */
 export function SaveTradeButton({ organizationId, slug, name }: { organizationId: string; slug: string; name: string }) {
+  const t = useT("partnersClient").save;
+  const lang = useLang();
+  const say = useTrustedActionMessage();
   const [state, setState] = useState<{ viewer: "owner" | "anon" | "other"; saved: boolean } | null>(null);
   const [pending, start] = useTransition();
 
@@ -33,11 +40,11 @@ export function SaveTradeButton({ organizationId, slug, name }: { organizationId
     const next = encodeURIComponent(`/directory/${slug}`);
     return (
       <p className="mb-4 rounded-lg border border-dashed border-teal-300 bg-teal-50/50 px-3 py-2.5 text-center text-xs leading-relaxed text-muted-foreground">
-        Realtor?{" "}
+        {t.realtor}{" "}
         <Link href={`/sign-up?role=real_estate_agent&next=${next}`} className="font-semibold text-teal-700 hover:underline">
-          Add {name} to your own trusted-trades page
+          {fmt(t.add, { name })}
         </Link>{" "}
-        and send clients one link.
+        {t.after}
       </p>
     );
   }
@@ -47,20 +54,24 @@ export function SaveTradeButton({ organizationId, slug, name }: { organizationId
       const res = await toggleTrustedTradeAction(organizationId);
       if (res.error) {
         if (res.limit) {
-          toast.error(res.error, { action: { label: "Upgrade", onClick: () => (window.location.href = "/pm-dashboard/saved-vendors") } });
-        } else toast.error(res.error);
+          toast.error(say(res.error), {
+            action: { label: t.upgrade, onClick: () => (window.location.href = localizePath("/pm-dashboard/saved-vendors", lang)) },
+          });
+        } else toast.error(say(res.error));
         return;
       }
       setState({ viewer: "owner", saved: Boolean(res.saved) });
-      toast.success(res.saved ? `${name} is on your trusted-trades page.` : `Removed ${name} from your page.`, {
-        action: res.handle ? { label: "View page", onClick: () => window.open(`/trusted/${res.handle}`, "_blank") } : undefined,
+      toast.success(fmt(res.saved ? t.added : t.removed, { name }), {
+        action: res.handle
+          ? { label: t.viewPage, onClick: () => window.open(localizePath(`/trusted/${res.handle}`, lang), "_blank") }
+          : undefined,
       });
     });
 
   return (
     <Button variant={state.saved ? "outline" : "accent"} className="mb-4 w-full" disabled={pending} onClick={toggle}>
       {state.saved ? <Check className="size-4" /> : <Plus className="size-4" />}
-      {pending ? "Saving…" : state.saved ? "On your trusted trades" : "Save to my trusted trades"}
+      {pending ? t.saving : state.saved ? t.saved : t.save}
     </Button>
   );
 }

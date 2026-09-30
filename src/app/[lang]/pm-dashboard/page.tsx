@@ -6,12 +6,20 @@ import { StatCard, PageHeader, DemoBanner } from "@/components/dashboard/stat-ca
 import { buttonVariants } from "@/components/ui/button";
 import { gcFormPath } from "@/lib/gc/packages";
 import { getMyTrustedList } from "@/lib/trusted/data";
-import { setLangFrom } from "@/i18n/server";
+import type { Metadata } from "next";
+import { getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale } from "@/i18n/config";
+import { plural } from "@/i18n/format";
 
-export const metadata = { title: "Property Manager Dashboard" };
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  return { title: getDictionary(hasLocale(lang) ? lang : "en").pm.home.metaTitle };
+}
 
 export default async function PmDashboardHome({ params }: { params: Promise<object> }) {
   await setLangFrom(params);
+  const t = getT("pm").home;
   const session = await requireRole(["property_manager", "real_estate_agent"]);
   const demo = isDemoMode();
   // General contractors share this dashboard; they post sub-trade packages.
@@ -49,19 +57,15 @@ export default async function PmDashboardHome({ params }: { params: Promise<obje
     <div>
       {demo && <DemoBanner />}
       <PageHeader
-        title={gc ? "Contractor Dashboard" : "Property Manager Dashboard"}
-        description={
-          gc
-            ? "Post sub-trade packages, review interested trades, and manage your packages."
-            : "Post project needs, review interested vendors, and manage your RFPs."
-        }
+        title={gc ? t.titleGc : t.title}
+        description={gc ? t.descriptionGc : t.description}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Active RFPs" value={activeRfps} href="/pm-dashboard/rfps" />
-        <StatCard label="Pending review" value={pendingReview} href="/pm-dashboard/rfps" />
-        <StatCard label="Interested vendors" value={interestedVendors} href="/pm-dashboard/rfps" />
-        <StatCard label="Trusted trades" value={trusted?.trades.length ?? 0} href="/pm-dashboard/saved-vendors" />
+        <StatCard label={t.stats.active} value={activeRfps} href="/pm-dashboard/rfps" />
+        <StatCard label={t.stats.pending} value={pendingReview} href="/pm-dashboard/rfps" />
+        <StatCard label={t.stats.interested} value={interestedVendors} href="/pm-dashboard/rfps" />
+        <StatCard label={t.stats.trusted} value={trusted?.trades.length ?? 0} href="/pm-dashboard/saved-vendors" />
       </div>
 
       {/* Realtors' first win is their shareable page, not an RFP. */}
@@ -73,12 +77,10 @@ export default async function PmDashboardHome({ params }: { params: Promise<obje
             </span>
             <div>
               <h2 className="text-base font-semibold text-white">
-                {trusted.trades.length ? "Your trusted-trades page" : "Build your trusted-trades page"}
+                {trusted.trades.length ? t.trusted.titleHas : t.trusted.titleEmpty}
               </h2>
               <p className="mt-1 max-w-xl text-sm text-indigo-100/80">
-                {trusted.trades.length
-                  ? `${trusted.trades.length} trade${trusted.trades.length === 1 ? "" : "s"} on it. Copy the link and send it to your next client.`
-                  : "Save the trades you trust from the directory and send clients one link instead of a phone number."}
+                {trusted.trades.length ? plural(trusted.trades.length, t.trusted.bodyHas) : t.trusted.bodyEmpty}
               </p>
             </div>
           </div>
@@ -86,7 +88,7 @@ export default async function PmDashboardHome({ params }: { params: Promise<obje
             href={trusted.trades.length ? "/pm-dashboard/saved-vendors" : "/directory"}
             className={buttonVariants({ size: "lg", variant: "accent" })}
           >
-            {trusted.trades.length ? "Open your page" : "Browse the directory"} <ArrowRight className="size-4" />
+            {trusted.trades.length ? t.trusted.ctaHas : t.trusted.ctaEmpty} <ArrowRight className="size-4" />
           </Link>
         </div>
       )}
@@ -97,16 +99,12 @@ export default async function PmDashboardHome({ params }: { params: Promise<obje
             <FileText className="size-5" />
           </span>
           <div>
-            <h2 className="text-base font-semibold">{gc ? "Post a sub-trade package" : "Post an RFP"}</h2>
-            <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-              {gc
-                ? "One package per trade. Local trades in that trade and region send you quotes. Free."
-                : "Describe your project and let qualified Canadian trades come to you."}
-            </p>
+            <h2 className="text-base font-semibold">{gc ? t.post.titleGc : t.post.title}</h2>
+            <p className="mt-1 max-w-xl text-sm text-muted-foreground">{gc ? t.post.bodyGc : t.post.body}</p>
           </div>
         </div>
         <Link href={gc ? gcFormPath() : "/pm-dashboard/rfps/new"} className={buttonVariants({ size: "lg" })}>
-          {gc ? "Post a package" : "Post an RFP"} <ArrowRight className="size-4" />
+          {gc ? t.post.ctaGc : t.post.cta} <ArrowRight className="size-4" />
         </Link>
       </div>
     </div>

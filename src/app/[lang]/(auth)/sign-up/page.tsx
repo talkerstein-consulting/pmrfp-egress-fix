@@ -2,14 +2,18 @@ import type { Metadata } from "next";
 import Link from "@/i18n/link";
 import { SignUpForm } from "@/components/forms/auth-forms";
 import { DemoNotice } from "@/components/forms/demo-notice";
-import { COPY } from "@/lib/site";
+import { PRICING } from "@/lib/site";
 import { safeNextPath } from "@/lib/auth/next";
 import { isGoogleAuthEnabled } from "@/lib/auth/google";
-import { billingPathForIntent, parsePlanIntent } from "@/lib/billing/plan-intent";
+import { billingPathForIntent, parsePlanIntent, type PlanIntent } from "@/lib/billing/plan-intent";
 import { parseAwardRef } from "@/lib/gc/packages";
 import { getJoinProof } from "@/lib/data/join-proof";
 import { JoinProof } from "@/components/public/join-proof";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
+import { getDictionary, type Messages } from "@/i18n/dictionaries";
+import { hasLocale, localizePath } from "@/i18n/config";
+import { alternatesFor } from "@/i18n/metadata";
+import { fmt } from "@/i18n/format";
 
 const VALID_ROLES = ["trade", "supplier", "property_manager", "visitor", "real_estate_agent", "general_contractor", "talent"] as const;
 type ValidRole = (typeof VALID_ROLES)[number];
@@ -18,32 +22,52 @@ type ValidRole = (typeof VALID_ROLES)[number];
  *  full URL including ?role=, so invites speak to the right audience. */
 export async function generateMetadata({
   searchParams,
+  params,
 }: {
   searchParams: Promise<{ role?: string }>;
+  params: Promise<{ lang: string }>;
 }): Promise<Metadata> {
-  const { role } = await searchParams;
+  const [{ role }, { lang }] = await Promise.all([searchParams, params]);
+  const l = hasLocale(lang) ? lang : "en";
+  const t = getDictionary(l).auth.meta.signUp;
   const trade = role === "trade" || role === "supplier";
   const pm = role === "property_manager" || role === "real_estate_agent";
   const gc = role === "general_contractor";
   const title = trade
-    ? "Join PMRFP as a founding trade — free"
+    ? t.tradeTitle
     : gc
-      ? "Post your sub-trade packages free"
+      ? t.gcTitle
       : pm
-        ? "Post your building project free"
-        : "Join PMRFP — free";
+        ? t.pmTitle
+        : t.defaultTitle;
   const description = trade
-    ? "Property managers post building jobs. Vetted trades get found and bid. Free to join, no credit card."
+    ? t.tradeDescription
     : gc
-      ? "Won a job? Post a package per trade and get quotes from local trades. Free for general contractors."
+      ? t.gcDescription
       : pm
-        ? "Post your project once and vetted trades come to you with bids. Free for property managers, always."
-        : "Property managers post building RFPs free. Vetted trades bid on the work.";
+        ? t.pmDescription
+        : t.defaultDescription;
   return {
     title,
     description,
-    openGraph: { title, description, url: "https://pmrfp.com/sign-up" },
+    alternates: alternatesFor(l, "/sign-up"),
+    openGraph: { title, description, url: `https://pmrfp.com${localizePath("/sign-up", l)}` },
     twitter: { card: "summary_large_image", title, description },
+  };
+}
+
+/** The chosen plan's name and price in the page's language ("$249 CAD/year", "249 $ CAD/an"). */
+function planLabels(intent: PlanIntent, t: Messages["auth"]["signUp"]): { name: string; price: string } {
+  const monthly = intent.interval === "monthly";
+  const amount =
+    intent.plan === "featured"
+      ? PRICING.featuredAnnual
+      : intent.plan === "seo"
+        ? monthly ? PRICING.seoMonthly : PRICING.seoAnnual
+        : monthly ? PRICING.proMonthly : PRICING.proAnnual;
+  return {
+    name: t.plans[intent.plan],
+    price: fmt(monthly ? t.priceMonth : t.priceYear, { amount, currency: PRICING.currency }),
   };
 }
 
@@ -52,11 +76,13 @@ export default async function SignUpPage({
   searchParams: Promise<{ role?: string; next?: string; template?: string; plan?: string; interval?: string; award?: string }>;
 } & { params: Promise<object> }) {
   await setLangFrom(params);
+  const t = getT("auth").signUp;
   const { role: rawRole, next: rawNext, template, plan, interval, award: rawAward } = await searchParams;
   // A GC arriving from a public award they won: their first package is prefilled.
   const award = parseAwardRef(rawAward);
   // Plan chosen on /pricing — re-validated against an allowlist; never trusted for price.
   const intent = parsePlanIntent(plan, interval);
+  const planText = intent ? planLabels(intent, t) : null;
   const initialRole: ValidRole | undefined =
     rawRole && (VALID_ROLES as readonly string[]).includes(rawRole)
       ? (rawRole as ValidRole)
@@ -78,36 +104,33 @@ export default async function SignUpPage({
     <div className="rounded-2xl border border-border bg-card p-8 shadow-xl shadow-indigo/5">
       <p className="eyebrow text-teal-ink">
         <span className="mr-2 inline-block h-px w-5 align-middle bg-teal-500" />
-        Membership
+        {t.eyebrow}
       </p>
-      {intent ? (
+      {intent && planText ? (
         <>
           {/* Paid path: one decision on this page, not five. */}
-          <h1 className="mt-3 text-2xl font-semibold tracking-tight">Start {intent.name}</h1>
+          <h1 className="mt-3 text-2xl font-semibold tracking-tight">{fmt(t.startPlan, { plan: planText.name })}</h1>
           <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-            For trade and service companies. Every matching commercial RFP and public tender in your trade and
-            regions, emailed the morning it posts.
+            {t.planIntro}
           </p>
         </>
       ) : (
         <>
-          <h1 className="mt-3 text-2xl font-semibold tracking-tight">Join the PMRFP network</h1>
+          <h1 className="mt-3 text-2xl font-semibold tracking-tight">{t.heading}</h1>
           <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-            The commercial property RFP network — trades, suppliers, property
-            managers, builders, and real estate professionals on one platform.
+            {t.intro}
           </p>
         </>
       )}
-      {intent && (
+      {intent && planText && (
         <div className="mt-5 rounded-lg border border-teal-300 bg-teal-50/60 p-4 text-sm">
           <p className="font-semibold text-foreground">
-            You chose {intent.name} — {intent.priceLabel}
+            {fmt(t.chose, { plan: planText.name, price: planText.price })}
           </p>
           <p className="mt-1 leading-relaxed text-muted-foreground">
-            Create your free account first — no card needed now. We&apos;ll take you straight to
-            billing to confirm {intent.name} before anything is charged.{" "}
+            {fmt(t.choseBody, { plan: planText.name })}{" "}
             <Link href="/pricing" className="font-medium text-teal-700 hover:underline">
-              Change plan
+              {t.changePlan}
             </Link>
           </p>
         </div>
@@ -121,12 +144,12 @@ export default async function SignUpPage({
           google={google}
         />
       </div>
-      <p className="mt-4 text-xs leading-relaxed text-muted-foreground">{COPY.signupDisclaimer}</p>
+      <p className="mt-4 text-xs leading-relaxed text-muted-foreground">{t.disclaimer}</p>
       <DemoNotice />
       <p className="mt-6 text-center text-sm text-muted-foreground">
-        Already have an account?{" "}
+        {t.haveAccount}{" "}
         <Link href={signInHref} className="font-medium text-teal-700 hover:underline">
-          Sign in
+          {t.signIn}
         </Link>
       </p>
     </div>
@@ -138,7 +161,7 @@ export default async function SignUpPage({
       {audience === "trade" && proof.open > 0 && (
         <p className="-mb-4 flex items-center justify-center gap-2 text-sm text-muted-foreground lg:hidden">
           <span className="size-2 rounded-full bg-teal-500" />
-          <strong className="font-semibold text-foreground">{proof.open}</strong> contracts open for bids right now
+          <strong className="font-semibold text-foreground">{proof.open}</strong> {t.openNow}
         </p>
       )}
       {card}

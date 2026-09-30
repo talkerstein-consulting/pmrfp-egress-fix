@@ -4,9 +4,15 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/dashboard/stat-card";
 import { EmptyState } from "@/components/public/empty-state";
 import { buttonVariants } from "@/components/ui/button";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
+import type { Metadata } from "next";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale } from "@/i18n/config";
 
-export const metadata = { title: "Saved RFPs" };
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  return { title: getDictionary(hasLocale(lang) ? lang : "en").dash.meta.saved };
+}
 
 interface SavedRow {
   rfp_id: string;
@@ -15,6 +21,7 @@ interface SavedRow {
 
 export default async function SavedRfpsPage({ params }: { params: Promise<object> }) {
   await setLangFrom(params);
+  const t = getT("dash").saved;
   const session = await requireRole(["trade"]);
 
   const saved: { title: string; slug: string }[] = [];
@@ -33,17 +40,17 @@ export default async function SavedRfpsPage({ params }: { params: Promise<object
   return (
     <div>
       <PageHeader
-        title="Saved RFPs"
-        description="Opportunities you bookmarked to revisit."
+        title={t.title}
+        description={t.description}
       />
 
       {saved.length === 0 ? (
         <EmptyState
-          title="No saved opportunities yet"
-          description="Save RFPs from the feed to keep track of the ones that matter."
+          title={t.emptyTitle}
+          description={t.emptyBody}
         >
           <Link href="/rfps" className={buttonVariants()}>
-            Browse RFPs
+            {t.browse}
           </Link>
         </EmptyState>
       ) : (
@@ -55,7 +62,7 @@ export default async function SavedRfpsPage({ params }: { params: Promise<object
               className="rounded-lg border border-border bg-card p-5 transition-colors hover:border-teal-400"
             >
               <h3 className="text-base font-semibold leading-snug">{r.title}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">View opportunity →</p>
+              <p className="mt-2 text-sm text-muted-foreground">{t.view}</p>
             </Link>
           ))}
         </div>

@@ -4,6 +4,9 @@ import { BadgeCheck, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { monoColor, monogram } from "@/components/public/featured-vendor-card";
 import type { VendorListItem } from "@/lib/data/types";
+import { getLang, getT } from "@/i18n/server";
+import { plural } from "@/i18n/format";
+import { regionName, tradeName } from "@/i18n/terms";
 
 /**
  * Ledger row — Direction A of the directory redesign. Non-featured companies
@@ -15,19 +18,22 @@ const GRID =
   "grid grid-cols-[44px_minmax(0,1fr)_26px] lg:grid-cols-[44px_minmax(0,1.55fr)_minmax(0,0.95fr)_128px_96px_26px] items-center gap-4 px-5";
 
 export function VendorRowHeader() {
+  const t = getT("directory").row;
   return (
     <div className={cn(GRID, "border-b border-border bg-secondary/60 py-2.5 font-mono text-[9.5px] uppercase tracking-[0.12em] text-muted-foreground")}>
       <span />
-      <span>Company</span>
-      <span className="hidden lg:block">Services</span>
-      <span className="hidden lg:block">Based in</span>
-      <span className="hidden text-right lg:block">In business</span>
+      <span>{t.company}</span>
+      <span className="hidden lg:block">{t.services}</span>
+      <span className="hidden lg:block">{t.basedIn}</span>
+      <span className="hidden text-right lg:block">{t.inBusiness}</span>
       <span />
     </div>
   );
 }
 
 export function VendorRow({ vendor }: { vendor: VendorListItem }) {
+  const t = getT("directory");
+  const lang = getLang();
   return (
     <Link
       href={`/directory/${vendor.slug}`}
@@ -62,7 +68,7 @@ export function VendorRow({ vendor }: { vendor: VendorListItem }) {
           </b>
           {vendor.verified && (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-teal-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-teal-700">
-              <BadgeCheck className="size-2.5" /> Verified
+              <BadgeCheck className="size-2.5" /> {t.badges.verified}
             </span>
           )}
         </span>
@@ -77,21 +83,24 @@ export function VendorRow({ vendor }: { vendor: VendorListItem }) {
         className="hidden gap-1.5 overflow-hidden lg:flex"
         style={{ maskImage: "linear-gradient(90deg, #000 82%, transparent)" }}
       >
-        {vendor.categories.map((t) => (
-          <span key={t} className="shrink-0 rounded-md bg-secondary px-2 py-1 font-mono text-[10.5px] text-muted-foreground">
-            {t}
+        {vendor.categories.map((c) => (
+          <span key={c} className="shrink-0 rounded-md bg-secondary px-2 py-1 font-mono text-[10.5px] text-muted-foreground">
+            {tradeName(c, lang)}
           </span>
         ))}
       </span>
 
       <span className="hidden whitespace-nowrap font-mono text-[11.5px] text-foreground/70 lg:block">
-        {[vendor.city, vendor.province === "Ontario" ? "ON" : vendor.province].filter(Boolean).join(", ")}
+        {[vendor.city, vendor.province === "Ontario" ? "ON" : vendor.province]
+          .filter((x): x is string => Boolean(x))
+          .map((x) => regionName(x, lang))
+          .join(", ")}
       </span>
 
       <span className="hidden whitespace-nowrap text-right font-mono text-[11.5px] text-muted-foreground lg:block">
         {vendor.yearsInBusiness ? (
           <>
-            <b className="font-semibold text-indigo">{vendor.yearsInBusiness}</b> yrs
+            <b className="font-semibold text-indigo">{vendor.yearsInBusiness}</b> {plural(vendor.yearsInBusiness, t.row.yrs)}
           </>
         ) : (
           "—"

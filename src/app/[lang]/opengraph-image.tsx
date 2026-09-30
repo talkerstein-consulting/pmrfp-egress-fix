@@ -22,9 +22,15 @@ const COPY = {
     subline: "Déneigement, CVC, toiture, entretien ménager, électricité et plus. Inscription gratuite pour les entrepreneurs et les gestionnaires.",
     caption: "Appels d'offres + répertoire d'entrepreneurs",
   },
+  es: {
+    eyebrow: "Canadá y EE. UU. · Actualizado a diario",
+    title: "RFP de propiedades y licitaciones públicas en un solo tablero.",
+    subline: "Nieve, HVAC, techado, limpieza, electricidad y más. Los contratistas se registran gratis. Los administradores de propiedades publican gratis.",
+    caption: "Tablero de RFP + directorio de oficios",
+  },
 } as const;
 
 export default async function OG({ params }: { params: Promise<{ lang: string }> }) {
   const { lang } = await params;
-  return renderOgImage(COPY[lang === "fr" ? "fr" : "en"]);
+  return renderOgImage(COPY[lang === "fr" || lang === "es" ? lang : "en"]);
 }

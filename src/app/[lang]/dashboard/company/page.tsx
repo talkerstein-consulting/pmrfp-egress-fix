@@ -3,12 +3,19 @@ import { createClient } from "@/lib/supabase/server";
 import { getCategories, getRegions, getPropertyTypes } from "@/lib/data/taxonomy";
 import { PageHeader } from "@/components/dashboard/stat-card";
 import { CompanyProfileForm, type CompanyDefaults } from "@/components/forms/company-profile-form";
-import { setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
+import type { Metadata } from "next";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale } from "@/i18n/config";
 
-export const metadata = { title: "Company Profile" };
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  return { title: getDictionary(hasLocale(lang) ? lang : "en").dash.meta.company };
+}
 
 export default async function CompanyProfilePage({ params }: { params: Promise<object> }) {
   await setLangFrom(params);
+  const t = getT("dash").company;
   const session = await requireRole(["trade"]);
   const [categories, regions, propertyTypes] = await Promise.all([
     getCategories(),
@@ -63,8 +70,8 @@ export default async function CompanyProfilePage({ params }: { params: Promise<o
   return (
     <div>
       <PageHeader
-        title="Company Profile"
-        description="Keep your details current so property managers can find and trust you."
+        title={t.title}
+        description={t.description}
       />
       <CompanyProfileForm
         defaults={defaults}

@@ -12,8 +12,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useT } from "@/i18n/provider";
 
 export function ContactForm() {
+  const t = useT("miscClient").contactForm;
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [requestType, setRequestType] = useState("general_contact");
@@ -38,9 +40,9 @@ export function ContactForm() {
       });
       if (!res.ok) throw new Error();
       setDone(true);
-      toast.success("Message sent — we'll be in touch.");
+      toast.success(t.sent);
     } catch {
-      toast.error("Something went wrong. Please try again.");
+      toast.error(t.failed);
     } finally {
       setSubmitting(false);
     }
@@ -49,8 +51,8 @@ export function ContactForm() {
   if (done) {
     return (
       <div className="rounded-lg border border-border bg-card p-6 text-center">
-        <p className="font-medium text-success">Thanks — your message has been sent.</p>
-        <p className="mt-1 text-sm text-muted-foreground">We&apos;ll get back to you shortly.</p>
+        <p className="font-medium text-success">{t.doneTitle}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t.doneBody}</p>
       </div>
     );
   }
@@ -58,25 +60,25 @@ export function ContactForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Name"><Input name="name" required /></Field>
-        <Field label="Email"><Input name="email" type="email" required /></Field>
-        <Field label="Phone (optional)"><Input name="phone" /></Field>
-        <Field label="Organization (optional)"><Input name="organization" /></Field>
+        <Field label={t.name}><Input name="name" required /></Field>
+        <Field label={t.email}><Input name="email" type="email" required /></Field>
+        <Field label={t.phone}><Input name="phone" /></Field>
+        <Field label={t.organization}><Input name="organization" /></Field>
       </div>
-      <Field label="I'm reaching out as">
+      <Field label={t.reachingAs}>
         <Select value={requestType} onValueChange={(v) => setRequestType(v ?? "general_contact")}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="general_contact">General inquiry</SelectItem>
-            <SelectItem value="property_manager_help">Property manager — need sourcing help</SelectItem>
-            <SelectItem value="vendor_question">Trade / vendor question</SelectItem>
+            <SelectItem value="general_contact">{t.types.general_contact}</SelectItem>
+            <SelectItem value="property_manager_help">{t.types.property_manager_help}</SelectItem>
+            <SelectItem value="vendor_question">{t.types.vendor_question}</SelectItem>
           </SelectContent>
         </Select>
       </Field>
-      <Field label="Message"><Textarea name="message" rows={5} required /></Field>
+      <Field label={t.message}><Textarea name="message" rows={5} required /></Field>
       <input type="text" name="company_website" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden />
       <Button type="submit" size="lg" disabled={submitting}>
-        {submitting ? "Sending…" : "Send message"}
+        {submitting ? t.sending : t.send}
       </Button>
     </form>
   );

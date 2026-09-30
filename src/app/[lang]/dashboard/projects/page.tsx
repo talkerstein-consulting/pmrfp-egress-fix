@@ -9,12 +9,17 @@ import { PageHeader, DemoBanner } from "@/components/dashboard/stat-card";
 import { StatusBadge } from "@/components/status-badge";
 import { buttonVariants } from "@/components/ui/button";
 import { ReviewRequestForm } from "@/components/projects/review-request-form";
-import { setLangFrom } from "@/i18n/server";
+import { getLang, getT, setLangFrom } from "@/i18n/server";
+import { fmt, formatDate } from "@/i18n/format";
+import { getDictionary, type Messages } from "@/i18n/dictionaries";
+import { hasLocale, localizePath, type Locale } from "@/i18n/config";
 
-export const metadata: Metadata = { title: "Projects · PMRFP" };
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  return { title: getDictionary(hasLocale(lang) ? lang : "en").dash.meta.projects };
+}
 
-const fmtDate = (d: string) =>
-  new Date(d).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
+type Strings = Messages["dash"]["projects"];
 
 /**
  * The company's projects (photo captures and typed case studies alike),
@@ -26,9 +31,11 @@ export default async function ProjectsPage({
   searchParams: Promise<{ published?: string; submitted?: string }>;
 } & { params: Promise<object> }) {
   await setLangFrom(params);
+  const lang = getLang();
+  const t = getT("dash").projects;
   const session = await requireRole(["trade", "supplier"]);
   const org = session.organization;
-  if (!org) redirect("/onboarding");
+  if (!org) redirect(localizePath("/onboarding", lang));
   const demo = isDemoMode();
   const paid = session.hasTradeAccess;
   const { published, submitted } = await searchParams;
@@ -45,12 +52,12 @@ export default async function ProjectsPage({
     <>
       {demo && <DemoBanner />}
       <PageHeader
-        title="Projects"
-        description="Real jobs with real photos. They show on your profile and help property managers pick you."
+        title={t.title}
+        description={t.description}
         action={
           ready && canAdd ? (
             <Link href="/dashboard/projects/new" className={buttonVariants({ size: "lg" })}>
-              <Camera /> Add a project
+              <Camera /> {t.add}
             </Link>
           ) : undefined
         }
@@ -59,24 +66,24 @@ export default async function ProjectsPage({
       {published && (
         <div role="status" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-teal-300 bg-teal-50 p-4 text-sm">
           <span className="flex items-center gap-2 font-medium text-teal-ink">
-            <CheckCircle2 className="size-4" /> Your project is live.
+            <CheckCircle2 className="size-4" /> {t.live}
           </span>
           <Link href={`/case-studies/${encodeURIComponent(published)}`} className="font-medium text-teal-ink underline">
-            See it
+            {t.seeIt}
           </Link>
         </div>
       )}
       {submitted && (
         <div role="status" className="mb-6 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-          <Clock className="size-4" /> Sent for review. We usually check projects within a day.
+          <Clock className="size-4" /> {t.sent}
         </div>
       )}
 
       {!ready && !demo && (
         <p className="mb-6 rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
-          Photo projects are switching on soon. Until then you can{" "}
+          {t.notReady}{" "}
           <Link href="/dashboard/case-studies/new" className="font-medium text-teal-ink hover:underline">
-            write up a project as a case study
+            {t.notReadyLink}
           </Link>
           .
         </p>
@@ -85,14 +92,11 @@ export default async function ProjectsPage({
       {projects.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center">
           <Camera className="mx-auto size-8 text-teal-600" />
-          <h2 className="mt-3 text-lg font-semibold">Show a job you&apos;re proud of</h2>
-          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-            Before and after photos plus a few lines. Property managers trust a finished job more than
-            any sales pitch.
-          </p>
+          <h2 className="mt-3 text-lg font-semibold">{t.emptyTitle}</h2>
+          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{t.emptyBody}</p>
           {ready && (
             <Link href="/dashboard/projects/new" className={buttonVariants({ size: "lg", className: "mt-5" })}>
-              Add your first project
+              {t.addFirst}
             </Link>
           )}
         </div>
@@ -112,7 +116,7 @@ export default async function ProjectsPage({
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <StatusBadge status={p.status} />
-                    <span className="text-xs text-muted-foreground">{fmtDate(p.createdAt)}</span>
+                    <span className="text-xs text-muted-foreground">{formatDate(p.createdAt, lang)}</span>
                   </div>
                   <h2 className="mt-1 font-semibold leading-snug">{p.title}</h2>
                   <p className="text-xs text-muted-foreground">
@@ -121,17 +125,17 @@ export default async function ProjectsPage({
                       <>
                         {p.city || p.province ? " · " : ""}
                         <Link href={`/case-studies/${p.slug}`} className="font-medium text-teal-ink hover:underline">
-                          View
+                          {t.view}
                         </Link>
                       </>
                     )}
                   </p>
                   {p.status === "pending_review" && (
-                    <p className="mt-2 text-xs text-muted-foreground">We&apos;re checking it. Usually within a day.</p>
+                    <p className="mt-2 text-xs text-muted-foreground">{t.checking}</p>
                   )}
                   {p.status === "rejected" && (
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Not published. <Link href="/contact" className="text-teal-ink hover:underline">Ask us why</Link>.
+                      {t.rejected} <Link href="/contact" className="text-teal-ink hover:underline">{t.askWhy}</Link>.
                     </p>
                   )}
                 </div>
@@ -139,22 +143,20 @@ export default async function ProjectsPage({
 
               {p.status === "published" && ready && (
                 <div className="mt-4 border-t border-border pt-4">
-                  <h3 className="text-sm font-semibold">Ask the client for a review</h3>
+                  <h3 className="text-sm font-semibold">{t.askReview}</h3>
                   {paid ? (
                     <>
-                      <p className="mb-2 mt-0.5 text-xs text-muted-foreground">
-                        We email them a one-time link. Every review is checked before it shows, good or bad.
-                      </p>
+                      <p className="mb-2 mt-0.5 text-xs text-muted-foreground">{t.askReviewHint}</p>
                       <ReviewRequestForm caseStudyId={p.id} />
-                      <InviteList invites={invitesFor(p.id)} />
+                      <InviteList invites={invitesFor(p.id)} t={t} lang={lang} />
                     </>
                   ) : (
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      Reviews from your clients show on your profile and this project.{" "}
+                      {t.reviewsUpsell}{" "}
                       <Link href="/pricing" className="font-medium text-teal-ink hover:underline">
-                        Upgrade to Trade Pro
+                        {t.reviewsUpsellLink}
                       </Link>{" "}
-                      to ask for them.
+                      {t.reviewsUpsellAfter}
                     </p>
                   )}
                 </div>
@@ -166,26 +168,25 @@ export default async function ProjectsPage({
 
       {projects.some((p) => p.status === "published") && (
         <p className="mt-6 text-sm text-muted-foreground">
-          Bidding on a job?{" "}
+          {t.sheetBefore}{" "}
           <Link href="/dashboard/projects/reference-sheet" className="font-medium text-teal-ink hover:underline">
-            Print a reference sheet
+            {t.sheetLink}
           </Link>{" "}
-          with your published projects and the clients who agreed to be references.
+          {t.sheetAfter}
         </p>
       )}
 
       {ready && !canAdd && (
         <p className="mt-6 text-sm text-muted-foreground">
-          The free plan includes one project.{" "}
-          <Link href="/pricing" className="font-medium text-teal-ink hover:underline">Trade Pro</Link> adds more
-          projects, more photos, and client reviews.
+          {t.freeLimit}{" "}
+          <Link href="/pricing" className="font-medium text-teal-ink hover:underline">Trade Pro</Link> {t.freeLimitAfter}
         </p>
       )}
     </>
   );
 }
 
-function InviteList({ invites }: { invites: MyInvite[] }) {
+function InviteList({ invites, t, lang }: { invites: MyInvite[]; t: Strings; lang: Locale }) {
   if (invites.length === 0) return null;
   return (
     <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
@@ -195,9 +196,9 @@ function InviteList({ invites }: { invites: MyInvite[] }) {
           <span>{i.clientEmail}</span>
           <span>·</span>
           {i.usedAt ? (
-            <span className="text-teal-ink">Reviewed {fmtDate(i.usedAt)}</span>
+            <span className="text-teal-ink">{fmt(t.reviewed, { date: formatDate(i.usedAt, lang) })}</span>
           ) : (
-            <span>Asked {fmtDate(i.createdAt)}</span>
+            <span>{fmt(t.asked, { date: formatDate(i.createdAt, lang) })}</span>
           )}
         </li>
       ))}

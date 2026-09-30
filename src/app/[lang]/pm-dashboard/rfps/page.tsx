@@ -14,9 +14,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { setLangFrom } from "@/i18n/server";
+import type { Metadata } from "next";
+import { getLang, getT, setLangFrom } from "@/i18n/server";
+import { getDictionary } from "@/i18n/dictionaries";
+import { hasLocale } from "@/i18n/config";
+import { formatDate } from "@/i18n/format";
 
-export const metadata = { title: "My RFPs" };
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await params;
+  return { title: getDictionary(hasLocale(lang) ? lang : "en").pm.rfps.metaTitle };
+}
 
 interface PostRow {
   id: string;
@@ -27,16 +34,13 @@ interface PostRow {
   created_at: string;
 }
 
-function fmt(d: string | null) {
-  if (!d) return "Open";
-  return new Date(d).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
-}
-
 export default async function PmRfpsPage({
   searchParams, params }: {
   searchParams: Promise<Record<string, string | undefined>>;
 } & { params: Promise<object> }) {
   await setLangFrom(params);
+  const t = getT("pm").rfps;
+  const lang = getLang();
   const session = await requireRole(["property_manager", "real_estate_agent"]);
   const sp = await searchParams;
 
@@ -54,15 +58,15 @@ export default async function PmRfpsPage({
   return (
     <div>
       <PageHeader
-        title="My RFPs"
-        description="Every project you've posted and where it stands."
+        title={t.title}
+        description={t.description}
         action={
           <div className="flex flex-wrap gap-2">
             <Link href="/widgets?w=bids" className={buttonVariants({ variant: "outline" })}>
-              <Code2 className="size-4" /> Show on your website
+              <Code2 className="size-4" /> {t.showOnSite}
             </Link>
             <Link href="/pm-dashboard/rfps/new" className={buttonVariants()}>
-              <Plus className="size-4" /> Post an RFP
+              <Plus className="size-4" /> {t.post}
             </Link>
           </div>
         }
@@ -70,17 +74,17 @@ export default async function PmRfpsPage({
 
       {sp.posted === "1" && (
         <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800">
-          <strong>RFP submitted.</strong> It&apos;s now pending review and will be published once approved.
+          <strong>{t.postedStrong}</strong> {t.postedBody}
         </div>
       )}
 
       {posts.length === 0 ? (
         <EmptyState
-          title="You haven't posted any RFPs yet"
-          description="Post your first project to start connecting with qualified trades."
+          title={t.emptyTitle}
+          description={t.emptyDescription}
         >
           <Link href="/pm-dashboard/rfps/new" className={buttonVariants()}>
-            Post an RFP
+            {t.post}
           </Link>
         </EmptyState>
       ) : (
@@ -88,10 +92,10 @@ export default async function PmRfpsPage({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Deadline</TableHead>
-                <TableHead className="text-right">Interests</TableHead>
+                <TableHead>{t.colTitle}</TableHead>
+                <TableHead>{t.colStatus}</TableHead>
+                <TableHead>{t.colDeadline}</TableHead>
+                <TableHead className="text-right">{t.colInterests}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -101,13 +105,13 @@ export default async function PmRfpsPage({
                   <TableCell>
                     <StatusBadge status={p.status} />
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{fmt(p.deadline)}</TableCell>
+                  <TableCell className="text-muted-foreground">{p.deadline ? formatDate(p.deadline, lang) : t.noDeadline}</TableCell>
                   <TableCell className="text-right">
                     <Link
                       href={`/pm-dashboard/rfps/${p.id}/interests`}
                       className="font-medium text-primary hover:underline"
                     >
-                      View vendors
+                      {t.viewVendors}
                     </Link>
                   </TableCell>
                 </TableRow>
