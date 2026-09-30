@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/i18n/link";
 import { HardHat } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { gcPostPath } from "@/lib/gc/packages";

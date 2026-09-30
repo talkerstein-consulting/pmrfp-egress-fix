@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useLocalePath } from "@/i18n/provider";
+import Link from "@/i18n/link";
 import { useState } from "react";
 import {
   Bookmark,
@@ -42,7 +42,7 @@ const TAB_ICONS: Record<string, LucideIcon> = {
  * phones the sidebar is hidden). Hidden at md and up, and in print.
  */
 export function AppTabBar({ nav, area }: { nav: readonly NavItem[]; area: string }) {
-  const pathname = usePathname();
+  const pathname = useLocalePath();
   const [moreOpen, setMoreOpen] = useState(false);
   const tabs = pickTabs(nav);
   const current = activeHref(pathname, nav.map((item) => item.href));

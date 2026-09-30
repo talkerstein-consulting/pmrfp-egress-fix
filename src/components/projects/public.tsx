@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/i18n/link";
 import Image from "next/image";
 import { BadgeCheck, Camera, ImageIcon } from "lucide-react";
 import { groupPhotos, type ProjectPhoto } from "@/lib/projects/photos";

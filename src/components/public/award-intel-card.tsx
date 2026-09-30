@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/i18n/link";
 import { Lock, TrendingUp, Trophy } from "lucide-react";
 import type { AwardIntel } from "@/lib/data/award-intel";
 import { compactDollars } from "@/lib/data/fomo";

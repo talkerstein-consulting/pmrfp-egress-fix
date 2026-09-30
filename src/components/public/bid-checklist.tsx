@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/i18n/link";
 import { AlertTriangle, CheckCircle2, ClipboardCheck, Lock, MinusCircle } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { bidCheckRows, type BidCheck } from "@/lib/bid-check/schema";

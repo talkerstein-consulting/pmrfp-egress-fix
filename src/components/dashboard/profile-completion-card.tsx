@@ -10,7 +10,7 @@
  * Used on /dashboard/page.tsx. Visual treatment: indigo progress bar, no
  * animation, single prominent next-step nudge.
  */
-import Link from "next/link";
+import Link from "@/i18n/link";
 import { ArrowRight, CheckCircle2, Circle } from "lucide-react";
 import type { Organization } from "@/types/db";
 import { cn } from "@/lib/utils";

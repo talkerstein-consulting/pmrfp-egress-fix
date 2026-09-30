@@ -1,13 +1,13 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useLocalePath } from "@/i18n/provider";
+import Link from "@/i18n/link";
 import { cn } from "@/lib/utils";
 
 type NavItem = { href: string; label: string };
 
 export function SidebarNav({ items }: { items: readonly NavItem[] }) {
-  const pathname = usePathname();
+  const pathname = useLocalePath();
 
   return (
     <nav className="flex flex-col gap-1">

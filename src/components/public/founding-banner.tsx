@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/i18n/link";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { Container } from "@/components/container";
 

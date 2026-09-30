@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import Link from "next/link";
+import Link from "@/i18n/link";
 import { Check, Copy, ExternalLink, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";

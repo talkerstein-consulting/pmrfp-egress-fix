@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/i18n/link";
 import { isDemoMode } from "@/lib/access/access";
 
 /** Shown on auth pages in demo mode: explains accounts need Supabase, and

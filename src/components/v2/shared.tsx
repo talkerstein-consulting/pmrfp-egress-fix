@@ -5,7 +5,7 @@
  * Ported 1:1 from the Claude Design handoff (dir-shared.jsx + pm-sections.jsx).
  */
 
-import Link from "next/link";
+import Link from "@/i18n/link";
 import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 
 /* ---------- inline icons ---------- */

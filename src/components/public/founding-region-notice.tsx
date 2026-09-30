@@ -9,7 +9,7 @@
  * calls joinRegionalWaitlistAction (persists now; GHL lights up later).
  */
 import { useActionState } from "react";
-import Link from "next/link";
+import Link from "@/i18n/link";
 import { joinRegionalWaitlistAction, type WaitlistActionState } from "@/lib/waitlist/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

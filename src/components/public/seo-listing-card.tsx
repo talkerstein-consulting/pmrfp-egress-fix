@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/i18n/link";
 import { useState } from "react";
 import { signUpHrefForPlan } from "@/lib/billing/plan-intent";
 import { Check } from "lucide-react";

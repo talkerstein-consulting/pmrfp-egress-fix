@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/i18n/link";
 import { Lock } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { PRICING } from "@/lib/site";

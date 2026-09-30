@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/i18n/link";
 import Image from "next/image";
 import { ArrowUpRight, MapPin } from "lucide-react";
 import type { RfpListItem } from "@/lib/data/types";

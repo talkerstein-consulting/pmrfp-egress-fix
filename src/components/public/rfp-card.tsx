@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/i18n/link";
 import Image from "next/image";
 import { Lock, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";

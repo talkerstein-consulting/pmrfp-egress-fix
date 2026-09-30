@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/i18n/link";
 import { DynamicIcon } from "@/components/public/dynamic-icon";
 
 export function CategoryGrid({

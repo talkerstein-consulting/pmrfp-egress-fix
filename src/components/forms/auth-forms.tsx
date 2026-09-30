@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/i18n/link";
 import { useActionState, useState } from "react";
 import { Building2, Hammer, HardHat, Package, Search, Home, UserRound } from "lucide-react";
 import {

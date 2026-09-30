@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/i18n/link";
 import { Clock, MapPin } from "lucide-react";
 import type { TalentProfile } from "@/lib/talent/data";
 import { AVAILABILITY_LABEL, yearsLabel, type Availability } from "@/lib/talent/rules";

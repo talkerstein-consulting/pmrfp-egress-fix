@@ -1,5 +1,5 @@
 import Image from "next/image";
-import Link from "next/link";
+import Link from "@/i18n/link";
 import { Briefcase, MapPin } from "lucide-react";
 import type { Job } from "@/lib/jobs/data";
 import { EMPLOYMENT_LABEL, payLabel } from "@/lib/jobs/rules";

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/i18n/link";
 import Image from "next/image";
 import { BadgeCheck } from "lucide-react";
 import type { VendorListItem } from "@/lib/data/types";

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/i18n/link";
 import { AppTabBar } from "@/components/dashboard/app-tab-bar";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
 import { Logo } from "@/components/logo";

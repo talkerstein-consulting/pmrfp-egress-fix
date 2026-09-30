@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import Link from "@/i18n/link";
 import { Briefcase, Building2, ClipboardList, Lock, Radio, Users } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { SearchableSelect, type SearchableOption } from "@/components/ui/searchable-select";
