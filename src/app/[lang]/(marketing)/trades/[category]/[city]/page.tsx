@@ -53,9 +53,13 @@ export const revalidate = 3600;
  * and tenders import. The busiest 40 prerender at build; the rest render on
  * first visit.
  */
-export async function generateStaticParams() {
+export async function generateStaticParams({ params }: { params: { lang: string } }) {
+  // English is prebuilt in full; French and Spanish get a few and render the rest
+  // on first visit, then cache (ISR). Prebuilding every language tripled the build.
+  // (An empty list for any language switches prebuilding off for the whole route.)
   const combos = await listQualifyingCombos();
-  return combos.slice(0, 40).map((c) => ({ category: c.category.slug, city: c.region.slug }));
+  const all = combos.slice(0, 40).map((c) => ({ category: c.category.slug, city: c.region.slug }));
+  return params.lang === "en" ? all : all.slice(0, 3);
 }
 
 const hasListings = (c: TradeCityCombo) => c.open.length + c.past.length > 0;

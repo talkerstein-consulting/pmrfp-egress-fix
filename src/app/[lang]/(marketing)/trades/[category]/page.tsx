@@ -44,9 +44,13 @@ import { photoAlt } from "@/lib/seo/photos.fr";
 
 export const revalidate = 3600;
 
-export async function generateStaticParams() {
+export async function generateStaticParams({ params }: { params: { lang: string } }) {
+  // English is prebuilt in full; French and Spanish get a few and render the rest
+  // on first visit, then cache (ISR). Prebuilding every language tripled the build.
+  // (An empty list for any language switches prebuilding off for the whole route.)
   const cats = await getCategories();
-  return cats.map((c) => ({ category: c.slug }));
+  const all = cats.map((c) => ({ category: c.slug }));
+  return params.lang === "en" ? all : all.slice(0, 3);
 }
 
 async function getCategory(slug: string) {

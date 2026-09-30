@@ -26,12 +26,16 @@ import { propertyTypeName, regionName, tradeName } from "@/i18n/terms";
 
 export const revalidate = 3600;
 
-export async function generateStaticParams() {
+export async function generateStaticParams({ params }: { params: { lang: string } }) {
+  // English is prebuilt in full; French and Spanish get a few and render the rest
+  // on first visit, then cache (ISR). Prebuilding every language tripled the build.
+  // (An empty list for any language switches prebuilding off for the whole route.)
   const [trades, suppliers] = await Promise.all([
     listVendors(),
     listVendors({ orgType: "supplier" }),
   ]);
-  return [...trades, ...suppliers].map((v) => ({ slug: v.slug }));
+  const all = [...trades, ...suppliers].map((v) => ({ slug: v.slug }));
+  return params.lang === "en" ? all : all.slice(0, 3);
 }
 
 export async function generateMetadata({

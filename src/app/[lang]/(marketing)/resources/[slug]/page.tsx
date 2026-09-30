@@ -11,9 +11,13 @@ import { LOCALE_TAG, hasLocale } from "@/i18n/config";
 
 export const revalidate = 3600;
 
-export async function generateStaticParams() {
+export async function generateStaticParams({ params }: { params: { lang: string } }) {
+  // English is prebuilt in full; French and Spanish get a few and render the rest
+  // on first visit, then cache (ISR). Prebuilding every language tripled the build.
+  // (An empty list for any language switches prebuilding off for the whole route.)
   const resources = await listResources();
-  return resources.map((r) => ({ slug: r.slug }));
+  const all = resources.map((r) => ({ slug: r.slug }));
+  return params.lang === "en" ? all : all.slice(0, 3);
 }
 
 export async function generateMetadata({

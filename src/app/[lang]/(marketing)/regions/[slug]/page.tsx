@@ -32,9 +32,13 @@ import { esIn, esPlace, esTradeOf } from "@/lib/seo/phrases.es";
 
 export const revalidate = 3600;
 
-export async function generateStaticParams() {
+export async function generateStaticParams({ params }: { params: { lang: string } }) {
+  // English is prebuilt in full; French and Spanish get a few and render the rest
+  // on first visit, then cache (ISR). Prebuilding every language tripled the build.
+  // (An empty list for any language switches prebuilding off for the whole route.)
   const regions = await getRegions();
-  return regions.map((r) => ({ slug: r.slug }));
+  const all = regions.map((r) => ({ slug: r.slug }));
+  return params.lang === "en" ? all : all.slice(0, 3);
 }
 
 async function getRegion(slug: string) {
