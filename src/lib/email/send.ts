@@ -509,6 +509,43 @@ export async function sendTradeReferralConfirmation(to: string, tradeName: strin
   );
 }
 
+const SIGNUP_ALERT = process.env.SIGNUP_ALERT_EMAIL || "hi@talkerstein.ca";
+const SIGNUP_ROLE: Record<string, string> = {
+  trade: "Trade company",
+  supplier: "Supplier",
+  property_manager: "Property manager",
+  real_estate_agent: "Real estate agent",
+  talent: "Tradesperson (jobs)",
+  visitor: "Browsing only",
+};
+const escHtml = (s: string) =>
+  s.replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" })[c]!);
+
+/** One email per new account (email or Google) so no sign-up goes unnoticed. */
+export async function sendAdminNewSignup(p: {
+  email: string;
+  name?: string | null;
+  role: string;
+  method: "email" | "google";
+  gc?: boolean;
+}): Promise<void> {
+  const role = p.gc ? "General contractor" : SIGNUP_ROLE[p.role] ?? p.role;
+  await send(
+    SIGNUP_ALERT,
+    `New PMRFP sign-up: ${role}`,
+    layout(
+      "New sign-up",
+      `<ul>
+        <li><strong>Name:</strong> ${p.name ? escHtml(p.name) : "(not given)"}</li>
+        <li><strong>Email:</strong> ${escHtml(p.email)}</li>
+        <li><strong>Signed up as:</strong> ${role}</li>
+        <li><strong>Method:</strong> ${p.method === "google" ? "Google" : "Email and password (confirmation pending)"}</li>
+       </ul>
+       <p>${btn(`${BASE}/admin/users`, "Open users in admin")}</p>`,
+    ),
+  );
+}
+
 export async function sendAdminContactEmail(params: { name: string; email: string; requestType: string; message: string }): Promise<void> {
   await send(
     ADMIN,
