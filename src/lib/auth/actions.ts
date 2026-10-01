@@ -15,7 +15,7 @@ import {
   signInSchema,
   signUpSchema,
 } from "@/lib/validations";
-import { sendWelcomeEmail } from "@/lib/email/send";
+import { sendAdminNewSignup, sendWelcomeEmail } from "@/lib/email/send";
 import { EVENT, trackEvent } from "@/lib/analytics";
 import { checkRateLimitByIp } from "@/lib/rate-limit";
 import { syncPmrfpUserToGhl } from "@/lib/ghl/sync";
@@ -120,6 +120,7 @@ export async function signUpAction(_prev: ActionState, formData: FormData): Prom
   // No welcome email here: it goes out once onboarding completes.
   const next = safeNextPath(formData.get("next")?.toString());
   await trackEvent(EVENT.SIGNUP_COMPLETED, { role: parsed.data.role, hasNext: !!next, gc: isGc });
+  await sendAdminNewSignup({ email: parsed.data.email, name: parsed.data.fullName, role: parsed.data.role, method: "email", gc: isGc });
   // Fire-and-forget GHL sync; no-ops if GHL_API_KEY unset.
   await syncPmrfpUserToGhl({
     email: parsed.data.email,
@@ -268,6 +269,7 @@ export async function chooseRoleAction(_prev: ActionState, formData: FormData): 
   // What signUpAction does for an email sign-up (the welcome email goes out
   // when onboarding completes).
   await trackEvent(EVENT.SIGNUP_COMPLETED, { role: pick.role, hasNext: !!next, gc: pick.builder, method: "google" });
+  await sendAdminNewSignup({ email: session.profile.email, name: session.profile.full_name, role: pick.role, method: "google", gc: pick.builder });
   await syncPmrfpUserToGhl({
     email: session.profile.email,
     fullName: session.profile.full_name,
