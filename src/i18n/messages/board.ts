@@ -47,6 +47,20 @@ const en = {
 
   // ---------- /rfps/[slug] (listing detail) ----------
   detail: {
+    matches: {
+      title: "Who can do this job",
+      trades: "Companies that do this work",
+      suppliers: "Suppliers for this job",
+      does: "{trade} · serves {area}",
+      supplies: "Supplies {trade} · serves {area}",
+      featured: "Featured",
+      emptyTitle: "No companies listed for {trade} in {area} yet",
+      emptyBody: "Do this work or supply it? Get listed free and show up on jobs like this one.",
+      listTrade: "List your company free",
+      listSupplier: "List a supply company",
+      getFeatured: "Get the top spot",
+      note: "Listed companies that cover this trade and area. Featured companies pay for placement.",
+    },
     meta: {
       notFound: "Opportunity not found",
       title: "{title} | RFP Opportunity",
@@ -260,6 +274,20 @@ const fr: typeof en = {
   },
 
   detail: {
+    matches: {
+      title: "Qui peut faire ce travail",
+      trades: "Entreprises qui font ce travail",
+      suppliers: "Fournisseurs pour ce projet",
+      does: "{trade} · dessert {area}",
+      supplies: "Fournit : {trade} · dessert {area}",
+      featured: "En vedette",
+      emptyTitle: "Aucune entreprise inscrite pour {trade} ({area}) pour l'instant",
+      emptyBody: "Vous faites ce travail ou fournissez ces produits ? Inscrivez-vous gratuitement et apparaissez sur des projets comme celui-ci.",
+      listTrade: "Inscrire mon entreprise gratuitement",
+      listSupplier: "Inscrire un fournisseur",
+      getFeatured: "Obtenir la première place",
+      note: "Entreprises inscrites qui couvrent ce corps de métier et ce secteur. Les entreprises en vedette paient pour leur placement.",
+    },
     meta: {
       notFound: "Occasion introuvable",
       title: "{title} | Appel d'offres",
@@ -517,6 +545,20 @@ const es: typeof en = {
   },
 
   detail: {
+    matches: {
+      title: "Quién puede hacer este trabajo",
+      trades: "Empresas que hacen este trabajo",
+      suppliers: "Proveedores para este proyecto",
+      does: "{trade} · atiende {area}",
+      supplies: "Suministra {trade} · atiende {area}",
+      featured: "Destacado",
+      emptyTitle: "Aún no hay empresas de {trade} registradas en {area}",
+      emptyBody: "¿Hace este trabajo o suministra materiales? Regístrese gratis y aparezca en proyectos como este.",
+      listTrade: "Registrar mi empresa gratis",
+      listSupplier: "Registrar un proveedor",
+      getFeatured: "Obtener el primer lugar",
+      note: "Empresas registradas que cubren este oficio y zona. Las empresas destacadas pagan por su ubicación.",
+    },
     meta: {
       notFound: "Oportunidad no encontrada",
       title: "{title} | Solicitud de propuestas",

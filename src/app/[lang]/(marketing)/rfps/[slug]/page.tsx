@@ -29,6 +29,8 @@ import { getAwardById, listPackagesForAward } from "@/lib/gc/data";
 import { getAwardIndex, intelFor } from "@/lib/data/award-intel";
 import { AwardIntelCard } from "@/components/public/award-intel-card";
 import { SponsorSlot } from "@/components/sponsors/sponsor-slot";
+import { ListingMatches } from "@/components/public/listing-matches";
+import { pickSponsor, type SponsorContext } from "@/lib/sponsors/registry";
 import { rfpMarket } from "@/lib/visitor-geo";
 import { getLang, getT, setLangFrom } from "@/i18n/server";
 import { getDictionary } from "@/i18n/dictionaries";
@@ -183,6 +185,16 @@ export default async function RfpDetailPage({
   const soon = days === null || days < 0 || days > 7 ? null : days;
   const daysLeft = soon === null ? null : soon === 0 ? t.daysLeft.today : soon === 1 ? t.daysLeft.tomorrow : fill(t.daysLeft.n, { n: soon });
   const closesIn = soon === null ? null : soon === 0 ? t.closesIn.today : soon === 1 ? t.closesIn.tomorrow : fill(t.closesIn.n, { n: soon });
+
+  const sponsorCtx: SponsorContext = {
+    placement: "rfp_detail",
+    categories: teaser.categories,
+    market: rfpMarket(teaser),
+    publicTender: isPublicTender,
+    seed: teaser.slug,
+  };
+  // The sponsor already has its card; don't list it again under "who can do this job".
+  const sponsorName = pickSponsor(sponsorCtx)?.sponsor.name;
 
   return (
     <Container className="py-10">
@@ -511,6 +523,19 @@ export default async function RfpDetailPage({
               <LockedContentPanel signedIn={Boolean(session)} />
             </div>
           )}
+          {!isAward && (
+            <ListingMatches
+              className="mt-8"
+              listing={{
+                categories: teaser.categories,
+                regionName: teaser.regionName,
+                province: teaser.province,
+                market: rfpMarket(teaser),
+              }}
+              seed={teaser.slug}
+              exclude={sponsorName ? [sponsorName] : undefined}
+            />
+          )}
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
@@ -575,15 +600,7 @@ export default async function RfpDetailPage({
           </div>
           {/* Aimed at the winning contractor: post sub-trade packages for this job. */}
           {isAward && award?.winner && <GcPackageCta awardSlug={teaser.slug} />}
-          <SponsorSlot
-            ctx={{
-              placement: "rfp_detail",
-              categories: teaser.categories,
-              market: rfpMarket(teaser),
-              publicTender: isPublicTender,
-              seed: teaser.slug,
-            }}
-          />
+          <SponsorSlot ctx={sponsorCtx} />
         </aside>
       </div>
     </Container>
