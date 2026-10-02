@@ -21,6 +21,11 @@ const en = {
     label: "Language",
     switchTo: "Français",
   },
+  market: {
+    label: "Country and currency",
+    CA: "Canada · prices in CAD",
+    US: "United States · prices in USD",
+  },
   footer: {
     sister: "From the team behind {brand}.",
     cols: {
@@ -108,6 +113,11 @@ const fr: typeof en = {
     label: "Langue",
     switchTo: "English",
   },
+  market: {
+    label: "Pays et devise",
+    CA: "Canada · prix en CAD",
+    US: "États-Unis · prix en USD",
+  },
   footer: {
     sister: "Par l'équipe derrière {brand}.",
     cols: {
@@ -194,6 +204,11 @@ const es: typeof en = {
   lang: {
     label: "Idioma",
     switchTo: "English",
+  },
+  market: {
+    label: "País y moneda",
+    CA: "Canadá · precios en CAD",
+    US: "Estados Unidos · precios en USD",
   },
   footer: {
     sister: "Del equipo detrás de {brand}.",

@@ -13,6 +13,10 @@ import { hasActiveTradeAccess } from "@/lib/access/access";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { boardStats, compactDollars, isPastContract } from "@/lib/data/fomo";
 import { isGcPackage } from "@/lib/gc/packages";
+import { rfpMarket } from "@/lib/visitor-geo";
+import { getVisitorMarket } from "@/lib/visitor-geo.server";
+import type { RfpListItem } from "@/lib/data/types";
+import { cn } from "@/lib/utils";
 import { getLang, getT, setLangFrom } from "@/i18n/server";
 import { getDictionary } from "@/i18n/dictionaries";
 import { hasLocale, type Locale } from "@/i18n/config";
@@ -44,7 +48,7 @@ export default async function RfpsPage({
   // Counts: raw in English (as before), grouped the local way elsewhere.
   const num = (n: number) => (lang === "en" ? String(n) : formatNumber(n, lang));
   const sp = await searchParams;
-  const [rfps, categories, regions, propertyTypes, access] = await Promise.all([
+  const [allRfps, categories, regions, propertyTypes, access, market] = await Promise.all([
     listRfps({
       category: sp.category,
       region: sp.region,
@@ -56,7 +60,27 @@ export default async function RfpsPage({
     getRegions(),
     getPropertyTypes(),
     hasActiveTradeAccess(),
+    getVisitorMarket(),
   ]);
+
+  // Country: the visitor's market by default (U.S. visitors see U.S. work
+  // first, Canadians Canadian), switchable with the tabs. A region filter
+  // already picks a place, so it shows every country.
+  type Country = "ca" | "us" | "all";
+  const country: Country =
+    sp.country === "ca" || sp.country === "us" || sp.country === "all"
+      ? sp.country
+      : sp.region
+        ? "all"
+        : market === "US" ? "us" : "ca";
+  const inCountry = (c: Country) => (r: RfpListItem) => c === "all" || (rfpMarket(r) === "US") === (c === "us");
+  const rfps = allRfps.filter(inCountry(country));
+  const openIn = (c: Country) => allRfps.filter((r) => r.status === "open" && inCountry(c)(r)).length;
+  const countryHref = (c: Country) => {
+    const q = new URLSearchParams(Object.entries(sp).filter(([k, v]) => v && k !== "page" && k !== "country") as [string, string][]);
+    q.set("country", c);
+    return `/rfps?${q.toString()}`;
+  };
 
   // Demo mode (no Supabase): show as full-access so the experience is browsable.
   const locked = isSupabaseConfigured() ? !access : false;
@@ -134,6 +158,21 @@ export default async function RfpsPage({
       <FoundingBanner />
 
       <Container className="py-8">
+        <nav aria-label={t.country.aria} className="mb-5 flex flex-wrap gap-2">
+          {(["ca", "us", "all"] as const).map((c) => (
+            <Link
+              key={c}
+              href={countryHref(c)}
+              aria-current={country === c ? "page" : undefined}
+              className={cn(
+                "rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors",
+                country === c ? "border-indigo bg-indigo text-white" : "border-border bg-card text-foreground hover:border-indigo/40",
+              )}
+            >
+              {t.country[c]} <span className="ml-1 tabular-nums opacity-70">{num(openIn(c))}</span>
+            </Link>
+          ))}
+        </nav>
         <FilterBar
           categories={categories}
           regions={regions}
