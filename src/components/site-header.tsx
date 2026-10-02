@@ -9,6 +9,7 @@ import { Logo } from "@/components/logo";
 import { MAIN_NAV } from "@/lib/site";
 import { useT } from "@/i18n/provider";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { MarketSwitcher } from "@/components/geo/market-switcher";
 
 const NAV_KEY = {
   "/rfps": "rfps",
@@ -62,6 +63,7 @@ export function SiteHeader() {
         </nav>
 
         <div className="hidden items-center gap-2 lg:flex">
+          <MarketSwitcher />
           <LanguageSwitcher />
           <Link href="/sign-in" className={buttonVariants({ variant: "ghost", size: "sm" })}>
             {t.signIn}
@@ -96,7 +98,10 @@ export function SiteHeader() {
               </Link>
             ))}
             <div className="mt-4 grid gap-2 border-t border-border pt-4">
-              <LanguageSwitcher className="justify-self-start" />
+              <div className="flex gap-2">
+                <MarketSwitcher />
+                <LanguageSwitcher />
+              </div>
               <Link
                 href="/sign-in"
                 onClick={() => setOpen(false)}

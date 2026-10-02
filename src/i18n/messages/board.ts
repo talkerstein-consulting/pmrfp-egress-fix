@@ -24,6 +24,7 @@ const en = {
     pastAwards: "Past awards",
   },
   sort: { closing: "Closing soon", newest: "Newest" },
+  country: { aria: "Country", ca: "Canada", us: "United States", all: "All" },
   tabs: { aria: "Listing view", open: "Open now", gc: "GC packages", awarded: "Awarded" },
   locked: { previews: "Previews shown.", unlock: "Trade Pro unlocks full details" },
   empty: {
@@ -236,6 +237,7 @@ const fr: typeof en = {
     pastAwards: "Contrats octroyés",
   },
   sort: { closing: "Clôture la plus proche", newest: "Plus récents" },
+  country: { aria: "Pays", ca: "Canada", us: "États-Unis", all: "Tous" },
   tabs: { aria: "Affichage des annonces", open: "Ouverts", gc: "Lots de sous-traitance", awarded: "Octroyés" },
   locked: { previews: "Aperçus seulement.", unlock: "Trade Pro débloque tous les détails" },
   empty: {
@@ -495,6 +497,7 @@ const es: typeof en = {
     pastAwards: "Adjudicaciones anteriores",
   },
   sort: { closing: "Cierre más próximo", newest: "Más recientes" },
+  country: { aria: "País", ca: "Canadá", us: "Estados Unidos", all: "Todos" },
   tabs: { aria: "Vista de anuncios", open: "Abiertas", gc: "Paquetes de subcontratación", awarded: "Adjudicadas" },
   locked: { previews: "Se muestran vistas previas.", unlock: "Trade Pro desbloquea todos los detalles" },
   empty: {

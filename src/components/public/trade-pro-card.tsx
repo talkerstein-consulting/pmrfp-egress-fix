@@ -8,6 +8,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PRICING, SITE } from "@/lib/site";
 import { UsdHint } from "@/components/geo/usd-hint";
+import { MarketPrice } from "@/components/geo/market-price";
 import { useLang, useT } from "@/i18n/provider";
 import { fmt, formatNumber } from "@/i18n/format";
 
@@ -72,12 +73,12 @@ export function TradeProCard({ monthlyEnabled = true }: { monthlyEnabled?: boole
       )}
 
       <div className="mt-5 flex items-baseline gap-1">
-        <span className="text-4xl font-semibold text-foreground">
-          {fmt(t.price, { n: num(isAnnual ? PRICING.proAnnual : PRICING.proMonthly) })}
-        </span>
-        <span className="text-sm text-muted-foreground">
-          {fmt(isAnnual ? t.perYear : t.perMonth, { currency: PRICING.currency })}
-        </span>
+        <MarketPrice
+          cad={isAnnual ? PRICING.proAnnual : PRICING.proMonthly}
+          per={isAnnual ? "year" : "month"}
+          numberClassName="text-4xl font-semibold text-foreground"
+          perClassName="text-sm text-muted-foreground"
+        />
       </div>
       <UsdHint cad={isAnnual ? PRICING.proAnnual : PRICING.proMonthly} per={isAnnual ? "year" : "month"} className="mt-1 text-teal-700" />
       <p className="mt-1 text-xs text-muted-foreground">

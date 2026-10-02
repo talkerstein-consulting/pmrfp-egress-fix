@@ -1,6 +1,7 @@
 import { signUpHrefForPlan } from "@/lib/billing/plan-intent";
 import type { Metadata } from "next";
 import { UsdHint } from "@/components/geo/usd-hint";
+import { MarketPrice } from "@/components/geo/market-price";
 import Image from "next/image";
 import Link from "@/i18n/link";
 import { Check, Sparkles } from "lucide-react";
@@ -27,11 +28,10 @@ import { isPastContract, daysUntil } from "@/lib/data/fomo";
 import { rfpMarket } from "@/lib/visitor-geo";
 import { publicTenderSource } from "@/lib/tenders/sources";
 import type { RfpListItem } from "@/lib/data/types";
-import { getLang, getT, setLangFrom } from "@/i18n/server";
+import { getT, setLangFrom } from "@/i18n/server";
 import { getDictionary } from "@/i18n/dictionaries";
 import { hasLocale } from "@/i18n/config";
 import { alternatesFor } from "@/i18n/metadata";
-import { fmt, formatNumber } from "@/i18n/format";
 
 export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
   const { lang } = await params;
@@ -68,7 +68,6 @@ export default async function PricingPage({ params }: { params: Promise<object> 
   await setLangFrom(params);
   const t = getT("sales");
   const p = t.pricing;
-  const lang = getLang();
   const [stats, rfps] = await Promise.all([getPlatformStats(), listRfps().catch(() => [] as RfpListItem[])]);
   const preview = previewItems(rfps);
   return (
@@ -160,12 +159,12 @@ export default async function PricingPage({ params }: { params: Promise<object> 
                 {p.featured.blurb}
               </p>
               <div className="mt-6 flex items-baseline gap-1">
-                <span className="text-4xl font-semibold text-white">
-                  {fmt(p.featured.price, { n: formatNumber(PRICING.featuredAnnual, lang) })}
-                </span>
-                <span className="text-sm text-indigo-100/70">
-                  {fmt(p.featured.per, { currency: PRICING.currency })}
-                </span>
+                <MarketPrice
+                  cad={PRICING.featuredAnnual}
+                  per="year"
+                  numberClassName="text-4xl font-semibold text-white"
+                  perClassName="text-sm text-indigo-100/70"
+                />
               </div>
               <UsdHint cad={PRICING.featuredAnnual} per="year" className="mt-1 text-teal-300" />
               <ul className="mt-6 flex-1 space-y-3">

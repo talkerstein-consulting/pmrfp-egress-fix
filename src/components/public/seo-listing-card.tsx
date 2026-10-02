@@ -1,4 +1,6 @@
 "use client";
+import { MarketPrice } from "@/components/geo/market-price";
+import { UsdHint } from "@/components/geo/usd-hint";
 
 import Link from "@/i18n/link";
 import { useState } from "react";
@@ -59,13 +61,14 @@ export function SeoListingCard({ monthlyEnabled = true }: { monthlyEnabled?: boo
       )}
 
       <div className="mt-5 flex items-baseline gap-1">
-        <span className="text-4xl font-semibold text-foreground">
-          {fmt(t.price, { n: num(isAnnual ? PRICING.seoAnnual : PRICING.seoMonthly) })}
-        </span>
-        <span className="text-sm text-muted-foreground">
-          {fmt(isAnnual ? t.perYear : t.perMonth, { currency: PRICING.currency })}
-        </span>
+        <MarketPrice
+          cad={isAnnual ? PRICING.seoAnnual : PRICING.seoMonthly}
+          per={isAnnual ? "year" : "month"}
+          numberClassName="text-4xl font-semibold text-foreground"
+          perClassName="text-sm text-muted-foreground"
+        />
       </div>
+      <UsdHint cad={isAnnual ? PRICING.seoAnnual : PRICING.seoMonthly} per={isAnnual ? "year" : "month"} className="mt-1 text-teal-700" />
       <p className="mt-1 text-xs text-muted-foreground">
         {isAnnual
           ? fmt(t.billedAnnually, {

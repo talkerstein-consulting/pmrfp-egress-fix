@@ -46,9 +46,14 @@ const en = {
     search: "Search…",
     clearSearch: "Clear search",
   },
+  price: {
+    amount: "${n}",
+    perYear: "{currency}/year",
+    perMonth: "{currency}/month",
+  },
   usdHint: {
-    year: "About US${usd} a year · billed in CAD, your card converts",
-    month: "About US${usd} a month · billed in CAD, your card converts",
+    year: "Billed as CA${cad} a year at checkout; your card converts at its rate",
+    month: "Billed as CA${cad} a month at checkout; your card converts at its rate",
   },
   bidHelp: {
     title: "Need help bidding on this?",
@@ -107,9 +112,14 @@ const fr: typeof en = {
     search: "Rechercher…",
     clearSearch: "Effacer la recherche",
   },
+  price: {
+    amount: "{n} $",
+    perYear: "{currency}/an",
+    perMonth: "{currency}/mois",
+  },
   usdHint: {
-    year: "Environ {usd} $ US par an · facturé en CAD, votre carte fait la conversion",
-    month: "Environ {usd} $ US par mois · facturé en CAD, votre carte fait la conversion",
+    year: "Facturé {cad} $ CA par an au paiement; votre carte fait la conversion",
+    month: "Facturé {cad} $ CA par mois au paiement; votre carte fait la conversion",
   },
   bidHelp: {
     title: "Besoin d'aide pour soumissionner?",
@@ -168,9 +178,14 @@ const es: typeof en = {
     search: "Buscar…",
     clearSearch: "Borrar búsqueda",
   },
+  price: {
+    amount: "${n}",
+    perYear: "{currency} al año",
+    perMonth: "{currency} al mes",
+  },
   usdHint: {
-    year: "Aprox. US${usd} al año · se factura en CAD, su tarjeta hace la conversión",
-    month: "Aprox. US${usd} al mes · se factura en CAD, su tarjeta hace la conversión",
+    year: "Se factura CA${cad} al año al pagar; su tarjeta hace la conversión",
+    month: "Se factura CA${cad} al mes al pagar; su tarjeta hace la conversión",
   },
   bidHelp: {
     title: "¿Necesita ayuda para presentar esta oferta?",

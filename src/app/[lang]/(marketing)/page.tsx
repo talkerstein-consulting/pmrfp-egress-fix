@@ -12,6 +12,7 @@ import { Container } from "@/components/container";
 import { RfpCard } from "@/components/public/rfp-card";
 import { ByMarket } from "@/components/geo/by-market";
 import { UsdHint } from "@/components/geo/usd-hint";
+import { MarketPrice } from "@/components/geo/market-price";
 import { rfpMarket } from "@/lib/visitor-geo";
 import type { RfpListItem } from "@/lib/data/types";
 import { buttonVariants } from "@/components/ui/button";
@@ -565,8 +566,12 @@ export default async function HomePage({ params }: { params: Promise<object> }) 
           <div className="rounded-2xl bg-indigo p-8 text-white shadow-xl shadow-indigo/20">
             <div className="text-sm text-teal-300">{t.pricing.cardEyebrow}</div>
             <div className="mt-3 flex items-end gap-2">
-              <span className="font-heading text-6xl font-extrabold leading-none tracking-tight">{fmt(t.money.amount, { n: PRICING.proAnnual })}</span>
-              <span className="pb-1.5 text-sm text-indigo-100/70">{t.money.cadPerYear}</span>
+              <MarketPrice
+                cad={PRICING.proAnnual}
+                per="year"
+                numberClassName="font-heading text-6xl font-extrabold leading-none tracking-tight"
+                perClassName="pb-1.5 text-sm text-indigo-100/70"
+              />
             </div>
             <UsdHint cad={PRICING.proAnnual} per="year" className="mt-2 text-teal-300" />
             <ul className="mt-7 space-y-3 text-sm text-indigo-100">

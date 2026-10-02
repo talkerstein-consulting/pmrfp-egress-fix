@@ -46,6 +46,15 @@ export function parseGeoCookie(value: string | null | undefined): VisitorGeo {
   return geoFrom(cc, rc);
 }
 
+/** The visitor's own pick from the header switch ("US" | "CA"); beats where they browse from. */
+export const MARKET_COOKIE = "pmrfp_market";
+export type MarketCode = "US" | "CA";
+
+export function parseMarketCookie(value: string | null | undefined): MarketCode | null {
+  const v = (value ?? "").trim().toUpperCase();
+  return v === "US" || v === "CA" ? v : null;
+}
+
 /** PMRFP market for a visitor: U.S. or everyone else (Canada is the default). */
 export function visitorMarket(geo: VisitorGeo): "US" | "CA" {
   return geo.country === "US" ? "US" : "CA";

@@ -95,6 +95,11 @@ export function approxUsd(cad: number): number {
   return usd < 50 ? Math.round(usd) : Math.round(usd / 5) * 5;
 }
 
+/** CAD price → whole US dollars at a given rate (the live one from lib/fx). */
+export function toUsd(cad: number, usdPerCad: number = USD_PER_CAD): number {
+  return Math.round(cad * usdPerCad);
+}
+
 /** Format a whole-dollar amount in the market's currency. */
 export function formatPrice(amount: number, market: Market = DEFAULT_MARKET): string {
   return new Intl.NumberFormat(market.locale, {
