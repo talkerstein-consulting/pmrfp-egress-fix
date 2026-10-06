@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createPublicReadFetch, PUBLIC_DATA_TAG } from "@/lib/supabase/public-cache";
+import { createPublicReadFetch, PUBLIC_DATA_TAG, TAXONOMY_DATA_TAG } from "@/lib/supabase/public-cache";
 import { createWriteFetch } from "@/lib/supabase/write-fetch";
 import { isPublicPageRead } from "@/lib/public-read-policy";
 import { revalidateTag } from "next/cache";
@@ -11,6 +11,34 @@ const key = "fixture-anon-key";
 const headers = { apikey: key, Authorization: `Bearer ${key}` };
 
 describe("public Supabase read caching", () => {
+  it("coalesces overlapping identical GETs with independent readable bodies", async () => {
+    let resolve!: (response: Response) => void;
+    const transport = vi.fn(() => new Promise<Response>((done) => { resolve = done; }));
+    const read = createPublicReadFetch(base, key, transport);
+    const first = read(`${base}/rest/v1/rfp_public?offset=0`, { headers });
+    const second = read(`${base}/rest/v1/rfp_public?offset=0`, { headers });
+    expect(transport).toHaveBeenCalledTimes(1);
+    resolve(new Response('[{"id":"one"}]'));
+    const values = await Promise.all([first, second]);
+    expect(await Promise.all(values.map((value) => value.json()))).toEqual([[{ id: "one" }], [{ id: "one" }]]);
+    // This layer only shares in-flight work, not completed response bodies.
+    const next = read(`${base}/rest/v1/rfp_public?offset=0`, { headers });
+    expect(transport).toHaveBeenCalledTimes(2);
+    resolve(new Response("[]"));
+    await next;
+  });
+  it("clears failed in-flight requests so the next request can retry", async () => {
+    const transport = vi.fn().mockRejectedValueOnce(new Error("outage")).mockResolvedValue(new Response("[]"));
+    const read = createPublicReadFetch(base, key, transport);
+    await expect(read(`${base}/rest/v1/rfp_public`, { headers })).rejects.toThrow("outage");
+    expect((await read(`${base}/rest/v1/rfp_public`, { headers })).ok).toBe(true);
+    expect(transport).toHaveBeenCalledTimes(2);
+  });
+  it("keeps taxonomy on its own hour-long tag", async () => {
+    const transport = vi.fn(async () => new Response("[]"));
+    await createPublicReadFetch(base, key, transport)(`${base}/rest/v1/regions`, { headers });
+    expect(transport).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ next: { revalidate: 3600, tags: [TAXONOMY_DATA_TAG] } }));
+  });
   it("caches real SDK reads with distinct filters and page offsets", async () => {
     const transport = vi.fn(async () => new Response("[]", { status: 200 }));
     const client = createClient(base, key, {
@@ -64,6 +92,12 @@ describe("public cache invalidation", () => {
     await successful(`${base}/rest/v1/organizations`, { method: "GET" });
     await successful(`${base}/rest/v1/rpc/rate_limit_hit`, { method: "POST" });
     expect(revalidateTag).not.toHaveBeenCalled();
+  });
+  it("invalidates both taxonomy and derived public content after a taxonomy write", async () => {
+    const write = createWriteFetch(base, vi.fn(async () => new Response(null, { status: 204 })));
+    await write(`${base}/rest/v1/regions`, { method: "PATCH" });
+    expect(revalidateTag).toHaveBeenCalledWith(TAXONOMY_DATA_TAG, { expire: 0 });
+    expect(revalidateTag).toHaveBeenCalledWith(PUBLIC_DATA_TAG, { expire: 0 });
   });
 });
 
