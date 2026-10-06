@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { GEO_COOKIE, encodeGeo } from "@/lib/visitor-geo";
+import { checkPublicReadLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { isPublicPageRead } from "@/lib/public-read-policy";
 import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALE_COOKIE, hasLocale, isEnabledLocale, splitLocale, type Locale } from "@/i18n/config";
 
 // Next.js 16 "proxy" convention (formerly middleware). Refreshes the Supabase
@@ -49,6 +51,11 @@ function redirectTo(request: NextRequest, pathname: string, status: 307 | 308 = 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isGet = request.method === "GET" || request.method === "HEAD";
+
+  if (isPublicPageRead(request.method, pathname)) {
+    const blocked = await checkPublicReadLimit(request);
+    if (blocked) return rateLimitResponse(blocked);
+  }
 
   if (PASSTHROUGH.test(pathname) || PUBLIC_FILE.test(pathname)) {
     return withGeo(request, await updateSession(request));

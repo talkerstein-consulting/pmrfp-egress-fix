@@ -25,6 +25,14 @@ export async function updateSession(
     return pass();
   }
 
+  const path = opts.path ?? request.nextUrl.pathname;
+  const isProtected =
+    path.startsWith("/dashboard") || path.startsWith("/pm-dashboard") || path.startsWith("/admin");
+  // Anonymous public requests (including crawlers) have no session to refresh.
+  // Signed-in requests and protected routes retain the existing verification.
+  const hasSessionCookie = request.cookies.getAll().some(({ name }) => /^sb-.+-auth-token(?:\.\d+)?$/.test(name));
+  if (!hasSessionCookie && !isProtected) return pass();
+
   let response = pass();
 
   const supabase = createServerClient(url, anonKey, {
@@ -49,11 +57,6 @@ export async function updateSession(
 
   // Protect authenticated areas. Page-level requireRole() enforces the
   // specific role; here we just bounce logged-out users to sign-in.
-  const path = opts.path ?? request.nextUrl.pathname;
-  const isProtected =
-    path.startsWith("/dashboard") ||
-    path.startsWith("/pm-dashboard") ||
-    path.startsWith("/admin");
   if (isProtected && !data.user) {
     const url = request.nextUrl.clone();
     url.pathname = opts.lang && opts.lang !== DEFAULT_LOCALE ? `/${opts.lang}/sign-in` : "/sign-in";

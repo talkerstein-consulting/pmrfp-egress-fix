@@ -78,6 +78,13 @@ const ORG_SELECT =
   "organization_regions(regions(name,slug))," +
   "organization_property_types(property_types(name,slug))";
 
+// Directory cards don't need long descriptions or contact/detail fields.
+const ORG_LIST_SELECT =
+  "id,slug,name,city,province,short_description,logo_url,verified,featured,years_in_business,insurance_status,wsib_status," +
+  "organization_categories(trade_categories(name,slug))," +
+  "organization_regions(regions(name,slug))," +
+  "organization_property_types(property_types(name,slug))";
+
 /**
  * List public portfolio photos for an org. Convention: any object in
  * logos/{orgId}/portfolio-*.{ext} is a portfolio photo. We list by prefix
@@ -127,7 +134,7 @@ export async function listVendors(filters: VendorFilters = {}): Promise<VendorLi
   const supabase = createReadClient();
   let query = supabase
     .from("organizations")
-    .select(ORG_SELECT)
+    .select(ORG_LIST_SELECT)
     .eq("organization_type", orgType)
     .eq("profile_status", "approved")
     .eq("status", "active")
@@ -178,7 +185,7 @@ export async function listVendorsByIds(ids: string[]): Promise<Map<string, Vendo
   const [{ data }, platinum] = await Promise.all([
     supabase
       .from("organizations")
-      .select(ORG_SELECT)
+      .select(ORG_LIST_SELECT)
       .in("id", ids)
       .eq("profile_status", "approved")
       .eq("status", "active")

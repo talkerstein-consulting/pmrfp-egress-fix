@@ -1,4 +1,5 @@
 import { createClient as createSbClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createPublicReadFetch } from "./public-cache";
 
 /**
  * Cookieless anon client for PUBLIC, read-only data (directory, RFP teasers,
@@ -16,7 +17,10 @@ export function createReadClient(): SupabaseClient {
     cached = createSbClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { auth: { persistSession: false, autoRefreshToken: false } },
+      {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { fetch: createPublicReadFetch(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!) },
+      },
     );
   }
   return cached;

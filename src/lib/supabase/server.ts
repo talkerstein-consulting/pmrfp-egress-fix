@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { createWriteFetch } from "./write-fetch";
 
 /**
  * Server-side Supabase client (anon key, cookie-bound to the signed-in user).
@@ -12,6 +13,7 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: { fetch: createWriteFetch(process.env.NEXT_PUBLIC_SUPABASE_URL!) },
       cookies: {
         getAll() {
           return cookieStore.getAll();
