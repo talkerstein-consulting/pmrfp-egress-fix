@@ -27,7 +27,7 @@ import { isServiceConfigured } from "@/lib/supabase/config";
 
 type BucketName =
   | "default" | "contact" | "rfp-interest" | "checkout" | "save-rfp" | "auth" | "ai"
-  | "photo-upload" | "project-draft" | "project-publish" | "review";
+  | "photo-upload" | "project-draft" | "project-publish" | "review" | "public-read";
 
 const BUCKETS: Record<BucketName, { tokens: number; window: `${number} s` | `${number} m` }> = {
   default: { tokens: 30, window: "60 s" },
@@ -45,6 +45,7 @@ const BUCKETS: Record<BucketName, { tokens: number; window: `${number} s` | `${n
   // Publishing from the mobile app (the web publishes via a server action).
   "project-publish": { tokens: 10, window: "10 m" },
   review: { tokens: 5, window: "10 m" },
+  "public-read": { tokens: 120, window: "60 s" },
 };
 
 let _redis: Redis | null = null;
@@ -102,6 +103,24 @@ export async function checkRateLimit(
   bucket: BucketName = "default",
 ): Promise<RateLimitInfo | null> {
   return checkRateLimitByIp(clientIp(request), bucket);
+}
+
+/** Public browsing must never add a Supabase counter query to every page. */
+export async function checkPublicReadLimit(request: Request): Promise<RateLimitInfo | null> {
+  const ip = clientIp(request);
+  if (ip === "unknown") return null;
+  const limiter = getLimiter("public-read");
+  if (!limiter) return null;
+  try {
+    const key = createHash("sha256").update(ip).digest("hex");
+    const result = await limiter.limit(key);
+    return result.success ? null : { limit: result.limit, remaining: result.remaining, reset: result.reset };
+  } catch {
+    // Redis downtime must not take the website down. Public response caching
+    // continues protecting database bandwidth independently of this limiter.
+    console.warn("[public-read-limit] Redis unavailable; allowing request");
+    return null;
+  }
 }
 
 /**

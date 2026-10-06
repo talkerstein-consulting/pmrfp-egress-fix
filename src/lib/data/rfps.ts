@@ -282,12 +282,13 @@ async function slugNameMap(
  * dropped off the board, its counts and the sitemap. Page through instead.
  */
 async function allPublicRfps(supabase: SupabaseClient): Promise<RfpPublicRow[]> {
-  const PAGE = 1000;
+  // Keep each cache entry comfortably below Next's 2 MB response limit.
+  const PAGE = 250;
   const out: RfpPublicRow[] = [];
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from("rfp_public")
-      .select("*")
+      .select("id,slug,title,summary,region_id,property_type_id,city,province,deadline,is_demo,source_type,gc_project_name,awarded_rfp_id")
       .order("id")
       .range(from, from + PAGE - 1);
     if (error || !data) break;
