@@ -8,6 +8,9 @@ const fixture = vi.hoisted(() => ({ client: null as unknown as SupabaseClient })
 vi.mock("@/lib/supabase/read", () => ({ createReadClient: () => fixture.client }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => fixture.client }));
 vi.mock("@/lib/supabase/config", () => ({ isSupabaseConfigured: () => true }));
+// Business/query-shape tests only. Real Next data-cache behavior is exercised
+// separately by next-public-cache.test.ts with realistic 206 responses.
+vi.mock("next/cache", () => ({ unstable_cache: (callback: (...args: unknown[]) => unknown) => callback }));
 
 const regions = [
   { id: "region-a", slug: "toronto", name: "Toronto", active: true, province: "ON", country: "Canada", sort_order: 1, parent_id: null },
@@ -49,7 +52,7 @@ beforeEach(() => {
       }
       if (table === "rfp_categories") data = rows.map((r) => ({ rfp_id: r.id, trade_categories: { name: r.id === "b" ? "Electrical" : "Roofing" } }));
       if (table === "rfp_documents") data = [{ rfp_id: "a", file_url: "https://files.example/a.jpg" }];
-      return new Response(JSON.stringify(data), { headers: responseHeaders });
+      return new Response(JSON.stringify(data), { status: responseHeaders["Content-Range"] ? 206 : 200, headers: responseHeaders });
     } },
   });
 });

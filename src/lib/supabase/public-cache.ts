@@ -8,9 +8,6 @@ type CachedInit = RequestInit & { next?: { revalidate?: number | false; tags?: s
 
 export function createPublicReadFetch(baseUrl: string, anonKey: string, transport: typeof fetch = (...args) => fetch(...args)): typeof fetch {
   const origin = new URL(baseUrl).origin;
-  // Share only concurrent anonymous GETs within this client instance. This is
-  // not a distributed lock or a second TTL cache; Next remains the Data Cache.
-  const pending = new Map<string, Promise<Response>>();
   return (input, init) => {
     const request = input instanceof Request ? input : null;
     const url = new URL(request?.url ?? String(input));
@@ -26,18 +23,9 @@ export function createPublicReadFetch(baseUrl: string, anonKey: string, transpor
     const taxonomy = TAXONOMY_TABLES.has(url.pathname.split("/").pop() ?? "");
     if (publicRead) options.next = { revalidate: taxonomy ? 3600 : PUBLIC_DATA_TTL, tags: [taxonomy ? TAXONOMY_DATA_TAG : PUBLIC_DATA_TAG] };
     else options.next = { revalidate: 0 };
-    // Do not share cancellation or request-specific signals between callers.
-    if (!publicRead || request || init?.signal || pending.size >= 512) return transport(input, options);
-    const key = JSON.stringify([url.href, method, [...headers.entries()].sort(([a], [b]) => a.localeCompare(b))]);
-    let response = pending.get(key);
-    if (!response) {
-      response = transport(input, options).then(
-        (value) => { pending.delete(key); return value; },
-        (error) => { pending.delete(key); throw error; },
-      );
-      pending.set(key, response);
-    }
-    // Each SDK consumer reads its own body; never hand out a consumed response.
-    return response.then((value) => value.clone());
+    // Every render must invoke Next's patched fetch so its tags and TTL are
+    // registered in that render's context. Let Next handle render-local fetch
+    // memoization; do not bypass it with process-wide in-flight promises.
+    return transport(input, options);
   };
 }

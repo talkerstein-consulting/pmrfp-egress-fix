@@ -11,27 +11,10 @@ const key = "fixture-anon-key";
 const headers = { apikey: key, Authorization: `Bearer ${key}` };
 
 describe("public Supabase read caching", () => {
-  it("coalesces overlapping identical GETs with independent readable bodies", async () => {
-    let resolve!: (response: Response) => void;
-    const transport = vi.fn(() => new Promise<Response>((done) => { resolve = done; }));
+  it("invokes the transport for every concurrent consumer so render dependencies are registered", async () => {
+    const transport = vi.fn(async () => new Response("[]"));
     const read = createPublicReadFetch(base, key, transport);
-    const first = read(`${base}/rest/v1/rfp_public?offset=0`, { headers });
-    const second = read(`${base}/rest/v1/rfp_public?offset=0`, { headers });
-    expect(transport).toHaveBeenCalledTimes(1);
-    resolve(new Response('[{"id":"one"}]'));
-    const values = await Promise.all([first, second]);
-    expect(await Promise.all(values.map((value) => value.json()))).toEqual([[{ id: "one" }], [{ id: "one" }]]);
-    // This layer only shares in-flight work, not completed response bodies.
-    const next = read(`${base}/rest/v1/rfp_public?offset=0`, { headers });
-    expect(transport).toHaveBeenCalledTimes(2);
-    resolve(new Response("[]"));
-    await next;
-  });
-  it("clears failed in-flight requests so the next request can retry", async () => {
-    const transport = vi.fn().mockRejectedValueOnce(new Error("outage")).mockResolvedValue(new Response("[]"));
-    const read = createPublicReadFetch(base, key, transport);
-    await expect(read(`${base}/rest/v1/rfp_public`, { headers })).rejects.toThrow("outage");
-    expect((await read(`${base}/rest/v1/rfp_public`, { headers })).ok).toBe(true);
+    await Promise.all([read(`${base}/rest/v1/rfp_public`, { headers }), read(`${base}/rest/v1/rfp_public`, { headers })]);
     expect(transport).toHaveBeenCalledTimes(2);
   });
   it("keeps taxonomy on its own hour-long tag", async () => {
